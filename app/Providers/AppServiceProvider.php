@@ -2,9 +2,10 @@
 
 namespace App\Providers;
 
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Passport\Passport;
-
+use App\Models\Client;
 class AppServiceProvider extends ServiceProvider
 {
     /**
@@ -25,5 +26,11 @@ class AppServiceProvider extends ServiceProvider
         Passport::refreshTokensExpireIn(
             now()->addDays(60)
         );
+
+        Gate::before(function ($user, $ability) {
+            return $user->hasRole('super_admin') ? true : null;
+        });
+
+        Passport::useClientModel(Client::class);
     }
 }

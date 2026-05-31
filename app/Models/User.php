@@ -30,4 +30,9 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    public function guardName(): string
+    {
+        return 'api';
+    }
 }

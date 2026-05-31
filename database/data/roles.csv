@@ -1,0 +1,8 @@
+name,guard_name
+super_admin,api
+admin,api
+editor,api
+sub_editor,api
+author,api
+journalist,api
+user,api

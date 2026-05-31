@@ -1,0 +1,6 @@
+name,guard_name,group_name
+users.create,api,Users
+users.show,api,Users
+users.edit,api,Users
+user.update,api,Users
+user.delete,api,Users
