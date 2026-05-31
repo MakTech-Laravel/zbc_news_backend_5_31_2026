@@ -3,10 +3,12 @@
 namespace App\Models\Api\V1;
 
 use App\Http\Requests\Api\V1\Authenticable\LoginRequest;
+use App\Http\Requests\Api\V1\Authenticable\LogoutRequest;
 use App\Http\Resources\TokenResource;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
 
@@ -34,6 +36,18 @@ class AuthenticableController extends Model
             true,
             'Login successful',
             new TokenResource($tokenResult),
+            HttpStatus::HTTP_OK,
+        );
+    }
+
+
+    public function logout(Request $request): JsonResponse
+    {
+        $request->user()->currentAccessToken()->delete();
+        return sendResponse(
+            true,
+            'Logout successful',
+            null,
             HttpStatus::HTTP_OK,
         );
     }
