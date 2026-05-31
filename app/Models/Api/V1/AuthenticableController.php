@@ -4,17 +4,37 @@ namespace App\Models\Api\V1;
 
 use App\Http\Requests\Api\V1\Authenticable\LoginRequest;
 use App\Http\Requests\Api\V1\Authenticable\LogoutRequest;
+use App\Http\Requests\Api\V1\Authenticable\RegisterRequest;
 use App\Http\Resources\TokenResource;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
 
 class AuthenticableController extends Model
 {
-    //
+    public function register(RegisterRequest $request): JsonResponse
+    {
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+        ]);
+        
+        $user->assignRole('user');
+
+        $tokenResult = $user->createToken('auth_token');
+
+        return sendResponse(
+            true,
+            'User registered successfully',
+            new TokenResource($tokenResult),
+            HttpStatus::HTTP_CREATED,
+        );
+    }
 
     public function login(LoginRequest $request): JsonResponse
     {
