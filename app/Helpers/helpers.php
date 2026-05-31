@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 use Illuminate\Support\Facades\Storage;
 
@@ -22,8 +23,9 @@ function sendResponse($status, $message, $data = null, $statusCode = 200, $addit
             $responseData['links'] = $resourcePayload['links'];
             $responseData['meta'] = $resourcePayload['meta'];
         }
+    } elseif ($data instanceof JsonResource) {
+        $responseData['data'] = $data->resolve();
     } else {
-        // If it's not a collection, just add the data directly
         $responseData['data'] = $data;
     }
 

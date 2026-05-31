@@ -17,7 +17,7 @@ class AuthenticableController extends Model
     public function login(LoginRequest $request): JsonResponse
     {
 
-        
+
         if (!Auth::attempt($request->only('email', 'password'))) {
             return sendResponse(
                 false,
@@ -28,12 +28,12 @@ class AuthenticableController extends Model
         }
 
         $user = User::where('email', $request->email)->first();
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $tokenResult = $user->createToken('auth_token');
 
         return sendResponse(
             true,
             'Login successful',
-            new TokenResource(['token' => $token]),
+            new TokenResource($tokenResult),
             HttpStatus::HTTP_OK,
         );
     }
