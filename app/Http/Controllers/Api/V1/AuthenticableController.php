@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models\Api\V1;
+namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Requests\Api\V1\Authenticable\LoginRequest;
 use App\Http\Requests\Api\V1\Authenticable\LogoutRequest;
