@@ -1,9 +1,9 @@
-<?php 
+<?php
+
+use App\Enums\PermissionEnum;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\CategoryController;
-
-
-
+use App\Http\Controllers\Api\V1\RoleController;
 
 Route::controller(CategoryController::class)->prefix('categories')->group(function () {
     Route::get('/', 'index')->name('api.v1.categories.index');
@@ -13,5 +13,14 @@ Route::controller(CategoryController::class)->prefix('categories')->group(functi
     Route::delete('/delete/{slug}', 'destroy')->name('api.v1.categories.destroy');
     Route::post('/restore/{slug}', 'restore')->name('api.v1.categories.restore');
     Route::delete('/force/{slug}', 'forceDelete')->name('api.v1.categories.forceDelete');
+});
 
+Route::controller(RoleController::class)->prefix('roles')->group(function () {
+    Route::get('/', 'index')->name('api.v1.roles.index')->middleware('permission:' . PermissionEnum::ROLES_VIEW->value);
+    Route::post('/store', 'store')->name('api.v1.roles.store')->middleware('permission:' . PermissionEnum::ROLES_CREATE->value);
+    Route::get('/show/{id}', 'show')->name('api.v1.roles.show')->middleware('permission:' . PermissionEnum::ROLES_VIEW->value);
+    Route::post('/update/{id}', 'update')->name('api.v1.roles.update')->middleware('permission:' . PermissionEnum::ROLES_UPDATE->value);
+    Route::delete('/delete/{id}', 'destroy')->name('api.v1.roles.destroy')->middleware('permission:' . PermissionEnum::ROLES_DELETE->value);
+    Route::post('/restore/{id}', 'restore')->name('api.v1.roles.restore')->middleware('permission:' . PermissionEnum::ROLES_RESTORE->value);
+    Route::delete('/force/{id}', 'forceDelete')->name('api.v1.roles.forceDelete');
 });
