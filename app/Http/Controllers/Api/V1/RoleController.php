@@ -22,7 +22,7 @@ class RoleController extends Controller
         return sendResponse(
             true,
             'Roles retrieved successfully',
-            new RoleResource($roles),
+            RoleResource::collection($roles),
             HttpStatus::HTTP_OK,
         );
     }
@@ -43,7 +43,7 @@ class RoleController extends Controller
 
     public function update(RoleRequest $request, $id)
     {
-         $role = $this->roleService->getById($id);
+        $role = $this->roleService->getById($id);
 
         $validated = $request->validated();
 
@@ -64,6 +64,19 @@ class RoleController extends Controller
         return sendResponse(
             true,
             'Role retrieved successfully',
+            new RoleResource($role),
+            HttpStatus::HTTP_OK,
+        );
+    }
+
+    public function destroy($id)
+    {
+        $role = $this->roleService->getById($id);
+        $this->roleService->delete($role);
+
+        return sendResponse(
+            true,
+            'Role deleted successfully',
             new RoleResource($role),
             HttpStatus::HTTP_OK,
         );

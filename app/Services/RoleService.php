@@ -94,4 +94,19 @@ class RoleService
 
         $role->syncPermissions($permissions);
     }
+
+    public function delete(Role $role): void
+    {
+        $role->delete();
+
+        activity()
+            ->performedOn($role)
+            ->causedBy(auth()->user())
+            ->withProperties([
+                'role_name' => $role->name,
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+            ])
+            ->log('Role deleted');
+    }
 }
