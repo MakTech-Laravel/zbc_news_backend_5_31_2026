@@ -38,8 +38,25 @@ class ArticleService
             $data['featured_image'] = $this->resolveFeaturedImage($data);
             $data['user_id']        = auth()->user()->id;
 
+            $article = $this->article->create($data);
 
-            return $this->article->create($data);
+            // Activity Log
+            activity()
+                ->performedOn($article)
+                ->causedBy(auth()->user())
+                ->withProperties([
+                    'article_title'         => $article->title,
+                    'article_slug'          => $article->slug,
+                    'status'                => $article->status,
+                    'article_category_id'   => $article->article_category_id,
+                    'scheduled_publishing'  => $article->scheduled_publishing,
+                    'published_at'          => $article->published_at,
+                    'ip_address'            => request()->ip(),
+                    'user_agent'            => request()->userAgent(),
+                ])
+                ->log('Article created');
+
+            return $article;
         });
     }
 
