@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\PermissionEnum;
+use App\Http\Controllers\Api\V1\ArticleController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\RoleController;
@@ -23,4 +24,14 @@ Route::controller(RoleController::class)->prefix('roles')->group(function () {
     Route::delete('/delete/{id}', 'destroy')->name('api.v1.roles.destroy')->middleware('permission:' . PermissionEnum::ROLES_DELETE->value);
     Route::post('/restore/{id}', 'restore')->name('api.v1.roles.restore')->middleware('permission:' . PermissionEnum::ROLES_RESTORE->value);
     Route::delete('/force/{id}', 'forceDelete')->name('api.v1.roles.forceDelete');
+});
+
+Route::controller(ArticleController::class)->prefix('articles')->group(function () {
+    Route::get('/', 'index')->name('api.v1.articles.index');
+    Route::post('/store', 'store')->name('api.v1.articles.store');
+    Route::get('/show/{id}', 'show')->name('api.v1.articles.show');
+    Route::post('/update/{id}', 'update')->name('api.v1.articles.update');
+    Route::delete('/delete/{id}', 'destroy')->name('api.v1.articles.destroy');
+    Route::post('/restore/{id}', 'restore')->name('api.v1.articles.restore');
+    Route::delete('/force/{id}', 'forceDelete')->name('api.v1.articles.forceDelete');
 });
