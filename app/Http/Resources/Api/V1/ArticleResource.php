@@ -1,0 +1,49 @@
+<?php
+
+namespace App\Http\Resources\Api\V1;
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+class ArticleResource extends JsonResource
+{
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' => $this->id,
+            'title' => $this->title,
+            'slug' => $this->slug,
+            'seo_title' => $this->seo_title,
+            'sub_title' => $this->sub_title,
+            'excerpt' => $this->excerpt,
+            'article_description' => $this->article_description,
+
+            'status' => $this->status?->value ?? $this->status,
+
+            'featured_image' => $this->featured_image,
+
+            'scheduled_publishing' => $this->scheduled_publishing,
+            'published_at' => $this->published_at,
+
+            // relations
+            'category' => $this->whenLoaded('category', function () {
+                return [
+                    'id' => $this->category?->id,
+                    'title' => $this->category?->title,
+                    'slug' => $this->category?->slug,
+                ];
+            }),
+
+            'user' => $this->whenLoaded('user', function () {
+                return [
+                    'id' => $this->user?->id,
+                    'name' => $this->user?->name,
+                    'email' => $this->user?->email,
+                ];
+            }),
+
+            'created_at' => $this->created_at?->toDateTimeString(),
+            'updated_at' => $this->updated_at?->toDateTimeString(),
+        ];
+    }
+}
