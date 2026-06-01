@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\RoleRequest;
 use App\Http\Resources\Api\V1\RoleResource;
 use App\Services\RoleService;
-use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
 
 class RoleController extends Controller
@@ -77,6 +76,18 @@ class RoleController extends Controller
         return sendResponse(
             true,
             'Role deleted successfully',
+            new RoleResource($role),
+            HttpStatus::HTTP_OK,
+        );
+    }
+    
+    public function restore($id)
+    {
+        $role = $this->roleService->restore($id);
+
+        return sendResponse(
+            true,
+            'Role restored successfully',
             new RoleResource($role),
             HttpStatus::HTTP_OK,
         );

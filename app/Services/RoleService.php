@@ -109,4 +109,15 @@ class RoleService
             ])
             ->log('Role deleted');
     }
+
+    public function restore($id)
+    {
+        $role = Role::withTrashed()
+            ->where('id', $id)
+            ->firstOrFail();
+
+        $role->restore();
+
+        return $role;
+    }
 }
