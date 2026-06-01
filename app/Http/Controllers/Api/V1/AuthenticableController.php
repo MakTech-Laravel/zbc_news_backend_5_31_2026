@@ -41,6 +41,13 @@ class AuthenticableController extends Model
 
 
         if (!Auth::attempt($request->only('email', 'password'))) {
+
+            activity()
+            ->performedOn(new User())
+            ->causedBy($request->user())
+            ->withProperties(['email' => $request->email, 'ip_address' => $request->ip(), 'user_agent' => $request->userAgent()])
+            ->log('Login failed');
+
             return sendResponse(
                 false,
                 'Invalid credentials',
@@ -52,6 +59,13 @@ class AuthenticableController extends Model
         $user = User::where('email', $request->email)->first();
         $tokenResult = $user->createToken('auth_token');
 
+        activity()
+        ->performedOn(new User())
+        ->causedBy($user)
+        ->withProperties(['email' => $request->email, 'ip_address' => $request->ip(), 'user_agent' => $request->userAgent()])
+        ->log('Login successful');
+
+        
         return sendResponse(
             true,
             'Login successful',
