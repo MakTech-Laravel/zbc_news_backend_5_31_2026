@@ -34,4 +34,9 @@ class User extends Authenticatable
     {
         return 'api';
     }
+    
+    public function articles()
+    {
+        return $this->hasMany(Article::class, 'user_id');
+    }
 }
