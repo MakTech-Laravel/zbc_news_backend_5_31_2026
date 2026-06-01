@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Requests\Api\V1\Authenticable\LoginRequest;
 use App\Http\Requests\Api\V1\Authenticable\LogoutRequest;
 use App\Http\Requests\Api\V1\Authenticable\RegisterRequest;
+use App\Http\Resources\Api\V1\UserResource;
 use App\Http\Resources\TokenResource;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
@@ -23,7 +24,7 @@ class AuthenticableController extends Model
             'email' => $request->email,
             'password' => Hash::make($request->password),
         ]);
-        
+
         $user->assignRole('user');
 
         $tokenResult = $user->createToken('auth_token');
@@ -38,15 +39,13 @@ class AuthenticableController extends Model
 
     public function login(LoginRequest $request): JsonResponse
     {
-
-
         if (!Auth::attempt($request->only('email', 'password'))) {
 
             activity()
-            ->performedOn(new User())
-            ->causedBy($request->user())
-            ->withProperties(['email' => $request->email, 'ip_address' => $request->ip(), 'user_agent' => $request->userAgent()])
-            ->log('Login failed');
+                ->performedOn(new User())
+                ->causedBy($request->user())
+                ->withProperties(['email' => $request->email, 'ip_address' => $request->ip(), 'user_agent' => $request->userAgent()])
+                ->log('Login failed');
 
             return sendResponse(
                 false,
@@ -54,18 +53,33 @@ class AuthenticableController extends Model
                 null,
                 HttpStatus::HTTP_UNAUTHORIZED,
             );
+
         }
 
         $user = User::where('email', $request->email)->first();
+
+        if($user->two_factor_secret && $user->two_factor_confirmed_at) {
+
+            return sendResponse(
+                false,
+                'Two factor authentication required',
+                [
+                    'requires_2fa' => true,
+                    'user' => new UserResource($user),
+                ],
+                HttpStatus::HTTP_UNAUTHORIZED,
+            );
+        }
+
+
         $tokenResult = $user->createToken('auth_token');
 
         activity()
-        ->performedOn(new User())
-        ->causedBy($user)
-        ->withProperties(['email' => $request->email, 'ip_address' => $request->ip(), 'user_agent' => $request->userAgent()])
-        ->log('Login successful');
+            ->performedOn(new User())
+            ->causedBy($user)
+            ->withProperties(['email' => $request->email, 'ip_address' => $request->ip(), 'user_agent' => $request->userAgent()])
+            ->log('Login successful');
 
-        
         return sendResponse(
             true,
             'Login successful',
@@ -73,7 +87,6 @@ class AuthenticableController extends Model
             HttpStatus::HTTP_OK,
         );
     }
-
 
     public function logout(Request $request): JsonResponse
     {
