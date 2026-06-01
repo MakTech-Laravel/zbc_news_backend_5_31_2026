@@ -97,6 +97,12 @@ class RoleService
 
     public function delete(Role $role): void
     {
+        $protectedRoles = ['super_admin', 'user', 'admin'];
+
+        if (in_array(strtolower($role->name), $protectedRoles)) {
+            throw new \Exception('This role cannot be deleted');
+        }
+
         $role->delete();
 
         activity()
