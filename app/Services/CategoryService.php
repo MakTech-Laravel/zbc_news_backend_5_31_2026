@@ -19,7 +19,7 @@ class CategoryService
         return ArticleCategory::all();
     }
     
-    public function createCategory(array $data)
+   public function create(array $data): ArticleCategory
     {
         return ArticleCategory::create($data);
     }
