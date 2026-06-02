@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\ArticleController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\RoleController;
+use App\Http\Controllers\Api\V1\SaveArticleController;
 use App\Http\Controllers\Api\V1\TagController;
 
 Route::controller(CategoryController::class)->prefix('categories')->group(function () {
@@ -46,3 +47,10 @@ Route::controller(TagController::class)->prefix('tags')->group(function () {
     Route::post('/restore/{id}', 'restore')->name('api.v1.tags.restore');
     Route::delete('/force/{id}', 'forceDelete')->name('api.v1.tags.forceDelete');
 });
+
+Route::controller(SaveArticleController::class)->prefix('save-articles')->group(function () {
+    Route::get('/', 'index')->name('api.v1.save-articles.index');
+    Route::post('/store', 'store')->name('api.v1.save-articles.store');
+    Route::delete('/delete/{id}', 'destroy')->name('api.v1.save-articles.destroy');
+});
+

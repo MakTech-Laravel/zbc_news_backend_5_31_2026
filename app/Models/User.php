@@ -39,4 +39,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(Article::class, 'user_id');
     }
+
+    public function saveArticles()
+    {
+        return $this->hasMany(SaveArticle::class, 'user_id');
+    }
 }
