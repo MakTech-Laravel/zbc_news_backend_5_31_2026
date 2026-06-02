@@ -42,6 +42,15 @@ class ArticleResource extends JsonResource
                 ];
             }),
 
+            'tags' => $this->whenLoaded('tags', function () {
+                return $this->tags->map(function ($tag) {
+                    return [
+                        'id' => $tag->id,
+                        'tag' => $tag->tag,
+                    ];
+                });
+            }),
+
             'created_at' => $this->created_at?->toDateTimeString(),
             'updated_at' => $this->updated_at?->toDateTimeString(),
         ];

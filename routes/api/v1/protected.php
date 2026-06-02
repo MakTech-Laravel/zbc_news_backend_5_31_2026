@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\ArticleController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\RoleController;
+use App\Http\Controllers\Api\V1\TagController;
 
 Route::controller(CategoryController::class)->prefix('categories')->group(function () {
     Route::get('/', 'index')->name('api.v1.categories.index');
@@ -34,4 +35,14 @@ Route::controller(ArticleController::class)->prefix('articles')->group(function 
     Route::delete('/delete/{slug}', 'destroy')->name('api.v1.articles.destroy');
     Route::post('/restore/{slug}', 'restore')->name('api.v1.articles.restore');
     Route::delete('/force/{slug}', 'forceDelete')->name('api.v1.articles.forceDelete');
+});
+
+Route::controller(TagController::class)->prefix('tags')->group(function () {
+    Route::get('/', 'index')->name('api.v1.tags.index');
+    Route::post('/store', 'store')->name('api.v1.tags.store');
+    Route::get('/show/{id}', 'show')->name('api.v1.tags.show');
+    Route::post('/update/{id}', 'update')->name('api.v1.tags.update');
+    Route::delete('/delete/{id}', 'destroy')->name('api.v1.tags.destroy');
+    Route::post('/restore/{id}', 'restore')->name('api.v1.tags.restore');
+    Route::delete('/force/{id}', 'forceDelete')->name('api.v1.tags.forceDelete');
 });
