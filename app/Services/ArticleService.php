@@ -105,4 +105,44 @@ class ArticleService
 
         return Storage::url($path);
     }
+
+
+    public function update(string $slug, array $data): Article
+    {
+        $article = $this->article
+            ->where('slug', $slug)
+            ->firstOrFail();
+
+        return DB::transaction(function () use ($article, $data) {
+
+            $data['slug']           = $this->resolveSlug($data, $article->id);
+            $data['status']         = $this->resolveStatus($data);
+            $data['published_at']   = $this->resolvePublishedAt($data, $article);
+            $data['featured_image'] = $this->resolveFeaturedImage($data, $article);
+
+            $old = $article->only([
+                'title',
+                'slug',
+                'status',
+                'article_category_id',
+                'scheduled_publishing',
+                'published_at'
+            ]);
+
+            $article->update($data);
+
+            activity()
+                ->performedOn($article)
+                ->causedBy(auth()->user())
+                ->withProperties([
+                    'old'        => $old,
+                    'new'        => $article->fresh()->only(array_keys($old)),
+                    'ip_address' => request()->ip(),
+                    'user_agent' => request()->userAgent(),
+                ])
+                ->log('Article updated');
+
+            return $article->fresh();
+        });
+    }
 }
