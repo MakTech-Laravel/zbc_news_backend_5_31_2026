@@ -24,9 +24,9 @@ class ArticleService
         return $this->article->all();
     }
 
-    public function getArticleById($id)
+    public function getBySlug(string $slug): Article
     {
-        return $this->article->find($id);
+        return $this->article->where('slug', $slug)->firstOrFail();
     }
 
     public function create(array $data): Article
@@ -104,5 +104,68 @@ class ArticleService
         $path = $data['featured_image']->store('articles/featured-images', 'public');
 
         return Storage::url($path);
+    }
+
+
+    public function update(string $slug, array $data): Article
+    {
+        $article = $this->article
+            ->where('slug', $slug)
+            ->firstOrFail();
+
+        return DB::transaction(function () use ($article, $data) {
+
+            $data['slug']           = $this->resolveSlug($data, $article->id);
+            $data['status']         = $this->resolveStatus($data);
+            $data['published_at']   = $this->resolvePublishedAt($data, $article);
+            $data['featured_image'] = $this->resolveFeaturedImage($data, $article);
+
+            $old = $article->only([
+                'title',
+                'slug',
+                'status',
+                'article_category_id',
+                'scheduled_publishing',
+                'published_at'
+            ]);
+
+            $article->update($data);
+
+            activity()
+                ->performedOn($article)
+                ->causedBy(auth()->user())
+                ->withProperties([
+                    'old'        => $old,
+                    'new'        => $article->fresh()->only(array_keys($old)),
+                    'ip_address' => request()->ip(),
+                    'user_agent' => request()->userAgent(),
+                ])
+                ->log('Article updated');
+
+            return $article->fresh();
+        });
+    }
+
+    public function delete(string $slug): void
+    {
+        $article = $this->article->where('slug', $slug)->firstOrFail();
+        $article->delete();
+    }
+
+
+    public function restore(string $slug): Article
+    {
+        $article = $this->article->withTrashed()->where('slug', $slug)->firstOrFail();
+
+        $article->restore();
+
+        return $article;
+    }
+
+    public function forceDelete(string $slug): void
+    {
+        $article = $this->article->withTrashed()->where('slug', $slug)->firstOrFail();
+
+        $article->forceDelete();
     }
 }

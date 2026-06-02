@@ -31,6 +31,8 @@ return new class extends Migration
             $table->foreign('article_category_id')->references('id')->on('article_categories')->cascadeOnDelete()->cascadeOnUpdate();
             $table->foreign('user_id')->references('id')->on('users')->cascadeOnDelete()->cascadeOnUpdate();
             $table->timestamps();
+
+            $table->softDeletes();
         });
     }
 

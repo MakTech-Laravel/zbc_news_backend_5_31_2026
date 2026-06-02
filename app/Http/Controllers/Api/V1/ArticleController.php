@@ -44,4 +44,59 @@ class ArticleController extends Controller
             HttpStatus::HTTP_CREATED,
         );
     }
+
+    public function update(ArticleRequest $request, string $slug)
+    {
+        $data = $request->validated();
+
+        if ($request->hasFile('featured_image')) {
+            $data['featured_image'] = $request->file('featured_image');
+        }
+
+        $updated = $this->articleService->update($slug, $data);
+
+        return sendResponse(
+            true,
+            'Article updated successfully',
+            new ArticleResource($updated),
+            HttpStatus::HTTP_OK,
+        );
+    }
+    
+    public function destroy(string $slug)
+    {
+        $this->articleService->delete($slug);
+
+        return sendResponse(
+            true,
+            'Article deleted successfully',
+            null,
+            HttpStatus::HTTP_OK,
+        );
+    }
+
+    public function restore(string $slug)
+    {
+        $article = $this->articleService->restore($slug);
+
+        return sendResponse(
+            true,
+            'Article restored successfully',
+            new ArticleResource($article),
+            HttpStatus::HTTP_OK,
+        );
+    }
+
+    public function forceDelete(string $slug)
+    {
+        $this->articleService->forceDelete($slug);
+
+        return sendResponse(
+            true,
+            'Article permanently deleted',
+            null,
+            HttpStatus::HTTP_OK,
+        );
+    }
+
 }
