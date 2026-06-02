@@ -50,6 +50,8 @@ class ArticleRequest extends FormRequest
             ],
             'published_at'          => ['nullable', 'date'],
             'user_id'               => ['nullable', 'integer', 'exists:users,id'],
+            'tags' => ['nullable', 'array'],
+            'tags.*' => ['string', 'max:50'],
         ];
     }
 

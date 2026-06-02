@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\ArticleStatus;
 use App\Models\Article;
+use App\Models\Tag;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -21,17 +22,20 @@ class ArticleService
 
     public function getAllArticles()
     {
-        return $this->article->all();
+        return $this->article->with(['tags', 'category', 'user'])->get();
     }
 
     public function getBySlug(string $slug): Article
     {
-        return $this->article->where('slug', $slug)->firstOrFail();
+        return $this->article->with(['tags', 'category', 'user'])->where('slug', $slug)->firstOrFail();
     }
 
     public function create(array $data): Article
     {
         return DB::transaction(function () use ($data) {
+            $tags = $data['tags'] ?? [];
+            unset($data['tags']);
+
             $data['slug']           = $this->resolveSlug($data);
             $data['status']         = $this->resolveStatus($data);
             $data['published_at']   = $this->resolvePublishedAt($data);
@@ -39,6 +43,11 @@ class ArticleService
             $data['user_id']        = auth()->user()->id;
 
             $article = $this->article->create($data);
+
+            if (!empty($tags)) {
+                $tagIds = $this->resolveTags($tags);
+                $article->tags()->sync($tagIds);
+            }
 
             // Activity Log
             activity()
@@ -49,6 +58,7 @@ class ArticleService
                     'article_slug'          => $article->slug,
                     'status'                => $article->status,
                     'article_category_id'   => $article->article_category_id,
+                    'tags'                  => $tags,
                     'scheduled_publishing'  => $article->scheduled_publishing,
                     'published_at'          => $article->published_at,
                     'ip_address'            => request()->ip(),
@@ -56,7 +66,7 @@ class ArticleService
                 ])
                 ->log('Article created');
 
-            return $article;
+            return $article->load('tags');
         });
     }
 
@@ -105,6 +115,20 @@ class ArticleService
 
         return Storage::url($path);
     }
+    private function resolveTags(array $tags): array
+    {
+        $tagIds = [];
+
+        foreach ($tags as $tagName) {
+            $tag = Tag::firstOrCreate(
+                ['tag' => strtolower(trim($tagName))]
+            );
+
+            $tagIds[] = $tag->id;
+        }
+
+        return $tagIds;
+    }
 
 
     public function update(string $slug, array $data): Article
@@ -114,6 +138,9 @@ class ArticleService
             ->firstOrFail();
 
         return DB::transaction(function () use ($article, $data) {
+
+            $tags = $data['tags'] ?? null;
+            unset($data['tags']);
 
             $data['slug']           = $this->resolveSlug($data, $article->id);
             $data['status']         = $this->resolveStatus($data);
@@ -131,18 +158,24 @@ class ArticleService
 
             $article->update($data);
 
+            if (!is_null($tags)) {
+                $tagIds = $this->resolveTags($tags);
+                $article->tags()->sync($tagIds);
+            }
+
             activity()
                 ->performedOn($article)
                 ->causedBy(auth()->user())
                 ->withProperties([
                     'old'        => $old,
                     'new'        => $article->fresh()->only(array_keys($old)),
+                    'tags'       => $tags,
                     'ip_address' => request()->ip(),
                     'user_agent' => request()->userAgent(),
                 ])
                 ->log('Article updated');
 
-            return $article->fresh();
+            return $article->fresh()->load('tags');
         });
     }
 
