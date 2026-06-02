@@ -45,5 +45,10 @@ class Article extends Model
     {
         return $this->belongsToMany(Tag::class, 'article_tags', 'article_id', 'tag_id');
     }
+
+    public function saveArticles()
+    {
+        return $this->hasMany(SaveArticle::class, 'article_id');
+    }
 }
 
