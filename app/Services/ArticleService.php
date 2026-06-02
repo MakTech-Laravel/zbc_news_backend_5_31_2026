@@ -24,9 +24,9 @@ class ArticleService
         return $this->article->all();
     }
 
-    public function getArticleById($id)
+    public function getBySlug(string $slug): Article
     {
-        return $this->article->find($id);
+        return $this->article->where('slug', $slug)->firstOrFail();
     }
 
     public function create(array $data): Article
@@ -144,5 +144,28 @@ class ArticleService
 
             return $article->fresh();
         });
+    }
+
+    public function delete(string $slug): void
+    {
+        $article = $this->article->where('slug', $slug)->firstOrFail();
+        $article->delete();
+    }
+
+
+    public function restore(string $slug): Article
+    {
+        $article = $this->article->withTrashed()->where('slug', $slug)->firstOrFail();
+
+        $article->restore();
+
+        return $article;
+    }
+
+    public function forceDelete(string $slug): void
+    {
+        $article = $this->article->withTrashed()->where('slug', $slug)->firstOrFail();
+
+        $article->forceDelete();
     }
 }

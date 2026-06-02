@@ -62,4 +62,41 @@ class ArticleController extends Controller
             HttpStatus::HTTP_OK,
         );
     }
+    
+    public function destroy(string $slug)
+    {
+        $this->articleService->delete($slug);
+
+        return sendResponse(
+            true,
+            'Article deleted successfully',
+            null,
+            HttpStatus::HTTP_OK,
+        );
+    }
+
+    public function restore(string $slug)
+    {
+        $article = $this->articleService->restore($slug);
+
+        return sendResponse(
+            true,
+            'Article restored successfully',
+            new ArticleResource($article),
+            HttpStatus::HTTP_OK,
+        );
+    }
+
+    public function forceDelete(string $slug)
+    {
+        $this->articleService->forceDelete($slug);
+
+        return sendResponse(
+            true,
+            'Article permanently deleted',
+            null,
+            HttpStatus::HTTP_OK,
+        );
+    }
+
 }
