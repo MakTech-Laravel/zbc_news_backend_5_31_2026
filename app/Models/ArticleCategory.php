@@ -26,4 +26,14 @@ class ArticleCategory extends Model
     {
         return $this->hasMany(ArticleCategory::class, 'parent_id');
     }
+    
+    public function articles()
+    {
+        return $this->hasMany(Article::class, 'article_category_id');
+    }
+    
+    public function siteSettings()
+    {
+        return $this->hasOne(SiteSettings::class, 'default_category_id');
+    }
 }
