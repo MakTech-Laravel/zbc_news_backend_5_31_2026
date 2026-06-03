@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\ArticleController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\RoleController;
+use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\SaveArticleController;
 use App\Http\Controllers\Api\V1\SiteSettingsController;
 use App\Http\Controllers\Api\V1\TagController;
@@ -29,6 +30,18 @@ Route::controller(RoleController::class)->prefix('roles')->group(function () {
     Route::delete('/force/{id}', 'forceDelete')->name('api.v1.roles.forceDelete');
 });
 
+
+Route::controller(UserController::class)->prefix('users')->group(function () {
+    Route::get('/', 'index')->name('api.v1.users.index');
+    Route::post('/store', 'store')->name('api.v1.users.store');
+    Route::get('/show/{id}', 'show')->name('api.v1.users.show');
+    Route::post('/update/{id}', 'update')->name('api.v1.users.update');
+    Route::delete('/delete/{id}', 'destroy')->name('api.v1.users.destroy');
+    Route::post('/restore/{id}', 'restore')->name('api.v1.users.restore');
+    Route::delete('/force/{id}', 'forceDelete')->name('api.v1.users.forceDelete');
+    
+    Route::post('/two-factor-enable', 'twoFactorEnable')->name('api.v1.users.two-factor-enable');
+});
 Route::controller(ArticleController::class)->prefix('articles')->group(function () {
     Route::get('/', 'index')->name('api.v1.articles.index');
     Route::post('/store', 'store')->name('api.v1.articles.store');

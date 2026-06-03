@@ -8,6 +8,7 @@ Route::controller(AuthenticableController::class)->prefix('auth')->group(functio
 
     Route::post('/login', 'login')->name('api.v1.auth.login')->middleware('request_limitter');
     Route::post('/register', 'register')->name('api.v1.auth.register')->middleware('request_limitter');
+    Route::post('/two-factor-challenge', 'twoFactorChallenge')->name('api.v1.auth.two-factor-challenge')->middleware('request_limitter');
     Route::post('/logout', 'logout')->name('api.v1.auth.logout')->middleware('auth:api');;
     
 });
