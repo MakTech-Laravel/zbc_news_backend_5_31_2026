@@ -58,6 +58,7 @@ class AuthenticableController extends Model
 
         $user = User::where('email', $request->email)->first();
 
+        $user->load(['roles', 'permissions']);
         if ($user->two_factor_secret && $user->two_factor_confirmed_at) {
             $attemptToken = Str::random(60);
             session()->put($attemptToken, ['user_id' => $user->id, 'expires_at' => now()->addMinutes(5)]);
@@ -75,6 +76,8 @@ class AuthenticableController extends Model
 
         $tokenResult = $user->createToken('auth_token');
 
+        
+
         activity()
             ->performedOn(new User())
             ->causedBy($user)
@@ -84,7 +87,12 @@ class AuthenticableController extends Model
         return sendResponse(
             true,
             'Login successful',
-            new TokenResource($tokenResult),
+            [
+                'access_token' => $tokenResult->accessToken,
+                'token_type' => 'Bearer',
+                'expires_in' => $tokenResult->token->expires_at,
+                'user' => new UserResource($user)
+            ],
             HttpStatus::HTTP_OK,
         );
     }
