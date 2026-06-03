@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\RoleController;
 use App\Http\Controllers\Api\V1\SaveArticleController;
+use App\Http\Controllers\Api\V1\SiteSettingsController;
 use App\Http\Controllers\Api\V1\TagController;
 
 Route::controller(CategoryController::class)->prefix('categories')->group(function () {
@@ -54,3 +55,7 @@ Route::controller(SaveArticleController::class)->prefix('save-articles')->group(
     Route::delete('/delete/{id}', 'destroy')->name('api.v1.save-articles.destroy');
 });
 
+Route::controller(SiteSettingsController::class)->prefix('site-settings')->group(function () {
+    Route::get('/', 'index')->name('api.v1.site-settings.index');
+    Route::post('/update', 'createOrUpdate')->name('api.v1.site-settings.update');
+});
