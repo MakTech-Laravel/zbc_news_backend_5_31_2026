@@ -4,6 +4,7 @@ use App\Enums\PermissionEnum;
 use App\Http\Controllers\Api\V1\ArticleController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\CategoryController;
+use App\Http\Controllers\Api\V1\MembershipPlanController;
 use App\Http\Controllers\Api\V1\RoleController;
 use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\SaveArticleController;
@@ -71,4 +72,15 @@ Route::controller(SaveArticleController::class)->prefix('save-articles')->group(
 Route::controller(SiteSettingsController::class)->prefix('site-settings')->group(function () {
     Route::get('/', 'index')->name('api.v1.site-settings.index');
     Route::post('/update', 'createOrUpdate')->name('api.v1.site-settings.update');
+});
+
+Route::controller(MembershipPlanController::class)->prefix('plans')->group(function () {
+    Route::get('/', 'index')->name('api.v1.plans.index');
+    Route::get('/trashed', 'trashed')->name('api.v1.plans.trashed');
+    Route::post('/store', 'store')->name('api.v1.plans.store');
+    Route::get('/show/{id}', 'show')->name('api.v1.plans.show');
+    Route::post('/update/{id}', 'update')->name('api.v1.plans.update');
+    Route::delete('/delete/{id}', 'destroy')->name('api.v1.plans.destroy');
+    Route::post('/restore/{id}', 'restore')->name('api.v1.plans.restore');
+    Route::delete('/force/{id}', 'forceDelete')->name('api.v1.plans.forceDelete');
 });
