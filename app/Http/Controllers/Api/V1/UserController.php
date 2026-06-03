@@ -17,13 +17,13 @@ class UserController extends Controller
     {
         $user = $request->user();
 
-        // ✅ STEP 1: ENABLE 2FA (IMPORTANT)
+       
         app(EnableTwoFactorAuthentication::class)($user);
 
-        // refresh user after update
+       
         $user->refresh();
 
-        // ✅ STEP 2: QR SVG
+      
         $qrSvg = $user->twoFactorQrCodeSvg();
 
 
