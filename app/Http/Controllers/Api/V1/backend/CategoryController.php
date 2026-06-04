@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1;
+namespace App\Http\Controllers\Api\V1\backend;
 
 use App\Enums\ArticleCategoryStatus;
 use App\Http\Controllers\Controller;
