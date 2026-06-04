@@ -18,11 +18,13 @@ class Category extends JsonResource
             'id'        => $this->id,
             'title'     => $this->title,
             'slug'      => $this->slug,
+            'status'    => $this->status,
             'parent'    => $this->whenLoaded('parent', fn() => [
                 'id'    => $this->parent->id,
                 'title' => $this->parent->title,
             ]),
-            'created_at'    => $this->created_at->toDateTimeString(),
+            'created_at' => $this->created_at?->toDateTimeString(),
+            'updated_at' => $this->updated_at?->toDateTimeString(),
         ];
     }
 }

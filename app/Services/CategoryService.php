@@ -13,18 +13,18 @@ class CategoryService
     {
         //
     }
-    
+
     public function getAllCategories()
     {
         return ArticleCategory::all();
     }
-    
-   public function create(array $data): ArticleCategory
+
+    public function create(array $data): ArticleCategory
     {
         return ArticleCategory::create($data);
     }
 
-    
+
     public function getBySlug(string $slug): ArticleCategory
     {
         return ArticleCategory::where('slug', $slug)->first();
@@ -33,13 +33,18 @@ class CategoryService
     public function update(ArticleCategory $category, array $data): ArticleCategory
     {
         $category->update($data);
-
-        return $category->fresh();
+        $category->refresh();
+        return $category;
     }
-    
+
     public function delete(string $slug): void
     {
         $category = $this->getBySlug($slug);
+
+        if ($category->articles()->exists()) {
+            throw new \Exception('Cannot delete category with existing articles.');
+        }
+
         $category->delete();
     }
 
