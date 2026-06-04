@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1;
+namespace App\Http\Controllers\Api\V1\backend;
 
+use App\Enums\ArticleCategoryStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\Category;
 use App\Services\CategoryService;
@@ -32,6 +33,7 @@ class CategoryController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'slug' => 'required|string|max:255|unique:article_categories,slug',
+            'status' => 'required|string|in:' . implode(',', array_column(ArticleCategoryStatus::options(), 'value')),
             'parent_id' => 'nullable|integer|exists:article_categories,id',
         ]);
 
@@ -64,6 +66,7 @@ class CategoryController extends Controller
 
         $validated = $request->validate([
             'title'     => ['required', 'string', 'max:255'],
+            'status' => 'required|string|in:' . implode(',', array_column(ArticleCategoryStatus::options(), 'value')),
             'slug'      => [
                 'required',
                 'string',
@@ -84,14 +87,23 @@ class CategoryController extends Controller
     }
     public function destroy(string $slug)
     {
-        $this->categoryService->delete($slug);
+        try {
+            $this->categoryService->delete($slug);
 
-        return sendResponse(
-            true,
-            'Category deleted successfully',
-            null,
-            HttpStatus::HTTP_OK,
-        );
+            return sendResponse(
+                true,
+                'Category deleted successfully',
+                null,
+                HttpStatus::HTTP_OK,
+            );
+        } catch (\Exception $e) {
+            return sendResponse(
+                false,
+                $e->getMessage(),
+                null,
+                HttpStatus::HTTP_UNPROCESSABLE_ENTITY,
+            );
+        }
     }
 
     public function restore(string $slug)

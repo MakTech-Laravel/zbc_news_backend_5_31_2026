@@ -1,15 +1,15 @@
 <?php
 
 use App\Enums\PermissionEnum;
-use App\Http\Controllers\Api\V1\ArticleController;
+use App\Http\Controllers\Api\V1\backend\ArticleController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\V1\CategoryController;
-use App\Http\Controllers\Api\V1\MembershipPlanController;
-use App\Http\Controllers\Api\V1\RoleController;
-use App\Http\Controllers\Api\V1\UserController;
-use App\Http\Controllers\Api\V1\SaveArticleController;
-use App\Http\Controllers\Api\V1\SiteSettingsController;
-use App\Http\Controllers\Api\V1\TagController;
+use App\Http\Controllers\Api\V1\backend\CategoryController;
+use App\Http\Controllers\Api\V1\backend\MembershipPlanController;
+use App\Http\Controllers\Api\V1\backend\RoleController;
+use App\Http\Controllers\Api\V1\backend\UserController;
+use App\Http\Controllers\Api\V1\backend\SaveArticleController;
+use App\Http\Controllers\Api\V1\backend\SiteSettingsController;
+use App\Http\Controllers\Api\V1\backend\TagController;
 
 Route::controller(CategoryController::class)->prefix('categories')->group(function () {
     Route::get('/', 'index')->name('api.v1.categories.index');

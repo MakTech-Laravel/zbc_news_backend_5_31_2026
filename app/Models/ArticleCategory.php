@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ArticleCategoryStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -14,7 +15,12 @@ class ArticleCategory extends Model
         'id',
         'title',
         'slug',
+        'status',
         'parent_id',
+    ];
+
+    protected $casts = [
+        'status' => ArticleCategoryStatus::class,
     ];
 
     public function parent()
