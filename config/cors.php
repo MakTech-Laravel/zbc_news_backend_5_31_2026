@@ -6,12 +6,14 @@ return [
         'api/*',
         'auth/*',
         'oauth/*',
+        ''
     ],
 
     'allowed_methods' => ['*'],
 
     'allowed_origins' => [
         'http://localhost:5173',
+        "https://zbc.maktechlaravel.cloud"
     ],
 
     'allowed_origins_patterns' => [],
