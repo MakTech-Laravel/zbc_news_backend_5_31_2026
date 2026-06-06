@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AuthenticableController;
 use App\Http\Controllers\Api\V1\frontend\CategoryController;
+use App\Http\Controllers\Api\V1\frontend\ArticleController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -16,4 +17,10 @@ Route::controller(AuthenticableController::class)->prefix('auth')->group(functio
 
 Route::controller(CategoryController::class)->prefix('categories')->group(function () {
     Route::get('/', 'index')->name('api.v1.categories.index');
+});
+
+Route::controller(ArticleController::class)->prefix('articles')->group(function () {
+    Route::get('/', 'index')->name('api.v1.articles.index');
+    Route::get('/latest', 'latest')->name('api.v1.articles.latest');
+    Route::get('/{slug}', 'show')->name('api.v1.articles.show');
 });
