@@ -99,4 +99,16 @@ class ArticleController extends Controller
         );
     }
 
+    public function show(string $slug)
+    {
+        $article = $this->articleService->getBySlug($slug);
+
+        return sendResponse(
+            true,
+            'Article retrieved successfully',
+            new ArticleResource($article),
+            HttpStatus::HTTP_OK,
+        );
+    }
+
 }
