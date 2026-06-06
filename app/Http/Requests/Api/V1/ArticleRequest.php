@@ -7,7 +7,7 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
-
+use App\Models\Article;
 class ArticleRequest extends FormRequest
 {
     /**
@@ -25,16 +25,28 @@ class ArticleRequest extends FormRequest
      */
     public function rules(): array
     {
-        $articleId = $this->route('article')?->id;
+        $articleId = null;
+        $isUpdate  = $this->route('slug') !== null;
+    
+        if ($isUpdate) {
+            $article   = Article::where('slug', $this->route('slug'))->first();
+            $articleId = $article?->id;
+        }
 
         return [
             'title'                 => ['required', 'string', 'max:255'],
-            'slug'                  => [
-                'nullable',
-                'string',
-                'max:255',
-                Rule::unique('articles', 'slug')->ignore($articleId),
-            ],
+            'slug'  => [
+            $isUpdate ? 'nullable' : 'required',
+            'string',
+            'max:255',
+            Rule::unique('articles', 'slug')->ignore($articleId),
+        ],
+            // 'slug'                  => [
+            //     'nullable',
+            //     'string',
+            //     'max:255',
+            //     Rule::unique('articles', 'slug')->ignore($articleId),
+            // ],
             'seo_title'             => ['required', 'string', 'max:255'],
             'sub_title'             => ['nullable', 'string', 'max:255'],
             'article_description'   => ['required', 'string'],

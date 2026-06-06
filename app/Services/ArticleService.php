@@ -29,6 +29,14 @@ class ArticleService
     {
         return $this->article->with(['tags', 'category', 'user'])->where('slug', $slug)->firstOrFail();
     }
+    public function getLatestArticle(): Article
+{
+    return $this->article
+        ->with(['tags', 'category', 'user'])
+        ->where('status', ArticleStatus::PUBLISHED->value)
+        ->latest('published_at')
+        ->firstOrFail();
+}
 
     public function create(array $data): Article
     {
