@@ -24,4 +24,6 @@ Route::controller(ArticleController::class)->prefix('articles')->group(function 
     Route::get('/latest', 'latest')->name('api.v1.articles.latest');
     Route::get('/latest-stories', 'latestStories')->name('api.v1.articles.latest-stories');
     Route::get('/show/{slug}', 'show')->name('api.v1.articles.show');
+    Route::post('/view/{slug}', 'recordView')->name('api.v1.articles.view')->middleware('request_limitter');
+    Route::get('/category/{slug}', 'byCategory')->name('api.v1.articles.by-category');
 });

@@ -50,7 +50,8 @@ class ArticleController extends Controller
 
     public function show(string $slug)
     {
-        $article = $this->articleService->getBySlug($slug);
+        $article = $this->articleService->getPublishedBySlug($slug);
+
         return sendResponse(
             true,
             'Article retrieved successfully',
@@ -58,4 +59,30 @@ class ArticleController extends Controller
             HttpStatus::HTTP_OK,
         );
     }
+
+    public function recordView(string $slug)
+    {
+        $article = $this->articleService->getPublishedBySlug($slug);
+        $this->articleService->incrementViews($article);
+
+        return sendResponse(
+            true,
+            'Article view recorded successfully',
+            null,
+            HttpStatus::HTTP_OK,
+        );
+    }
+
+    public function byCategory(string $slug)
+    {
+        $articles = $this->articleService->getByCategory($slug);
+
+        return sendResponse(
+            true,
+            'Articles retrieved successfully',
+            ArticleResource::collection($articles),
+            HttpStatus::HTTP_OK,
+        );
+    }
+
 }

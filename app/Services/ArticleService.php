@@ -6,6 +6,7 @@ use App\Enums\ArticleStatus;
 use App\Models\Article;
 use App\Models\Tag;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -30,6 +31,21 @@ class ArticleService
     {
         return $this->article->with(['tags', 'category', 'user'])->where('slug', $slug)->firstOrFail();
     }
+
+    public function getPublishedBySlug(string $slug): Article
+    {
+        return $this->article
+            ->with(['tags', 'category', 'user'])
+            ->where('slug', $slug)
+            ->where('status', ArticleStatus::PUBLISHED->value)
+            ->firstOrFail();
+    }
+
+    public function incrementViews(Article $article): void
+    {
+        $article->increment('views');
+    }
+
     public function getLatestArticle(): Article
     {
         return $this->article
@@ -218,5 +234,17 @@ class ArticleService
         $article = $this->article->withTrashed()->where('slug', $slug)->firstOrFail();
 
         $article->forceDelete();
+    }
+
+    public function getByCategory(string $categorySlug): Collection
+    {
+        return $this->article
+            ->with(['tags', 'category', 'user'])
+            ->whereHas('category', function ($query) use ($categorySlug) {
+                $query->where('slug', $categorySlug);
+            })
+            ->where('status', ArticleStatus::PUBLISHED->value)
+            ->latest('published_at')
+            ->get();
     }
 }
