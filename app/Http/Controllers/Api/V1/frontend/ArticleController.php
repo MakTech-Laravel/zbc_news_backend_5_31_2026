@@ -72,4 +72,17 @@ class ArticleController extends Controller
             HttpStatus::HTTP_OK,
         );
     }
+
+    public function byCategory(string $slug)
+    {
+        $articles = $this->articleService->getByCategory($slug);
+
+        return sendResponse(
+            true,
+            'Articles retrieved successfully',
+            ArticleResource::collection($articles),
+            HttpStatus::HTTP_OK,
+        );
+    }
+
 }

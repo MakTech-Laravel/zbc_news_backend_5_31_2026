@@ -235,4 +235,16 @@ class ArticleService
 
         $article->forceDelete();
     }
+
+    public function getByCategory(string $categorySlug): Collection
+    {
+        return $this->article
+            ->with(['tags', 'category', 'user'])
+            ->whereHas('category', function ($query) use ($categorySlug) {
+                $query->where('slug', $categorySlug);
+            })
+            ->where('status', ArticleStatus::PUBLISHED->value)
+            ->latest('published_at')
+            ->get();
+    }
 }
