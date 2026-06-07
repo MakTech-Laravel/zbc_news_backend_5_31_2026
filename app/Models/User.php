@@ -45,4 +45,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(SaveArticle::class, 'user_id');
     }
+    
+    public function notificationPreferences()
+    {
+        return $this->hasOne(NotificationPreference::class, 'user_id');
+    }
 }

@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\backend\ArticleController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\backend\CategoryController;
 use App\Http\Controllers\Api\V1\backend\MembershipPlanController;
+use App\Http\Controllers\Api\V1\backend\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\backend\RoleController;
 use App\Http\Controllers\Api\V1\backend\UserController;
 use App\Http\Controllers\Api\V1\backend\SaveArticleController;
@@ -40,7 +41,7 @@ Route::controller(UserController::class)->prefix('users')->group(function () {
     Route::delete('/delete/{id}', 'destroy')->name('api.v1.users.destroy');
     Route::post('/restore/{id}', 'restore')->name('api.v1.users.restore');
     Route::delete('/force/{id}', 'forceDelete')->name('api.v1.users.forceDelete');
-    
+
     Route::post('/two-factor-enable', 'twoFactorEnable')->name('api.v1.users.two-factor-enable');
 });
 Route::controller(ArticleController::class)->prefix('articles')->group(function () {
@@ -83,4 +84,9 @@ Route::controller(MembershipPlanController::class)->prefix('plans')->group(funct
     Route::delete('/delete/{id}', 'destroy')->name('api.v1.plans.destroy');
     Route::post('/restore/{id}', 'restore')->name('api.v1.plans.restore');
     Route::delete('/force/{id}', 'forceDelete')->name('api.v1.plans.forceDelete');
+});
+
+Route::controller(NotificationPreferenceController::class)->prefix('notification-preferences')->group(function () {
+    Route::get('/', 'show')->name('api.v1.notification-preferences.show');
+    Route::put('/update', 'update')->name('api.v1.notification-preferences.update');
 });
