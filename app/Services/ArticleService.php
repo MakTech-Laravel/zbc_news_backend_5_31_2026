@@ -9,6 +9,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Database\Eloquent\Collection;
 
 class ArticleService
 {
@@ -30,14 +31,23 @@ class ArticleService
         return $this->article->with(['tags', 'category', 'user'])->where('slug', $slug)->firstOrFail();
     }
     public function getLatestArticle(): Article
-{
-    return $this->article
-        ->with(['tags', 'category', 'user'])
-        ->where('status', ArticleStatus::PUBLISHED->value)
-        ->latest('published_at')
-        ->firstOrFail();
-}
+    {
+        return $this->article
+            ->with(['tags', 'category', 'user'])
+            ->where('status', ArticleStatus::PUBLISHED->value)
+            ->latest('published_at')
+            ->firstOrFail();
+    }
 
+    public function getLatestStories(): Collection
+    {
+        return $this->article
+            ->with(['tags', 'category', 'user'])
+            ->where('status', ArticleStatus::PUBLISHED->value)
+            ->latest('published_at')
+            ->take(10)
+            ->get();
+    }
     public function create(array $data): Article
     {
         return DB::transaction(function () use ($data) {

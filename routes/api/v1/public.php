@@ -22,5 +22,6 @@ Route::controller(CategoryController::class)->prefix('categories')->group(functi
 Route::controller(ArticleController::class)->prefix('articles')->group(function () {
     Route::get('/', 'index')->name('api.v1.articles.index');
     Route::get('/latest', 'latest')->name('api.v1.articles.latest');
-    Route::get('/{slug}', 'show')->name('api.v1.articles.show');
+    Route::get('/latest-stories', 'latestStories')->name('api.v1.articles.latest-stories');
+    Route::get('/show/{slug}', 'show')->name('api.v1.articles.show');
 });
