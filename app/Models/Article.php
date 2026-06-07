@@ -23,12 +23,14 @@ class Article extends Model
         'scheduled_publishing',
         'published_at',
         'user_id',
+        'views',
     ];
     
     protected $casts = [
         'status' => ArticleStatus::class,
         'scheduled_publishing' => 'datetime',
         'published_at' => 'datetime',
+        'views' => 'integer',
     ];
 
     public function category()

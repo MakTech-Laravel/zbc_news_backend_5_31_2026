@@ -50,11 +50,25 @@ class ArticleController extends Controller
 
     public function show(string $slug)
     {
-        $article = $this->articleService->getBySlug($slug);
+        $article = $this->articleService->getPublishedBySlug($slug);
+
         return sendResponse(
             true,
             'Article retrieved successfully',
             new ArticleResource($article),
+            HttpStatus::HTTP_OK,
+        );
+    }
+
+    public function recordView(string $slug)
+    {
+        $article = $this->articleService->getPublishedBySlug($slug);
+        $this->articleService->incrementViews($article);
+
+        return sendResponse(
+            true,
+            'Article view recorded successfully',
+            null,
             HttpStatus::HTTP_OK,
         );
     }

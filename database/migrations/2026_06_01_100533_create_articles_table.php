@@ -26,6 +26,7 @@ return new class extends Migration
             $table->timestamp('scheduled_publishing')->nullable();
             $table->timestamp('published_at')->nullable();
             $table->unsignedBigInteger('user_id')->nullable();
+            $table->unsignedBigInteger('views')->default(0);
 
 
             $table->foreign('article_category_id')->references('id')->on('article_categories')->cascadeOnDelete()->cascadeOnUpdate();
