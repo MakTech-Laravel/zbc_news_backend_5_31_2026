@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Services\ArticleService;
 use App\Http\Resources\Api\V1\ArticleResource;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
+
 class ArticleController extends Controller
 {
     public function __construct(
@@ -32,6 +33,17 @@ class ArticleController extends Controller
             true,
             'Latest article retrieved successfully',
             new ArticleResource($article),
+            HttpStatus::HTTP_OK,
+        );
+    }
+
+    public function latestStories()
+    {
+        $articles = $this->articleService->getLatestStories();
+        return sendResponse(
+            true,
+            'Latest stories retrieved successfully',
+            ArticleResource::collection($articles),
             HttpStatus::HTTP_OK,
         );
     }
