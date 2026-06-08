@@ -7,7 +7,6 @@ use App\Models\Article;
 use App\Models\Tag;
 use Spatie\Activitylog\Models\Activity;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -15,18 +14,15 @@ use Illuminate\Database\Eloquent\Collection;
 
 class ArticleService
 {
-    /**
-     * Create a new class instance.
-     */
     public function __construct(
         private readonly Article $article
     ) {}
-
 
     public function getAllArticles()
     {
         return $this->article->with(['tags', 'category', 'user'])->get();
     }
+
     public function getTrashedArticles()
     {
         return $this->article
@@ -73,17 +69,19 @@ class ArticleService
             ->take(10)
             ->get();
     }
+
     public function create(array $data): Article
     {
         return DB::transaction(function () use ($data) {
             $tags = $data['tags'] ?? [];
             unset($data['tags']);
 
-            $data['slug']           = $this->resolveSlug($data);
-            $data['status']         = $this->resolveStatus($data);
-            $data['published_at']   = $this->resolvePublishedAt($data);
-            $data['featured_image'] = $this->resolveFeaturedImage($data);
-            $data['user_id']        = auth()->user()->id;
+            $data['slug']             = $this->resolveSlug($data);
+            $data['status']           = $this->resolveStatus($data);
+            $data['published_at']     = $this->resolvePublishedAt($data);
+            $data['featured_image']   = $this->resolveImage($data, 'featured_image', 'articles/featured-images');
+            $data['open_graph_image'] = $this->resolveImage($data, 'open_graph_image', 'articles/og-images');
+            $data['user_id']          = auth()->user()->id;
 
             $article = $this->article->create($data);
 
@@ -92,87 +90,25 @@ class ArticleService
                 $article->tags()->sync($tagIds);
             }
 
-            // Activity Log
             activity()
                 ->performedOn($article)
                 ->causedBy(auth()->user())
                 ->withProperties([
-                    'article_title'         => $article->title,
-                    'article_slug'          => $article->slug,
-                    'status'                => $article->status,
-                    'article_category_id'   => $article->article_category_id,
-                    'tags'                  => $tags,
-                    'scheduled_publishing'  => $article->scheduled_publishing,
-                    'published_at'          => $article->published_at,
-                    'ip_address'            => request()->ip(),
-                    'user_agent'            => request()->userAgent(),
+                    'article_title'        => $article->title,
+                    'article_slug'         => $article->slug,
+                    'status'               => $article->status,
+                    'article_category_id'  => $article->article_category_id,
+                    'tags'                 => $tags,
+                    'scheduled_publishing' => $article->scheduled_publishing,
+                    'published_at'         => $article->published_at,
+                    'ip_address'           => request()->ip(),
+                    'user_agent'           => request()->userAgent(),
                 ])
                 ->log('Article created');
 
             return $article->load('tags');
         });
     }
-
-    private function resolveSlug(array $data): string
-    {
-        $base  = Str::slug(!empty($data['slug']) ? $data['slug'] : $data['title']);
-        $slug  = $base;
-        $count = 1;
-
-        while ($this->article->where('slug', $slug)->exists()) {
-            $slug = "{$base}-{$count}";
-            $count++;
-        }
-
-        return $slug;
-    }
-    private function resolveStatus(array $data): string
-    {
-        $status = $data['status'] ?? ArticleStatus::DRAFT->value;
-        if ($status === ArticleStatus::SCHEDULED->value && empty($data['scheduled_publishing'])) {
-            throw new \InvalidArgumentException('Scheduled publishing date is required for scheduled articles.');
-        }
-
-        return $status;
-    }
-    private function resolvePublishedAt(array $data): ?\Carbon\Carbon
-    {
-        $status = $data['status'] ?? ArticleStatus::DRAFT->value;
-
-        return match ($status) {
-            ArticleStatus::PUBLISHED->value  => isset($data['published_at'])
-                ? \Carbon\Carbon::parse($data['published_at'])
-                : now(),
-            ArticleStatus::SCHEDULED->value  => null,
-            default => null,
-        };
-    }
-
-    private function resolveFeaturedImage(array $data): ?string
-    {
-        if (empty($data['featured_image']) || !$data['featured_image'] instanceof UploadedFile) {
-            return null;
-        }
-
-        $path = $data['featured_image']->store('articles/featured-images', 'public');
-
-        return Storage::url($path);
-    }
-    private function resolveTags(array $tags): array
-    {
-        $tagIds = [];
-
-        foreach ($tags as $tagName) {
-            $tag = Tag::firstOrCreate(
-                ['tag' => strtolower(trim($tagName))]
-            );
-
-            $tagIds[] = $tag->id;
-        }
-
-        return $tagIds;
-    }
-
 
     public function update(string $slug, array $data): Article
     {
@@ -181,14 +117,14 @@ class ArticleService
             ->firstOrFail();
 
         return DB::transaction(function () use ($article, $data) {
-
             $tags = $data['tags'] ?? null;
             unset($data['tags']);
 
-            $data['slug']           = $this->resolveSlug($data, $article->id);
-            $data['status']         = $this->resolveStatus($data);
-            $data['published_at']   = $this->resolvePublishedAt($data, $article);
-            $data['featured_image'] = $this->resolveFeaturedImage($data, $article);
+            $data['slug']             = $this->resolveSlug($data, $article->id);
+            $data['status']           = $this->resolveStatus($data);
+            $data['published_at']     = $this->resolvePublishedAt($data, $article);
+            $data['featured_image']   = $this->resolveImage($data, 'featured_image', 'articles/featured-images', $article);
+            $data['open_graph_image'] = $this->resolveImage($data, 'open_graph_image', 'articles/og-images', $article);
 
             $old = $article->only([
                 'title',
@@ -196,7 +132,7 @@ class ArticleService
                 'status',
                 'article_category_id',
                 'scheduled_publishing',
-                'published_at'
+                'published_at',
             ]);
 
             $article->update($data);
@@ -228,11 +164,9 @@ class ArticleService
         $article->delete();
     }
 
-
     public function restore(string $slug): Article
     {
         $article = $this->article->withTrashed()->where('slug', $slug)->firstOrFail();
-
         $article->restore();
 
         return $article;
@@ -241,7 +175,6 @@ class ArticleService
     public function forceDelete(string $slug): void
     {
         $article = $this->article->withTrashed()->where('slug', $slug)->firstOrFail();
-
         $article->forceDelete();
     }
 
@@ -280,5 +213,81 @@ class ArticleService
                     'created_at'  => $activity->created_at,
                 ];
             });
+    }
+
+    // =========================================================================
+    // Private Resolvers
+    // =========================================================================
+
+    private function resolveSlug(array $data, ?int $excludeId = null): string
+    {
+        $base  = Str::slug(!empty($data['slug']) ? $data['slug'] : $data['title']);
+        $slug  = $base;
+        $count = 1;
+
+        while (
+            $this->article
+                ->where('slug', $slug)
+                ->when($excludeId, fn($q) => $q->where('id', '!=', $excludeId))
+                ->exists()
+        ) {
+            $slug = "{$base}-{$count}";
+            $count++;
+        }
+
+        return $slug;
+    }
+
+    private function resolveStatus(array $data): string
+    {
+        $status = $data['status'] ?? ArticleStatus::DRAFT->value;
+
+        if ($status === ArticleStatus::SCHEDULED->value && empty($data['scheduled_publishing'])) {
+            throw new \InvalidArgumentException('Scheduled publishing date is required for scheduled articles.');
+        }
+
+        return $status;
+    }
+
+    private function resolvePublishedAt(array $data, ?Article $existing = null): ?\Carbon\Carbon
+    {
+        $status = $data['status'] ?? ArticleStatus::DRAFT->value;
+
+        return match ($status) {
+            ArticleStatus::PUBLISHED->value => isset($data['published_at'])
+                ? \Carbon\Carbon::parse($data['published_at'])
+                : ($existing?->published_at ?? now()),
+            default => null,
+        };
+    }
+
+    private function resolveImage(
+        array $data,
+        string $field,
+        string $storagePath,
+        ?Article $existing = null
+    ): ?string {
+        if (!empty($data[$field]) && $data[$field] instanceof UploadedFile) {
+            if ($existing?->{$field}) {
+                $oldPath = ltrim(
+                    parse_url($existing->{$field}, PHP_URL_PATH),
+                    '/storage/'
+                );
+                Storage::disk('public')->delete($oldPath);
+            }
+
+            $path = $data[$field]->store($storagePath, 'public');
+
+            return Storage::url($path);
+        }
+
+        return $existing?->{$field} ?? null;
+    }
+
+    private function resolveTags(array $tags): array
+    {
+        return collect($tags)
+            ->map(fn($tagName) => Tag::firstOrCreate(['tag' => strtolower(trim($tagName))])->id)
+            ->toArray();
     }
 }
