@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Collection;
+use App\Models\ArticleReadLog;
+use Illuminate\Http\Request;
 
 class ArticleService
 {
@@ -49,6 +51,43 @@ class ArticleService
     public function incrementViews(Article $article): void
     {
         $article->increment('views');
+    }
+
+
+
+
+    public function trackView(Article $article, Request $request): void
+    {
+        DB::transaction(function () use ($article, $request) {
+            ArticleReadLog::create([
+                'article_id' => $article->id,
+                'user_id'    => auth()->id(),
+                'ip_address' => $request->ip(),
+                'read_at'    => now(),
+            ]);
+ 
+            $article->increment('views');
+        });
+    }
+ 
+
+    public function getMostRead(bool $unique = false, int $limit = 10): Collection
+    {
+        $countExpr = $unique
+            ? 'COUNT(DISTINCT COALESCE(arl.user_id, arl.ip_address)) as read_count'
+            : 'COUNT(arl.id) as read_count';
+ 
+        return $this->article
+            ->select('articles.*')
+            ->selectRaw($countExpr)
+            ->join('article_read_logs as arl', 'articles.id', '=', 'arl.article_id')
+            ->where('arl.read_at', '>=', now()->subHours(24))
+            ->where('articles.status', ArticleStatus::PUBLISHED->value)
+            ->groupBy('articles.id')
+            ->orderByDesc('read_count')
+            ->with(['tags', 'category', 'user'])
+            ->limit($limit)
+            ->get();
     }
 
     public function getLatestArticle(): Article

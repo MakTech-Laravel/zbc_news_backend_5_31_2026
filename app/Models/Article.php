@@ -57,5 +57,10 @@ class Article extends Model
     {
         return $this->hasMany(SaveArticle::class, 'article_id');
     }
+
+    public function readLogs()
+    {
+        return $this->hasMany(ArticleReadLog::class, 'article_id');
+    }
 }
 
