@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\ArticleStatus;
 use App\Models\Article;
 use App\Models\Tag;
+use Spatie\Activitylog\Models\Activity;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -246,5 +247,30 @@ class ArticleService
             ->where('status', ArticleStatus::PUBLISHED->value)
             ->latest('published_at')
             ->get();
+    }
+
+    public function getActivities(string $slug)
+    {
+        $article = Article::where('slug', $slug)->firstOrFail();
+
+        return Activity::query()
+            ->where('subject_type', Article::class)
+            ->where('subject_id', $article->id)
+            ->with(['causer'])
+            ->latest()
+            ->get()
+            ->map(function ($activity) {
+                return [
+                    'id'          => $activity->id,
+                    'description' => $activity->description,
+                    'event'       => $activity->event,
+                    'causer'      => $activity->causer?->name,
+                    'old'         => $activity->properties['old'] ?? null,
+                    'new'         => $activity->properties['new'] ?? null,
+                    'tags'        => $activity->properties['tags'] ?? null,
+                    'ip_address'  => $activity->properties['ip_address'] ?? null,
+                    'created_at'  => $activity->created_at,
+                ];
+            });
     }
 }

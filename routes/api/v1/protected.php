@@ -52,6 +52,7 @@ Route::controller(ArticleController::class)->prefix('articles')->group(function 
     Route::delete('/delete/{slug}', 'destroy')->name('api.v1.articles.destroy');
     Route::post('/restore/{slug}', 'restore')->name('api.v1.articles.restore');
     Route::delete('/force/{slug}', 'forceDelete')->name('api.v1.articles.forceDelete');
+    Route::get('/{slug}/activities', 'activities')->name('api.v1.articles.activities');
 });
 
 Route::controller(TagController::class)->prefix('tags')->group(function () {
