@@ -27,6 +27,14 @@ class ArticleService
     {
         return $this->article->with(['tags', 'category', 'user'])->get();
     }
+    public function getTrashedArticles()
+    {
+        return $this->article
+            ->with(['tags', 'category', 'user'])
+            ->onlyTrashed()
+            ->latest('deleted_at')
+            ->get();
+    }
 
     public function getBySlug(string $slug): Article
     {

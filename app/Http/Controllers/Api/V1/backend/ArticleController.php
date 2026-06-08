@@ -28,6 +28,18 @@ class ArticleController extends Controller
         );
     }
 
+    public function trashed()
+    {
+        $articles = $this->articleService->getTrashedArticles();
+
+        return sendResponse(
+            true,
+            'Trashed articles retrieved successfully',
+            ArticleResource::collection($articles),
+            HttpStatus::HTTP_OK,
+        );
+    }
+
     public function store(ArticleRequest $request)
     {
         $data = $request->validated();
