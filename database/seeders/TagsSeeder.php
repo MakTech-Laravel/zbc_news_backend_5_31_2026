@@ -29,7 +29,7 @@ class TagsSeeder extends Seeder
 
         foreach ($tags as $tag) {
             Tag::create([
-                'name' => $tag,
+                'tag' => $tag,
             ]);
         }
     }
