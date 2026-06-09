@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\backend\CategoryController;
 use App\Http\Controllers\Api\V1\backend\MembershipPlanController;
 use App\Http\Controllers\Api\V1\backend\NotificationPreferenceController;
+use App\Http\Controllers\Api\V1\backend\PermissionController;
 use App\Http\Controllers\Api\V1\backend\RoleController;
 use App\Http\Controllers\Api\V1\backend\UserController;
 use App\Http\Controllers\Api\V1\backend\SaveArticleController;
@@ -91,4 +92,8 @@ Route::controller(MembershipPlanController::class)->prefix('plans')->group(funct
 Route::controller(NotificationPreferenceController::class)->prefix('notification-preferences')->group(function () {
     Route::get('/', 'show')->name('api.v1.notification-preferences.show');
     Route::put('/update', 'update')->name('api.v1.notification-preferences.update');
+});
+
+Route::controller(PermissionController::class)->prefix('permissions')->group(function () {
+    Route::get('/', 'index')->name('api.v1.permissions.index');
 });
