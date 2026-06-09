@@ -13,14 +13,16 @@ class ArticleResource extends JsonResource
             'id' => $this->id,
             'title' => $this->title,
             'slug' => $this->slug,
-            'seo_title' => $this->seo_title,
+            'meta_title' => $this->meta_title,
+            'meta_description' => $this->meta_description,
             'sub_title' => $this->sub_title,
             'excerpt' => $this->excerpt,
             'article_description' => $this->article_description,
 
             'status' => $this->status?->value ?? $this->status,
-
+            'visibility' => $this->visibility?->value ?? $this->visibility,
             'featured_image' => $this->featured_image,
+            'open_graph_image' => $this->open_graph_image,
 
             'scheduled_publishing' => $this->scheduled_publishing,
             'published_at' => $this->published_at,
