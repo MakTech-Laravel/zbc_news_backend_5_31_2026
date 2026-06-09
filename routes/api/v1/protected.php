@@ -97,3 +97,14 @@ Route::controller(NotificationPreferenceController::class)->prefix('notification
 Route::controller(PermissionController::class)->prefix('permissions')->group(function () {
     Route::get('/', 'index')->name('api.v1.permissions.index');
 });
+
+Route::controller(UserController::class)->prefix('users')->group(function () {
+    Route::get('/', 'index')->name('api.v1.users.index');
+    // Route::get('/trashed', 'trashed')->name('api.v1.plans.trashed');
+    Route::post('/store', 'store')->name('api.v1.plans.store');
+    Route::get('/show/{id}', 'show')->name('api.v1.plans.show');
+    Route::post('/update/{id}', 'update')->name('api.v1.plans.update');
+    Route::delete('/delete/{id}', 'destroy')->name('api.v1.plans.destroy');
+    // Route::post('/restore/{id}', 'restore')->name('api.v1.plans.restore');
+    // Route::delete('/force/{id}', 'forceDelete')->name('api.v1.plans.forceDelete');
+});

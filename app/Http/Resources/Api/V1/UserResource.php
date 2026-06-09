@@ -21,8 +21,9 @@ class UserResource extends JsonResource
             'email_verified_at' => $this->email_verified_at,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
-            'roles' => $this->roles,
-            'permissions' => $this->permissions,
+            'avatar' => $this->avatar ? asset('storage/' . $this->avatar) : null,
+            'roles' => $this->getRoleNames(),
+            'permissions' => $this->getAllPermissions(),
         ];
     }
 }
