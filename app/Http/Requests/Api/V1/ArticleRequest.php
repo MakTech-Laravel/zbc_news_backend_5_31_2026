@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1;
 
 use App\Enums\ArticleStatus;
+use App\Enums\ArticleVisibility;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -36,23 +37,20 @@ class ArticleRequest extends FormRequest
         return [
             'title'                 => ['required', 'string', 'max:255'],
             'slug'  => [
-            $isUpdate ? 'nullable' : 'required',
-            'string',
-            'max:255',
-            Rule::unique('articles', 'slug')->ignore($articleId),
-        ],
-            // 'slug'                  => [
-            //     'nullable',
-            //     'string',
-            //     'max:255',
-            //     Rule::unique('articles', 'slug')->ignore($articleId),
-            // ],
-            'seo_title'             => ['required', 'string', 'max:255'],
+                $isUpdate ? 'nullable' : 'required',
+                'string',
+                'max:255',
+                Rule::unique('articles', 'slug')->ignore($articleId),
+            ],
+            'meta_title'             => ['required', 'string', 'max:255'],
+            'meta_description'      => ['nullable', 'string'],
             'sub_title'             => ['nullable', 'string', 'max:255'],
             'article_description'   => ['required', 'string'],
             'excerpt'               => ['nullable', 'string'],
             'status'                => ['nullable', new Enum(ArticleStatus::class)],
+            'visibility'                => ['nullable', new Enum(ArticleVisibility::class)],
             'featured_image'        => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048', 'sometimes'],
+            'open_graph_image'        => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048', 'sometimes'],
             'article_category_id'   => ['required', 'integer', 'exists:article_categories,id'],
             'scheduled_publishing' => [
                 Rule::requiredIf(fn() => $this->input('status') === ArticleStatus::SCHEDULED->value),

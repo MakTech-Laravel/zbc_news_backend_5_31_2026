@@ -46,12 +46,14 @@ Route::controller(UserController::class)->prefix('users')->group(function () {
 });
 Route::controller(ArticleController::class)->prefix('articles')->group(function () {
     Route::get('/', 'index')->name('api.v1.articles.index');
+    Route::get('/trashed', 'trashed')->name('api.v1.articles.trashed');
     Route::post('/store', 'store')->name('api.v1.articles.store');
     Route::get('/show/{slug}', 'show')->name('api.v1.articles.show');
     Route::post('/update/{slug}', 'update')->name('api.v1.articles.update');
     Route::delete('/delete/{slug}', 'destroy')->name('api.v1.articles.destroy');
     Route::post('/restore/{slug}', 'restore')->name('api.v1.articles.restore');
     Route::delete('/force/{slug}', 'forceDelete')->name('api.v1.articles.forceDelete');
+    Route::get('/{slug}/activities', 'activities')->name('api.v1.articles.activities');
 });
 
 Route::controller(TagController::class)->prefix('tags')->group(function () {

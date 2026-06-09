@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ArticleStatus;
+use App\Enums\ArticleVisibility;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -13,12 +14,15 @@ class Article extends Model
         'id',
         'title',
         'slug',
-        'seo_title',
         'sub_title',
         'article_description',
+        'meta_title',
+        'meta_description',
         'status',
         'featured_image',
+        'open_graph_image',
         'article_category_id',
+        'visibility',
         'excerpt',
         'scheduled_publishing',
         'published_at',
@@ -28,6 +32,7 @@ class Article extends Model
     
     protected $casts = [
         'status' => ArticleStatus::class,
+        'visibility' => ArticleVisibility::class,
         'scheduled_publishing' => 'datetime',
         'published_at' => 'datetime',
         'views' => 'integer',
@@ -51,6 +56,11 @@ class Article extends Model
     public function saveArticles()
     {
         return $this->hasMany(SaveArticle::class, 'article_id');
+    }
+
+    public function readLogs()
+    {
+        return $this->hasMany(ArticleReadLog::class, 'article_id');
     }
 }
 
