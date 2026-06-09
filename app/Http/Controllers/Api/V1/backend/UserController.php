@@ -94,4 +94,28 @@ class UserController extends Controller
             HttpStatus::HTTP_OK,
         );
     }
+
+    public function show($id): JsonResponse
+    {
+        $user = $this->userService->getUserById($id);
+
+        return sendResponse(
+            true,
+            'User retrieved successfully',
+            new UserResource($user),
+            HttpStatus::HTTP_OK,
+        );
+    }
+
+    public function destroy($id): JsonResponse
+    {
+        $this->userService->deleteUser($id);
+
+        return sendResponse(
+            true,
+            'User deleted successfully',
+            null,
+            HttpStatus::HTTP_OK,
+        );
+    }
 }

@@ -79,8 +79,15 @@ class UserService
         return $user->fresh();
     }
 
-    public function deleteUser($id)
+    public function deleteUser($id): bool
     {
-        return $this->user->find($id)->delete();
+        $user = $this->user->findOrFail($id);
+
+        if ($user->avatar && Storage::disk('public')->exists($user->avatar)) {
+            Storage::disk('public')->delete($user->avatar);
+        }
+        $user->syncRoles([]);
+
+        return $user->delete();
     }
 }
