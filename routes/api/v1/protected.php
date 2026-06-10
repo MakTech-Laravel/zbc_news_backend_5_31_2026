@@ -68,9 +68,8 @@ Route::controller(TagController::class)->prefix('tags')->group(function () {
 });
 
 Route::controller(SaveArticleController::class)->prefix('save-articles')->group(function () {
-    Route::get('/', 'index')->name('api.v1.save-articles.index');
-    Route::post('/store', 'store')->name('api.v1.save-articles.store');
-    Route::delete('/delete/{id}', 'destroy')->name('api.v1.save-articles.destroy');
+    Route::get('/',        'index') ->name('api.v1.save-articles.index');
+    Route::post('/toggle', 'toggle')->name('api.v1.save-articles.toggle');
 });
 
 Route::controller(SiteSettingsController::class)->prefix('site-settings')->group(function () {
@@ -105,6 +104,7 @@ Route::controller(UserController::class)->prefix('users')->group(function () {
     Route::get('/show/{id}', 'show')->name('api.v1.plans.show');
     Route::post('/update/{id}', 'update')->name('api.v1.plans.update');
     Route::delete('/delete/{id}', 'destroy')->name('api.v1.plans.destroy');
+    Route::get('/{userId}/article-activities', 'articleActivities')->name('api.v1.users.article-activities');
     // Route::post('/restore/{id}', 'restore')->name('api.v1.plans.restore');
     // Route::delete('/force/{id}', 'forceDelete')->name('api.v1.plans.forceDelete');
 });

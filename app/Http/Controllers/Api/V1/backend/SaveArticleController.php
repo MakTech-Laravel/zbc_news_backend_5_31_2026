@@ -18,36 +18,40 @@ class SaveArticleController extends Controller
     public function index()
     {
         $saveArticles = $this->saveArticleService->getAll();
+
         return sendResponse(
             true,
             'Save articles retrieved successfully',
             SaveArticleResource::collection($saveArticles),
-            HttpStatus::HTTP_OK,
+            HttpStatus::HTTP_OK
         );
     }
 
-    public function store(SaveArticleRequest $request)
+    public function toggle(SaveArticleRequest $request)
     {
-        $saveArticle = $this->saveArticleService->create($request->article_id);
+        $result = $this->saveArticleService->toggle(
+            $request->article_id
+        );
+
         return sendResponse(
             true,
-            'Save article created successfully',
-            new SaveArticleResource($saveArticle),
-            HttpStatus::HTTP_CREATED,
+            $result['message'],
+            [
+                'saved' => $result['saved'],
+            ],
+            HttpStatus::HTTP_OK
         );
     }
 
-    public function destroy(string $id)
+    public function checkSaved(int $articleId)
     {
-        $result = $this->saveArticleService->delete($id);
-
         return sendResponse(
-            $result['success'],
-            $result['message'],
-            null,
-            $result['success']
-                ? HttpStatus::HTTP_OK
-                : HttpStatus::HTTP_NOT_FOUND
+            true,
+            'Status retrieved successfully',
+            [
+                'saved' => $this->saveArticleService->isSaved($articleId),
+            ],
+            HttpStatus::HTTP_OK
         );
     }
 }

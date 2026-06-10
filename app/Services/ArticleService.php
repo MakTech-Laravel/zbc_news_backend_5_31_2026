@@ -65,18 +65,18 @@ class ArticleService
                 'ip_address' => $request->ip(),
                 'read_at'    => now(),
             ]);
- 
+
             $article->increment('views');
         });
     }
- 
+
 
     public function getMostRead(bool $unique = false, int $limit = 10): Collection
     {
         $countExpr = $unique
             ? 'COUNT(DISTINCT COALESCE(arl.user_id, arl.ip_address)) as read_count'
             : 'COUNT(arl.id) as read_count';
- 
+
         return $this->article
             ->select('articles.*')
             ->selectRaw($countExpr)
@@ -200,20 +200,64 @@ class ArticleService
     public function delete(string $slug): void
     {
         $article = $this->article->where('slug', $slug)->firstOrFail();
+
+        activity()
+            ->performedOn($article)
+            ->causedBy(auth()->user())
+            ->withProperties([
+                'article_title' => $article->title,
+                'article_slug'  => $article->slug,
+                'status'        => $article->status,
+                'ip_address'    => request()->ip(),
+                'user_agent'    => request()->userAgent(),
+            ])
+            ->log('Article deleted');
+
         $article->delete();
     }
 
     public function restore(string $slug): Article
     {
-        $article = $this->article->withTrashed()->where('slug', $slug)->firstOrFail();
+        $article = $this->article
+            ->withTrashed()
+            ->where('slug', $slug)
+            ->firstOrFail();
+
         $article->restore();
+
+        activity()
+            ->performedOn($article)
+            ->causedBy(auth()->user())
+            ->withProperties([
+                'article_title' => $article->title,
+                'article_slug'  => $article->slug,
+                'status'        => $article->status,
+                'ip_address'    => request()->ip(),
+                'user_agent'    => request()->userAgent(),
+            ])
+            ->log('Article restored');
 
         return $article;
     }
 
     public function forceDelete(string $slug): void
     {
-        $article = $this->article->withTrashed()->where('slug', $slug)->firstOrFail();
+        $article = $this->article
+            ->withTrashed()
+            ->where('slug', $slug)
+            ->firstOrFail();
+
+        activity()
+            ->performedOn($article)
+            ->causedBy(auth()->user())
+            ->withProperties([
+                'article_title' => $article->title,
+                'article_slug'  => $article->slug,
+                'ip_address'    => request()->ip(),
+                'user_agent'    => request()->userAgent(),
+            ])
+            ->log('Article permanently deleted');
+
         $article->forceDelete();
     }
 
@@ -266,9 +310,9 @@ class ArticleService
 
         while (
             $this->article
-                ->where('slug', $slug)
-                ->when($excludeId, fn($q) => $q->where('id', '!=', $excludeId))
-                ->exists()
+            ->where('slug', $slug)
+            ->when($excludeId, fn($q) => $q->where('id', '!=', $excludeId))
+            ->exists()
         ) {
             $slug = "{$base}-{$count}";
             $count++;

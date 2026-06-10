@@ -6,6 +6,9 @@ use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Spatie\Activitylog\Models\Activity;
+use App\Models\Article;
+
 
 class UserService
 {
@@ -13,7 +16,9 @@ class UserService
      * Create a new class instance.
      */
     public function __construct(
-        private readonly User $user
+        private readonly User $user,
+        private readonly Activity $activity,
+        private readonly Article $article
     ) {}
 
     public function getAllUsers()
@@ -79,15 +84,53 @@ class UserService
         return $user->fresh();
     }
 
+    // UserService.php
+
     public function deleteUser($id): bool
     {
         $user = $this->user->findOrFail($id);
 
+        if (auth()->id() === $user->id) {
+            throw new \Exception('You cannot delete your own account.', 403);
+        }
+
+        if ($user->hasRole('super_admin')) {
+            $superAdminCount = $this->user->role('super_admin')->count();
+
+            if ($superAdminCount <= 1) {
+                throw new \Exception('At least one super admin must remain in the system.', 403);
+            }
+        }
+
         if ($user->avatar && Storage::disk('public')->exists($user->avatar)) {
             Storage::disk('public')->delete($user->avatar);
         }
+
         $user->syncRoles([]);
 
         return $user->delete();
+    }
+
+    public function getUserArticleActivities(int $userId)
+    {
+        return $this->activity->query()
+            ->where('causer_type', User::class)
+            ->where('causer_id', $userId)
+            ->where('subject_type', $this->article::class)
+            ->with(['subject'])
+            ->latest()
+            ->get()
+            ->map(function ($activity) {
+                return [
+                    'id' => $activity->id,
+                    'article_id' => $activity->subject?->id,
+                    'article_title' => $activity->subject?->title,
+                    'description' => $activity->description,
+                    'event' => $activity->event,
+                    'old' => $activity->properties['old'] ?? null,
+                    'new' => $activity->properties['new'] ?? null,
+                    'created_at' => $activity->created_at,
+                ];
+            });
     }
 }
