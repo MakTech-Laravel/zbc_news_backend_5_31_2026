@@ -68,9 +68,8 @@ Route::controller(TagController::class)->prefix('tags')->group(function () {
 });
 
 Route::controller(SaveArticleController::class)->prefix('save-articles')->group(function () {
-    Route::get('/', 'index')->name('api.v1.save-articles.index');
-    Route::post('/store', 'store')->name('api.v1.save-articles.store');
-    Route::delete('/delete/{id}', 'destroy')->name('api.v1.save-articles.destroy');
+    Route::get('/',        'index') ->name('api.v1.save-articles.index');
+    Route::post('/toggle', 'toggle')->name('api.v1.save-articles.toggle');
 });
 
 Route::controller(SiteSettingsController::class)->prefix('site-settings')->group(function () {
