@@ -79,13 +79,28 @@ class UserService
         return $user->fresh();
     }
 
+    // UserService.php
+
     public function deleteUser($id): bool
     {
         $user = $this->user->findOrFail($id);
 
+        if (auth()->id() === $user->id) {
+            throw new \Exception('You cannot delete your own account.', 403);
+        }
+        
+        if ($user->hasRole('super_admin')) {
+            $superAdminCount = $this->user->role('super_admin')->count();
+
+            if ($superAdminCount <= 1) {
+                throw new \Exception('At least one super admin must remain in the system.', 403);
+            }
+        }
+
         if ($user->avatar && Storage::disk('public')->exists($user->avatar)) {
             Storage::disk('public')->delete($user->avatar);
         }
+
         $user->syncRoles([]);
 
         return $user->delete();

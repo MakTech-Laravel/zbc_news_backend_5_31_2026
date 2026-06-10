@@ -109,13 +109,22 @@ class UserController extends Controller
 
     public function destroy($id): JsonResponse
     {
-        $this->userService->deleteUser($id);
+        try {
+            $this->userService->deleteUser($id);
 
-        return sendResponse(
-            true,
-            'User deleted successfully',
-            null,
-            HttpStatus::HTTP_OK,
-        );
+            return sendResponse(
+                true,
+                'User deleted successfully',
+                null,
+                HttpStatus::HTTP_OK,
+            );
+        } catch (\Exception $e) {
+            return sendResponse(
+                false,
+                $e->getMessage(),
+                null,
+                $e->getCode() ?: HttpStatus::HTTP_FORBIDDEN,
+            );
+        }
     }
 }
