@@ -127,4 +127,16 @@ class UserController extends Controller
             );
         }
     }
+
+    public function articleActivities(int $userId)
+    {
+        $activities = $this->userService->getUserArticleActivities($userId);
+
+        return sendResponse(
+            true,
+            'User article activities retrieved successfully',
+            $activities,
+            HttpStatus::HTTP_OK,
+        );
+    }
 }

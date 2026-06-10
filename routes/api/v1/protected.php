@@ -105,6 +105,7 @@ Route::controller(UserController::class)->prefix('users')->group(function () {
     Route::get('/show/{id}', 'show')->name('api.v1.plans.show');
     Route::post('/update/{id}', 'update')->name('api.v1.plans.update');
     Route::delete('/delete/{id}', 'destroy')->name('api.v1.plans.destroy');
+    Route::get('/{userId}/article-activities', 'articleActivities')->name('api.v1.users.article-activities');
     // Route::post('/restore/{id}', 'restore')->name('api.v1.plans.restore');
     // Route::delete('/force/{id}', 'forceDelete')->name('api.v1.plans.forceDelete');
 });
