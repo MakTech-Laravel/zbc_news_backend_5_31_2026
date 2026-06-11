@@ -59,6 +59,7 @@ class AuthenticableController extends Model
         $user = User::where('email', $request->email)->first();
 
         $user->load(['roles', 'permissions']);
+
         if ($user->two_factor_secret && $user->two_factor_confirmed_at) {
             $attemptToken = Str::random(60);
             session()->put($attemptToken, ['user_id' => $user->id, 'expires_at' => now()->addMinutes(5)]);
