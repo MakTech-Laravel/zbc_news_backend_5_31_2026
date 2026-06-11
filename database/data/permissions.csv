@@ -4,3 +4,4 @@ users.show,api,Users
 users.edit,api,Users
 user.update,api,Users
 user.delete,api,Users
+user.list,api,Users
