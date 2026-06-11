@@ -1,6 +1,4 @@
 <?php
-// app/Services/ArticleTrackingService.php
-
 namespace App\Services;
 
 use App\Models\Article;
@@ -153,7 +151,9 @@ class ArticleTrackingService
 
     public function getUserReadingAnalytics(int $userId): array
     {
-        $base = ArticleHistroy::where('user_id', $userId)->where('is_guest', false);
+        $base = ArticleHistroy::query()
+            ->where('article_histroys.user_id', $userId)
+            ->where('article_histroys.is_guest', false);
 
         // ── Stats Cards ──────────────────────────────
         $thisWeekStart = now()->startOfWeek();
@@ -193,10 +193,10 @@ class ArticleTrackingService
 
         // ── Reading by Category ───────────────────────
         $byCategory = (clone $base)
-            ->join('articles', 'article_histroy.article_id', '=', 'articles.id')
-            ->join('article_category', 'articles.article_category_id', '=', 'article_category.id') // ✅
-            ->selectRaw('article_category.title as category, COUNT(*) as count')
-            ->groupBy('article_category.title')
+            ->join('articles', 'article_histroys.article_id', '=', 'articles.id')
+            ->join('article_categories', 'articles.article_category_id', '=', 'article_categories.id')
+            ->selectRaw('article_categories.title as category, COUNT(*) as count')
+            ->groupBy('article_categories.title')
             ->orderByDesc('count')
             ->get();
 
@@ -223,17 +223,17 @@ class ArticleTrackingService
 
         // ── Most Engaged Articles ─────────────────────
         $mostEngaged = (clone $base)
-            ->join('articles', 'article_histroy.article_id', '=', 'articles.id')
-            ->join('article_category', 'articles.article_category_id', '=', 'article_category.id') // ✅
+            ->join('articles', 'article_histroys.article_id', '=', 'articles.id')
+            ->join('article_categories', 'articles.article_category_id', '=', 'article_categories.id')
             ->select(
                 'articles.title',
                 'articles.slug',
-                'article_category.title as category', // ✅
-                'article_histroy.scroll_depth',
-                'article_histroy.time_spent',
-                'article_histroy.read_at',
+                'article_categories.title as category',
+                'article_histroys.scroll_depth',
+                'article_histroys.time_spent',
+                'article_histroys.read_at',
             )
-            ->orderByDesc('article_histroy.scroll_depth')
+            ->orderByDesc('article_histroys.scroll_depth')
             ->take(5)
             ->get()
             ->map(fn($item) => [
