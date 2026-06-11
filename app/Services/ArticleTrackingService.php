@@ -11,21 +11,19 @@ use Illuminate\Support\Facades\Log;
 
 class ArticleTrackingService
 {
-    /**
-     * Article read track main entry point
-     */
     public function track(Request $request, array $data): array
     {
-        $isGuest = !auth('api')->check();
-        $userId  = $isGuest ? null : auth('api')->id();
+        $userId  = auth('api')->check()
+            ? auth('api')->id()
+            : ($data['user_id'] ?? null);
+
+        $isGuest = is_null($userId);
 
         try {
             DB::transaction(function () use ($data, $request, $isGuest, $userId) {
 
                 $alreadyTracked = $this->isSessionAlreadyTracked($data['session_id']);
-                if ($alreadyTracked) {
-                    return;
-                }
+                if ($alreadyTracked) return;
 
                 $isFirstView = $this->isFirstView(
                     articleId: $data['article_id'],

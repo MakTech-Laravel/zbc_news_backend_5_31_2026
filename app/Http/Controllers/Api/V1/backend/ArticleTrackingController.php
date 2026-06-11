@@ -20,58 +20,22 @@ class ArticleTrackingController extends Controller
      * POST /api/articles/track-read
      * Guest + Auth  hit 
      */
-    // public function track(TrackArticleRequest $request): JsonResponse
-    // {
-    //     Log::info('Track request received', $request->validated());
-
-    //     $result = $this->trackingService->track(
-    //         request: $request,
-    //         data:    $request->validated()
-    //     );
-    //     Log::info('Track result', $result);
-    //     return sendResponse(
-    //         true,
-    //         'Article tracked successfully',
-    //         $result,
-    //         HttpStatus::HTTP_OK,
-    //     );
-    // }
-
-
     public function track(TrackArticleRequest $request): JsonResponse
     {
-        Log::info('Article Tracking Request', [
-            'user_id'      => $request->input('user_id'),
-            'article_id'   => $request->input('article_id'),
-            'session_id'   => $request->input('session_id'),
-            'time_spent'   => $request->input('time_spent'),
-            'scroll_depth' => $request->input('scroll_depth'),
-
-            // Extra Debug Information
-            'ip_address'   => $request->ip(),
-            'user_agent'   => $request->userAgent(),
-
-            // Full Request Payload
-            'payload'      => $request->all(),
-        ]);
+        Log::info('Track request received', $request->validated());
 
         $result = $this->trackingService->track(
             request: $request,
-            data: $request->validated()
+            data:    $request->validated()
         );
-
-        Log::info('Article Tracking Result', [
-            'result' => $result,
-        ]);
-
+        Log::info('Track result', $result);
         return sendResponse(
             true,
             'Article tracked successfully',
             $result,
-            HttpStatus::HTTP_OK
+            HttpStatus::HTTP_OK,
         );
     }
-
     /**
      * GET /api/articles/{id}/stats
      * Admin/Editor can see
