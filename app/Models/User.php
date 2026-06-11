@@ -73,4 +73,9 @@ class User extends Authenticatable
     {
         return $this->hasOne(UserInformation::class, 'user_id');
     }
+    
+    public function histroy()
+    {
+        return $this->hasMany(ArticleHistroy::class, 'user_id');
+    }
 }
