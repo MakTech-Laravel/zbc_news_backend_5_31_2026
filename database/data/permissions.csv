@@ -1,7 +1,55 @@
 name,guard_name,group_name
+categories.list,api,Categories
+categories.create,api,Categories
+categories.show,api,Categories
+categories.update,api,Categories
+categories.delete,api,Categories
+categories.restore,api,Categories
+categories.force-delete,api,Categories
+roles.list,api,Roles
+roles.create,api,Roles
+roles.show,api,Roles
+roles.update,api,Roles
+roles.delete,api,Roles
+roles.restore,api,Roles
+roles.force-delete,api,Roles
+articles.list,api,Articles
+articles.trashed,api,Articles
+articles.create,api,Articles
+articles.show,api,Articles
+articles.update,api,Articles
+articles.delete,api,Articles
+articles.restore,api,Articles
+articles.force-delete,api,Articles
+articles.activities,api,Articles
+tags.list,api,Tags
+tags.create,api,Tags
+tags.show,api,Tags
+tags.update,api,Tags
+tags.delete,api,Tags
+tags.restore,api,Tags
+tags.force-delete,api,Tags
+save-articles.list,api,Save Articles
+save-articles.toggle,api,Save Articles
+site-settings.list,api,Site Settings
+site-settings.update,api,Site Settings
+plans.list,api,Membership Plans
+plans.trashed,api,Membership Plans
+plans.create,api,Membership Plans
+plans.show,api,Membership Plans
+plans.update,api,Membership Plans
+plans.delete,api,Membership Plans
+plans.restore,api,Membership Plans
+plans.force-delete,api,Membership Plans
+notification-preferences.show,api,Notification Preferences
+notification-preferences.update,api,Notification Preferences
+permissions.list,api,Permissions
+users.list,api,Users
 users.create,api,Users
+users.profile,api,Users
+users.profile-update,api,Users
 users.show,api,Users
-users.edit,api,Users
-user.update,api,Users
-user.delete,api,Users
-user.list,api,Users
+users.update,api,Users
+users.delete,api,Users
+users.article-activities,api,Users
+users.two-factor-enable,api,Users
