@@ -31,7 +31,6 @@ class User extends Authenticatable
         'email',
         'email_verified_at',
         'password',
-        'avatar',
         'remember_token',
         'created_at',
         'updated_at',
@@ -68,5 +67,10 @@ class User extends Authenticatable
     public function readLogs()
     {
         return $this->hasMany(ArticleReadLog::class, 'user_id');
+    }
+
+    public function userInformation()
+    {
+        return $this->hasOne(UserInformation::class, 'user_id');
     }
 }

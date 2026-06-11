@@ -6,5 +6,15 @@ use Illuminate\Database\Eloquent\Model;
 
 class UserInformation extends Model
 {
-    //
+    protected $fillable = [
+        'user_id',
+        'profile_image',
+        'region',
+        'bio',
+    ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
 }
