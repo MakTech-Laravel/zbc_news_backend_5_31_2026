@@ -68,7 +68,7 @@ Route::controller(TagController::class)->prefix('tags')->group(function () {
 });
 
 Route::controller(SaveArticleController::class)->prefix('save-articles')->group(function () {
-    Route::get('/',        'index') ->name('api.v1.save-articles.index');
+    Route::get('/',        'index')->name('api.v1.save-articles.index');
     Route::post('/toggle', 'toggle')->name('api.v1.save-articles.toggle');
 });
 
@@ -100,6 +100,11 @@ Route::controller(PermissionController::class)->prefix('permissions')->group(fun
 Route::controller(UserController::class)->prefix('users')->group(function () {
     Route::get('/', 'index')->name('api.v1.users.index');
     // Route::get('/trashed', 'trashed')->name('api.v1.plans.trashed');
+    Route::post('/store', 'store')->name('api.v1.plans.store');
+
+    Route::get('/profile', 'profile')->name('api.v1.users.profile');
+    Route::put('/profile/update', 'profileUpdate')->name('api.v1.users.profile-update');
+
     Route::post('/store', 'store')->name('api.v1.plans.store')->middleware('permission:user.create');
     Route::get('/show/{id}', 'show')->name('api.v1.plans.show');
     Route::post('/update/{id}', 'update')->name('api.v1.plans.update');

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\backend;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\v1\ProfileUpdateRequest;
 use App\Http\Requests\Api\v1\UserRequest;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Models\User;
@@ -63,10 +64,6 @@ class UserController extends Controller
     public function store(UserRequest $request)
     {
         $data = $request->validated();
-
-        if ($request->hasFile('avatar')) {
-            $data['avatar'] = $request->file('avatar');
-        }
         $user = $this->userService->create($data);
 
         return sendResponse(
@@ -81,8 +78,8 @@ class UserController extends Controller
     {
         $data = $request->validated();
 
-        if ($request->hasFile('avatar')) {
-            $data['avatar'] = $request->file('avatar');
+        if ($request->hasFile('profile_image')) {
+            $data['profile_image'] = $request->file('profile_image');
         }
 
         $user = $this->userService->updateUser($id, $data);
@@ -136,6 +133,34 @@ class UserController extends Controller
             true,
             'User article activities retrieved successfully',
             $activities,
+            HttpStatus::HTTP_OK,
+        );
+    }
+
+
+
+
+    public function profile(Request $request): JsonResponse
+    {
+        $user = $request->user()->load('userInformation');
+
+        return sendResponse(
+            true,
+            'User retrieved successfully',
+            new UserResource($user),
+            HttpStatus::HTTP_OK,
+        );
+    }
+
+    public function profileUpdate(ProfileUpdateRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+        $user = $this->userService->updateUser($request->user()->id, $data);
+        
+        return sendResponse(
+            true,
+            'User updated successfully',
+            new UserResource($user),
             HttpStatus::HTTP_OK,
         );
     }

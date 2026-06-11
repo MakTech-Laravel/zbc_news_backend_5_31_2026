@@ -8,7 +8,8 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\Models\Activity;
 use App\Models\Article;
-
+use App\Models\UserInformation;
+use Illuminate\Support\Arr;
 
 class UserService
 {
@@ -18,73 +19,81 @@ class UserService
     public function __construct(
         private readonly User $user,
         private readonly Activity $activity,
-        private readonly Article $article
+        private readonly Article $article,
+        private readonly UserInformation $userInformation
     ) {}
 
     public function getAllUsers()
     {
-        return $this->user->latest()->get();
+        return $this->user->with('userInformation')->latest()->get();
     }
 
     public function getUserById($id)
     {
-        return $this->user->find($id);
+        return $this->user->with('userInformation')->find($id);
     }
 
     public function create(array $data)
     {
 
-        $avatarPath = null;
-        if (isset($data['avatar']) && $data['avatar'] instanceof UploadedFile) {
-            $avatarPath = $data['avatar']->store('avatars', 'public');
-        }
 
         $user = $this->user->create([
             'name' => $data['name'],
             'email' => $data['email'],
             'password' => bcrypt($data['password']),
-            'avatar' => $avatarPath,
         ]);
 
         if (isset($data['role'])) {
             $user->assignRole($data['role']);
         }
 
-        return $user;
+        $this->userInformation->create([
+            'user_id' => $user->id,
+            'profile_image' => isset($data['profile_image']) && $data['profile_image'] instanceof UploadedFile
+                ? $data['profile_image']->store('user_profiles', 'public')
+                : null,
+            'bio'    => $data['bio'] ?? null,
+            'region' => $data['region'] ?? null,
+        ]);
+
+        return $user->load('userInformation');
     }
 
     public function updateUser($id, array $data): User
     {
         $user = $this->user->findOrFail($id);
 
-        // Avatar handle
-        if (isset($data['avatar']) && $data['avatar'] instanceof UploadedFile) {
-            if ($user->avatar && Storage::disk('public')->exists($user->avatar)) {
-                Storage::disk('public')->delete($user->avatar);
-            }
-            $data['avatar'] = $data['avatar']->store('avatars', 'public');
-        } else {
-            unset($data['avatar']);
-        }
-
-        // Password handle
-        if (isset($data['password'])) {
+        if (!empty($data['password'])) {
             $data['password'] = Hash::make($data['password']);
         } else {
             unset($data['password']);
         }
 
-        $user->update($data);
+        $user->update(Arr::only($data, ['name', 'email', 'password']));
 
-        // Role update
         if (isset($data['role'])) {
             $user->syncRoles([$data['role']]);
         }
 
-        return $user->fresh();
-    }
+        if (isset($data['profile_image']) && $data['profile_image'] instanceof UploadedFile) {
+            $existingImage = $user->userInformation?->profile_image;
+            if ($existingImage && Storage::disk('public')->exists($existingImage)) {
+                Storage::disk('public')->delete($existingImage);
+            }
+            $profileImage = $data['profile_image']->store('user_profiles', 'public');
+        }
 
-    // UserService.php
+        UserInformation::updateOrCreate(
+            ['user_id' => $user->id],
+            [
+                'profile_image' => $profileImage ?? $user->userInformation?->profile_image,
+                'bio'           => $data['bio']    ?? $user->userInformation?->bio,
+                'region'        => $data['region'] ?? $user->userInformation?->region,
+            ]
+        );
+
+        return $user->fresh(['userInformation']);
+    }
 
     public function deleteUser($id): bool
     {
@@ -102,8 +111,8 @@ class UserService
             }
         }
 
-        if ($user->avatar && Storage::disk('public')->exists($user->avatar)) {
-            Storage::disk('public')->delete($user->avatar);
+        if ($user->userInformation && $user->userInformation->profile_image && Storage::disk('public')->exists($user->userInformation->profile_image)) {
+            Storage::disk('public')->delete($user->userInformation->profile_image);
         }
 
         $user->syncRoles([]);

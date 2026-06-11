@@ -32,9 +32,11 @@ class UserRequest extends FormRequest
                 ? "nullable|string|min:8"
                 : "required|string|min:8",
 
-            "avatar" => "nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048",
-
             "role" => "required|string|exists:roles,name",
+
+            "profile_image" => "nullable|image|mimes:jpg,jpeg,png,webp|max:2048",
+            "bio"           => "nullable|string|max:1000",
+            "region"        => "nullable|string|max:255",
         ];
     }
 }
