@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthenticableController;
+use App\Http\Controllers\Api\V1\backend\ArticleTrackingController;
 use App\Http\Controllers\Api\V1\backend\SaveArticleController;
 use App\Http\Controllers\Api\V1\frontend\CategoryController;
 use App\Http\Controllers\Api\V1\frontend\ArticleController;
@@ -32,3 +33,6 @@ Route::controller(ArticleController::class)->prefix('articles')->group(function 
 Route::controller(SaveArticleController::class)->prefix('save-articles')->group(function () {
     Route::get('/check/{articleId}', 'checkSaved')->name('api.v1.save-articles.check');
 });
+
+
+Route::post('/articles/track-read', [ArticleTrackingController::class, 'track'])->name('api.v1.articles.track-read');

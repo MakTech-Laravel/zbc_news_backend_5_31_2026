@@ -62,5 +62,10 @@ class Article extends Model
     {
         return $this->hasMany(ArticleReadLog::class, 'article_id');
     }
+    
+    public function histroy()
+    {
+        return $this->hasMany(ArticleHistroy::class, 'article_id');
+    }
 }
 
