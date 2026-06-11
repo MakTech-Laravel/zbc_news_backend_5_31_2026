@@ -8,6 +8,7 @@ use App\Http\Resources\Api\V1\ArticleResource;
 use App\Services\ArticleService;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
+use Illuminate\Http\JsonResponse;
 
 class ArticleController extends Controller
 {
@@ -22,6 +23,18 @@ class ArticleController extends Controller
         return sendResponse(
             true,
             'Articles retrieved successfully',
+            ArticleResource::collection($articles),
+            HttpStatus::HTTP_OK,
+        );
+    }
+
+    public function trashed()
+    {
+        $articles = $this->articleService->getTrashedArticles();
+
+        return sendResponse(
+            true,
+            'Trashed articles retrieved successfully',
             ArticleResource::collection($articles),
             HttpStatus::HTTP_OK,
         );
@@ -96,6 +109,29 @@ class ArticleController extends Controller
             'Article permanently deleted',
             null,
             HttpStatus::HTTP_OK,
+        );
+    }
+
+    public function show(string $slug)
+    {
+        $article = $this->articleService->getBySlug($slug);
+
+        return sendResponse(
+            true,
+            'Article retrieved successfully',
+            new ArticleResource($article),
+            HttpStatus::HTTP_OK,
+        );
+    }
+
+    public function activities(string $slug): JsonResponse
+    {
+        $activities = $this->articleService->getActivities($slug);
+
+        return sendResponse(
+            true,
+            'Article activities retrieved successfully',
+            $activities
         );
     }
 

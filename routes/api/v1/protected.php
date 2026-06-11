@@ -5,6 +5,8 @@ use App\Http\Controllers\Api\V1\backend\ArticleController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\backend\CategoryController;
 use App\Http\Controllers\Api\V1\backend\MembershipPlanController;
+use App\Http\Controllers\Api\V1\backend\NotificationPreferenceController;
+use App\Http\Controllers\Api\V1\backend\PermissionController;
 use App\Http\Controllers\Api\V1\backend\RoleController;
 use App\Http\Controllers\Api\V1\backend\UserController;
 use App\Http\Controllers\Api\V1\backend\SaveArticleController;
@@ -33,24 +35,26 @@ Route::controller(RoleController::class)->prefix('roles')->group(function () {
 
 
 Route::controller(UserController::class)->prefix('users')->group(function () {
-    Route::get('/', 'index')->name('api.v1.users.index');
-    Route::post('/store', 'store')->name('api.v1.users.store');
-    Route::get('/show/{id}', 'show')->name('api.v1.users.show');
-    Route::post('/update/{id}', 'update')->name('api.v1.users.update');
-    Route::delete('/delete/{id}', 'destroy')->name('api.v1.users.destroy');
-    Route::post('/restore/{id}', 'restore')->name('api.v1.users.restore');
-    Route::delete('/force/{id}', 'forceDelete')->name('api.v1.users.forceDelete');
-    
-    Route::post('/two-factor-enable', 'twoFactorEnable')->name('api.v1.users.two-factor-enable');
+    // Route::get('/', 'index')->name('api.v1.users.index');
+    // Route::post('/store', 'store')->name('api.v1.users.store');
+    // Route::get('/show/{id}', 'show')->name('api.v1.users.show');
+    // Route::post('/update/{id}', 'update')->name('api.v1.users.update');
+    // Route::delete('/delete/{id}', 'destroy')->name('api.v1.users.destroy');
+    // Route::post('/restore/{id}', 'restore')->name('api.v1.users.restore');
+    // Route::delete('/force/{id}', 'forceDelete')->name('api.v1.users.forceDelete');
+
+
 });
 Route::controller(ArticleController::class)->prefix('articles')->group(function () {
     Route::get('/', 'index')->name('api.v1.articles.index');
+    Route::get('/trashed', 'trashed')->name('api.v1.articles.trashed');
     Route::post('/store', 'store')->name('api.v1.articles.store');
     Route::get('/show/{slug}', 'show')->name('api.v1.articles.show');
     Route::post('/update/{slug}', 'update')->name('api.v1.articles.update');
     Route::delete('/delete/{slug}', 'destroy')->name('api.v1.articles.destroy');
     Route::post('/restore/{slug}', 'restore')->name('api.v1.articles.restore');
     Route::delete('/force/{slug}', 'forceDelete')->name('api.v1.articles.forceDelete');
+    Route::get('/{slug}/activities', 'activities')->name('api.v1.articles.activities');
 });
 
 Route::controller(TagController::class)->prefix('tags')->group(function () {
@@ -64,9 +68,8 @@ Route::controller(TagController::class)->prefix('tags')->group(function () {
 });
 
 Route::controller(SaveArticleController::class)->prefix('save-articles')->group(function () {
-    Route::get('/', 'index')->name('api.v1.save-articles.index');
-    Route::post('/store', 'store')->name('api.v1.save-articles.store');
-    Route::delete('/delete/{id}', 'destroy')->name('api.v1.save-articles.destroy');
+    Route::get('/',        'index') ->name('api.v1.save-articles.index');
+    Route::post('/toggle', 'toggle')->name('api.v1.save-articles.toggle');
 });
 
 Route::controller(SiteSettingsController::class)->prefix('site-settings')->group(function () {
@@ -83,4 +86,26 @@ Route::controller(MembershipPlanController::class)->prefix('plans')->group(funct
     Route::delete('/delete/{id}', 'destroy')->name('api.v1.plans.destroy');
     Route::post('/restore/{id}', 'restore')->name('api.v1.plans.restore');
     Route::delete('/force/{id}', 'forceDelete')->name('api.v1.plans.forceDelete');
+});
+
+Route::controller(NotificationPreferenceController::class)->prefix('notification-preferences')->group(function () {
+    Route::get('/', 'show')->name('api.v1.notification-preferences.show');
+    Route::put('/update', 'update')->name('api.v1.notification-preferences.update');
+});
+
+Route::controller(PermissionController::class)->prefix('permissions')->group(function () {
+    Route::get('/', 'index')->name('api.v1.permissions.index');
+});
+
+Route::controller(UserController::class)->prefix('users')->group(function () {
+    Route::get('/', 'index')->name('api.v1.users.index');
+    // Route::get('/trashed', 'trashed')->name('api.v1.plans.trashed');
+    Route::post('/store', 'store')->name('api.v1.plans.store');
+    Route::get('/show/{id}', 'show')->name('api.v1.plans.show');
+    Route::post('/update/{id}', 'update')->name('api.v1.plans.update');
+    Route::delete('/delete/{id}', 'destroy')->name('api.v1.plans.destroy');
+    Route::get('/{userId}/article-activities', 'articleActivities')->name('api.v1.users.article-activities');
+    Route::post('/two-factor-enable', 'twoFactorEnable')->name('api.v1.users.two-factor-enable');
+    // Route::post('/restore/{id}', 'restore')->name('api.v1.plans.restore');
+    // Route::delete('/force/{id}', 'forceDelete')->name('api.v1.plans.forceDelete');
 });

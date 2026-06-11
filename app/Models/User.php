@@ -23,6 +23,20 @@ class User extends Authenticatable
      *
      * @return array<string, string>
      */
+
+    protected $fillable = [
+
+        'id',
+        'name',
+        'email',
+        'email_verified_at',
+        'password',
+        'avatar',
+        'remember_token',
+        'created_at',
+        'updated_at',
+    ];
+
     protected function casts(): array
     {
         return [
@@ -44,5 +58,15 @@ class User extends Authenticatable
     public function saveArticles()
     {
         return $this->hasMany(SaveArticle::class, 'user_id');
+    }
+    
+    public function notificationPreferences()
+    {
+        return $this->hasOne(NotificationPreference::class, 'user_id');
+    }
+
+    public function readLogs()
+    {
+        return $this->hasMany(ArticleReadLog::class, 'user_id');
     }
 }

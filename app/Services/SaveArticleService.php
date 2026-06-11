@@ -13,38 +13,48 @@ class SaveArticleService
         private readonly SaveArticle $saveArticle
     ) {}
 
+
     public function getAll()
     {
-        return $this->saveArticle->where('user_id', auth()->user()->id)->get();
-    }
-    public function create(string $article_id): SaveArticle
-    {
-        return $this->saveArticle->create([
-            'article_id' => $article_id,
-            'user_id' => auth()->user()->id,
-        ]);
+        return $this->saveArticle
+            ->with('article')
+            ->where('user_id', auth()->id())
+            ->get();
     }
 
-
-    public function delete(string $id): array
+    public function toggle(int $articleId): array
     {
-        $saveArticle = $this->saveArticle
-            ->where('id', $id)
-            ->where('user_id', auth()->user()->id)
+        $savedArticle = $this->saveArticle
+            ->where('article_id', $articleId)
+            ->where('user_id', auth()->id())
             ->first();
 
-        if (!$saveArticle) {
+        if ($savedArticle) {
+            $savedArticle->delete();
+
             return [
-                'success' => false,
-                'message' => 'Save article not found or unauthorized.',
+                'saved' => false,
+                'message' => 'Article removed from saved list',
             ];
         }
 
-        $saveArticle->delete();
+        $savedArticle = $this->saveArticle->create([
+            'article_id' => $articleId,
+            'user_id' => auth()->id(),
+        ]);
 
         return [
-            'success' => true,
-            'message' => 'Save article removed successfully.',
+            'saved' => true,
+            'message' => 'Article saved successfully',
+            'data' => $savedArticle,
         ];
+    }
+
+    public function isSaved(int $articleId): bool
+    {
+        return $this->saveArticle
+            ->where('article_id', $articleId)
+            ->where('user_id', auth()->id())
+            ->exists();
     }
 }

@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             RolePermisionDefaultUser::class,
             ArticleCategorySeeder::class,
+            TagsSeeder::class,
         ]);
        
     }

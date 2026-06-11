@@ -4,9 +4,8 @@ namespace App\Http\Requests\Api\V1;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
-class RoleRequest extends FormRequest
+class NotificationPreferenceRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -23,15 +22,12 @@ class RoleRequest extends FormRequest
      */
     public function rules(): array
     {
-         $roleId = $this->route('id');
         return [
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('roles', 'name')->ignore($roleId),
-            ],
-            "permissions" => "nullable|array",
+            'breaking_news'                => ['required', 'boolean'],
+            'daily_newsletter'             => ['required', 'boolean'],
+            'personalized_recommendations' => ['required', 'boolean'],
+            'comment_replies'              => ['required', 'boolean'],
+            'saved_article_updates'        => ['required', 'boolean'],
         ];
     }
 }

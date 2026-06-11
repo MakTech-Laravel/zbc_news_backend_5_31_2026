@@ -4,7 +4,6 @@ namespace App\Http\Requests\Api\V1;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class SaveArticleRequest extends FormRequest
 {
@@ -28,10 +27,7 @@ class SaveArticleRequest extends FormRequest
                 'required',
                 'integer',
                 'exists:articles,id',
-                Rule::unique('save_articles')->where(function ($query) {
-                    return $query->where('user_id', auth()->id());
-                }),
-            ],
+            ]
         ];
     }
 }
