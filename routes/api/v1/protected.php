@@ -117,6 +117,8 @@ Route::controller(UserController::class)->prefix('users')->group(function () {
     Route::post('/two-factor-enable', 'twoFactorEnable')->name('api.v1.users.two-factor-enable');
     // Route::post('/restore/{id}', 'restore')->name('api.v1.plans.restore');
     // Route::delete('/force/{id}', 'forceDelete')->name('api.v1.plans.forceDelete');
+    Route::get('/reading-analytics', [ArticleTrackingController::class, 'readingAnalytics'])
+         ->name('api.v1.users.reading-analytics');
 });
 // Route::get('/articles/{id}/stats',  [ArticleTrackingController::class, 'stats']);
 // Route::get('/user/read-history',    [ArticleTrackingController::class, 'userHistory']);

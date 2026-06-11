@@ -26,7 +26,7 @@ class ArticleTrackingController extends Controller
 
         $result = $this->trackingService->track(
             request: $request,
-            data:    $request->validated()
+            data: $request->validated()
         );
         Log::info('Track result', $result);
         return sendResponse(
@@ -53,10 +53,29 @@ class ArticleTrackingController extends Controller
     public function userHistory(Request $request): JsonResponse
     {
         $history = $this->trackingService->getUserReadHistory(
-            userId: $request->input('user_id'),
+            userId: auth('api')->id(),
             perPage: $request->input('per_page', 15)
         );
 
-        return response()->json($history);
+        return sendResponse(
+            true,
+            'Read history fetched successfully',
+            $history,
+            HttpStatus::HTTP_OK
+        );
+    }
+
+    public function readingAnalytics(Request $request): JsonResponse
+    {
+        $analytics = $this->trackingService->getUserReadingAnalytics(
+            userId: auth('api')->id()
+        );
+
+        return sendResponse(
+            true,
+            'Reading analytics fetched successfully',
+            $analytics,
+            HttpStatus::HTTP_OK
+        );
     }
 }

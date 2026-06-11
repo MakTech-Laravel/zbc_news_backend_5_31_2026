@@ -147,4 +147,114 @@ class ArticleTrackingService
     {
         Article::where('id', $articleId)->increment('views');
     }
+
+
+    // app/Services/ArticleTrackingService.php
+
+    public function getUserReadingAnalytics(int $userId): array
+    {
+        $base = ArticleHistroy::where('user_id', $userId)->where('is_guest', false);
+
+        // ── Stats Cards ──────────────────────────────
+        $thisWeekStart = now()->startOfWeek();
+        $thisMonthStart = now()->startOfMonth();
+
+        $articlesThisWeek = (clone $base)
+            ->where('read_at', '>=', $thisWeekStart)
+            ->count();
+
+        $readingTimeThisWeek = (clone $base)
+            ->where('read_at', '>=', $thisWeekStart)
+            ->sum('time_spent'); // seconds
+
+        $avgPerDay = (clone $base)
+            ->where('read_at', '>=', $thisMonthStart)
+            ->selectRaw('DATE(read_at) as date, COUNT(*) as count')
+            ->groupBy('date')
+            ->get()
+            ->avg('count');
+
+        $completionRate = (clone $base)
+            ->where('read_at', '>=', $thisMonthStart)
+            ->avg('scroll_depth'); // scroll_depth = completion %
+
+        // ── Weekly Activity (Mon–Sun) ─────────────────
+        $weeklyActivity = (clone $base)
+            ->where('read_at', '>=', $thisWeekStart)
+            ->selectRaw('DAYNAME(read_at) as day, COUNT(*) as count')
+            ->groupBy('day')
+            ->pluck('count', 'day');
+
+        $days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        $weeklyData = collect($days)->map(fn($d) => [
+            'day'   => substr($d, 0, 3),
+            'count' => $weeklyActivity[$d] ?? 0,
+        ])->values();
+
+        // ── Reading by Category ───────────────────────
+        $byCategory = (clone $base)
+            ->join('articles', 'article_histroy.article_id', '=', 'articles.id')
+            ->join('article_category', 'articles.article_category_id', '=', 'article_category.id') // ✅
+            ->selectRaw('article_category.title as category, COUNT(*) as count')
+            ->groupBy('article_category.title')
+            ->orderByDesc('count')
+            ->get();
+
+        $totalCategoryReads = $byCategory->sum('count');
+        $categoryData = $byCategory->map(fn($item) => [
+            'category'   => $item->category,
+            'count'      => $item->count,
+            'percentage' => $totalCategoryReads > 0
+                ? round(($item->count / $totalCategoryReads) * 100)
+                : 0,
+        ])->values();
+
+        // ── Reading Trend (Monthly) ───────────────────
+        $monthlyTrend = (clone $base)
+            ->where('read_at', '>=', now()->subMonths(6))
+            ->selectRaw('DATE_FORMAT(read_at, "%b") as month, MONTH(read_at) as month_num, COUNT(*) as count')
+            ->groupByRaw('month, month_num')
+            ->orderBy('month_num')
+            ->get()
+            ->map(fn($item) => [
+                'month' => $item->month,
+                'count' => $item->count,
+            ])->values();
+
+        // ── Most Engaged Articles ─────────────────────
+        $mostEngaged = (clone $base)
+            ->join('articles', 'article_histroy.article_id', '=', 'articles.id')
+            ->join('article_category', 'articles.article_category_id', '=', 'article_category.id') // ✅
+            ->select(
+                'articles.title',
+                'articles.slug',
+                'article_category.title as category', // ✅
+                'article_histroy.scroll_depth',
+                'article_histroy.time_spent',
+                'article_histroy.read_at',
+            )
+            ->orderByDesc('article_histroy.scroll_depth')
+            ->take(5)
+            ->get()
+            ->map(fn($item) => [
+                'title'      => $item->title,
+                'slug'       => $item->slug,
+                'category'   => $item->category,
+                'completion' => $item->scroll_depth,
+                'read_time'  => ceil($item->time_spent / 60) . ' min read',
+            ])->values();
+
+        return [
+            'stats' => [
+                'articles_this_week'   => $articlesThisWeek,
+                'reading_time_this_week' => round($readingTimeThisWeek / 3600, 1), // hours
+                'avg_per_day'          => round($avgPerDay ?? 0, 1),
+                'completion_rate'      => round($completionRate ?? 0),
+            ],
+            'weekly_activity' => $weeklyData,
+            'by_category'     => $categoryData,
+            'monthly_trend'   => $monthlyTrend,
+            'most_engaged'    => $mostEngaged,
+        ];
+    }
 }
