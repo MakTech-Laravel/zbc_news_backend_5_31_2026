@@ -105,6 +105,7 @@ Route::controller(UserController::class)->prefix('users')->group(function () {
     Route::get('/profile', 'profile')->name('api.v1.users.profile');
     Route::put('/profile/update', 'profileUpdate')->name('api.v1.users.profile-update');
 
+    Route::post('/store', 'store')->name('api.v1.plans.store')->middleware('permission:user.create');
     Route::get('/show/{id}', 'show')->name('api.v1.plans.show');
     Route::post('/update/{id}', 'update')->name('api.v1.plans.update');
     Route::delete('/delete/{id}', 'destroy')->name('api.v1.plans.destroy');
