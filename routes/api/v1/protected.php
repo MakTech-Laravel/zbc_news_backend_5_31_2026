@@ -110,9 +110,9 @@ Route::controller(MediaController::class)
         Route::post('/store', 'store')->name('api.v1.media.store');
         Route::get('/signed-params', 'signedParams')->name('api.v1.media.signed-params');
         Route::delete('/bulk', 'bulkDestroy')->name('api.v1.media.bulk-destroy');
-        Route::get('/show/{media}', 'show')->name('api.v1.media.show');
-        Route::delete('/delete/{media}', 'destroy')->name('api.v1.media.destroy');
-        Route::post('/transform/{media}', 'transform')->name('api.v1.media.transform');
+        Route::get('/show/{uuid}', 'show')->name('api.v1.media.show');
+        Route::delete('/delete/{uuid}', 'destroy')->name('api.v1.media.destroy');
+        Route::post('/transform/{uuid}', 'transform')->name('api.v1.media.transform');
     });
 
 Route::controller(UserController::class)->prefix('users')->group(function () {

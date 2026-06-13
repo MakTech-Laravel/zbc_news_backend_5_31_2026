@@ -94,8 +94,13 @@ class MediaController extends Controller
         }
     }
 
-    public function show(Media $media): JsonResponse
+    public function show(string $uuid): JsonResponse
     {
+        $media = $this->findMedia($uuid);
+        if (! $media) {
+            return $this->mediaNotFoundResponse();
+        }
+
         $this->authorize('view', $media);
 
         $media->load('transformations', 'uploader');
@@ -108,8 +113,13 @@ class MediaController extends Controller
         );
     }
 
-    public function destroy(Media $media): JsonResponse
+    public function destroy(string $uuid): JsonResponse
     {
+        $media = $this->findMedia($uuid);
+        if (! $media) {
+            return $this->mediaNotFoundResponse();
+        }
+
         $this->authorize('delete', $media);
 
         $deleted = $this->mediaService->deleteFromCloudinary($media);
@@ -133,8 +143,13 @@ class MediaController extends Controller
         return sendResponse(true, 'Signed upload params generated.', $params, HttpStatus::HTTP_OK);
     }
 
-    public function transform(Request $request, Media $media): JsonResponse
+    public function transform(Request $request, string $uuid): JsonResponse
     {
+        $media = $this->findMedia($uuid);
+        if (! $media) {
+            return $this->mediaNotFoundResponse();
+        }
+
         $this->authorize('view', $media);
 
         $request->validate([
@@ -154,8 +169,23 @@ class MediaController extends Controller
             ->where('uploaded_by', $request->user()->id)
             ->get();
 
-        $count = $this->mediaService->bulkDelete($media);
+        $result = $this->mediaService->bulkDelete($media, $request->ids);
 
-        return sendResponse(true, 'Bulk delete completed.', ['count' => $count], HttpStatus::HTTP_OK);
+        return sendResponse(true, 'Bulk delete completed.', $result, HttpStatus::HTTP_OK);
+    }
+
+    private function findMedia(string $uuid): ?Media
+    {
+        return Media::where('uuid', $uuid)->first();
+    }
+
+    private function mediaNotFoundResponse(): JsonResponse
+    {
+        return sendResponse(
+            false,
+            'Media not found.',
+            null,
+            HttpStatus::HTTP_NOT_FOUND
+        );
     }
 }

@@ -11,6 +11,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class MediaService
@@ -127,18 +128,38 @@ class MediaService
         );
     }
 
-    public function bulkDelete(Collection $mediaItems): int
+    public function bulkDelete(Collection $mediaItems, array $requestedIds): array
     {
-        $grouped = $mediaItems->groupBy('resource_type');
+        $foundUuids = $mediaItems->pluck('uuid')->all();
+        $skippedNotFound = array_values(array_diff($requestedIds, $foundUuids));
 
-        foreach ($grouped as $resourceType => $items) {
-            $publicIds = $items->pluck('cloudinary_public_id')->toArray();
-            $this->cloudinary->deleteMany($publicIds, $resourceType);
+        $deleted = 0;
+        $skippedFailed = [];
+
+        foreach ($mediaItems as $media) {
+            try {
+                $this->cloudinary->delete(
+                    $media->cloudinary_public_id,
+                    $media->resource_type
+                );
+
+                $media->update(['status' => 'deleted']);
+                $media->delete();
+                $deleted++;
+            } catch (\Throwable $e) {
+                $skippedFailed[] = $media->uuid;
+                Log::warning('Bulk media delete skipped', [
+                    'media_uuid' => $media->uuid,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
 
-        $mediaItems->each(fn (Media $m) => $m->delete());
-
-        return $mediaItems->count();
+        return [
+            'deleted' => $deleted,
+            'skipped_not_found' => $skippedNotFound,
+            'skipped_failed' => $skippedFailed,
+        ];
     }
 
     public function getOrCreateTransformation(Media $media, string $preset): array

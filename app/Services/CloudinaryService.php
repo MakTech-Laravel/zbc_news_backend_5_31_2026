@@ -107,9 +107,13 @@ class CloudinaryService
 
     public function delete(string $publicId, string $resourceType = 'image'): bool
     {
+        if (str_starts_with($publicId, 'pending_')) {
+            return true;
+        }
+
         try {
             $result = $this->uploadApi->destroy($publicId, [
-                'resource_type' => $resourceType,
+                'resource_type' => $this->normalizeResourceType($resourceType),
                 'invalidate' => true,
             ]);
 
@@ -127,9 +131,23 @@ class CloudinaryService
 
     public function deleteMany(array $publicIds, string $resourceType = 'image'): array
     {
-        return (array) $this->uploadApi->deleteAssets($publicIds, [
-            'resource_type' => $resourceType,
+        if (empty($publicIds)) {
+            return ['deleted' => []];
+        }
+
+        return (array) $this->adminApi->deleteAssets($publicIds, [
+            'resource_type' => $this->normalizeResourceType($resourceType),
+            'invalidate' => true,
         ]);
+    }
+
+    protected function normalizeResourceType(string $resourceType): string
+    {
+        return match ($resourceType) {
+            'video' => 'video',
+            'raw' => 'raw',
+            default => 'image',
+        };
     }
 
     public function imageUrl(string $publicId, array $transformation = []): string
