@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             RolePermisionDefaultUser::class,
             ArticleCategorySeeder::class,
             TagsSeeder::class,
+            ArticleSeeder::class,
         ]);
        
     }

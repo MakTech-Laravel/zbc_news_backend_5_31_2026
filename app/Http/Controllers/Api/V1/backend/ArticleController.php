@@ -135,4 +135,28 @@ class ArticleController extends Controller
         );
     }
 
+    public function articlesByTag(Request $request, string $tagSlug)
+    {
+        $type = $request->query('type', 'latest');
+
+        $articles = $this->articleService->getLatestArticleByTag($tagSlug, $type);
+
+        return sendResponse(true, 'Articles retrieved successfully',
+            ArticleResource::collection($articles), HttpStatus::HTTP_OK);
+    }
+
+    public function longReads(Request $request)
+    {
+        $type = $request->query('type', 'all');
+
+        $articles = $this->articleService->getLongReads($type);
+
+        return sendResponse(
+            true,
+            'Long reads retrieved successfully',
+            ArticleResource::collection($articles),
+            HttpStatus::HTTP_OK,
+        );
+    }
+
 }

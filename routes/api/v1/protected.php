@@ -70,6 +70,8 @@ Route::controller(ArticleController::class)->prefix('articles')->group(function 
         ->middleware('permission:' . PermissionEnum::ARTICLES_ACTIVITIES->value);
     Route::get('/{id}/stats', [ArticleTrackingController::class, 'stats'])->name('api.v1.articles.stats')
         ->middleware('permission:' . PermissionEnum::ARTICLES_STATS->value);
+    Route::get('/{tagSlug}/articles', 'articlesByTag')->name('api.v1.articles.articles-by-tag');
+    Route::get('/long-reads', 'longReads')->name('api.v1.articles.long-reads');
 });
 
 Route::get('/user/read-history', [ArticleTrackingController::class, 'userHistory'])
