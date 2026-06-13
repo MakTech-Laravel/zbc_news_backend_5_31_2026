@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\V1\backend\UserController;
 use App\Http\Controllers\Api\V1\backend\SaveArticleController;
 use App\Http\Controllers\Api\V1\backend\SiteSettingsController;
 use App\Http\Controllers\Api\V1\backend\TagController;
+use App\Http\Controllers\Api\V1\backend\MediaController;
 
 Route::controller(CategoryController::class)->prefix('categories')->group(function () {
     Route::get('/', 'index')->name('api.v1.categories.index');
@@ -100,6 +101,19 @@ Route::controller(NotificationPreferenceController::class)->prefix('notification
 Route::controller(PermissionController::class)->prefix('permissions')->group(function () {
     Route::get('/', 'index')->name('api.v1.permissions.index');
 });
+
+Route::controller(MediaController::class)
+    ->prefix('media')
+    ->middleware(\App\Http\Middleware\Api\V1\ValidateUploadSize::class)
+    ->group(function () {
+        Route::get('/', 'index')->name('api.v1.media.index');
+        Route::post('/store', 'store')->name('api.v1.media.store');
+        Route::get('/signed-params', 'signedParams')->name('api.v1.media.signed-params');
+        Route::delete('/bulk', 'bulkDestroy')->name('api.v1.media.bulk-destroy');
+        Route::get('/show/{media}', 'show')->name('api.v1.media.show');
+        Route::delete('/delete/{media}', 'destroy')->name('api.v1.media.destroy');
+        Route::post('/transform/{media}', 'transform')->name('api.v1.media.transform');
+    });
 
 Route::controller(UserController::class)->prefix('users')->group(function () {
     Route::get('/', 'index')->name('api.v1.users.index');

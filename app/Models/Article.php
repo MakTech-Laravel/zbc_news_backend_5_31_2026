@@ -4,12 +4,13 @@ namespace App\Models;
 
 use App\Enums\ArticleStatus;
 use App\Enums\ArticleVisibility;
+use App\Traits\HasMedia;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Article extends Model
 {
-    use SoftDeletes;
+    use HasMedia, SoftDeletes;
     protected $fillable = [
         'id',
         'title',
