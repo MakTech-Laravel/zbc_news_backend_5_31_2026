@@ -9,6 +9,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Passport\Passport;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class MediaUploadTest extends TestCase
@@ -19,6 +20,11 @@ class MediaUploadTest extends TestCase
     {
         parent::setUp();
         Storage::fake('local');
+
+        Role::create(['name' => 'user', 'guard_name' => 'api']);
+        Role::create(['name' => 'super_admin', 'guard_name' => 'api']);
+
+        $this->seedPermissionsForUserRole();
 
         $this->mock(CloudinaryService::class, function ($mock) {
             $mock->shouldReceive('upload')->andReturn([
@@ -41,9 +47,25 @@ class MediaUploadTest extends TestCase
         });
     }
 
+    private function seedPermissionsForUserRole(): void
+    {
+        $permissions = ['media.create', 'media.delete', 'media.list', 'media.show'];
+
+        foreach ($permissions as $name) {
+            \Spatie\Permission\Models\Permission::create([
+                'name' => $name,
+                'guard_name' => 'api',
+                'group_name' => 'Media',
+            ]);
+        }
+
+        Role::findByName('user', 'api')->givePermissionTo($permissions);
+    }
+
     public function test_authenticated_user_can_upload_image(): void
     {
         $user = User::factory()->create();
+        $user->assignRole('user');
         Passport::actingAs($user);
 
         $file = UploadedFile::fake()->image('photo.jpg', 800, 600);
@@ -70,6 +92,7 @@ class MediaUploadTest extends TestCase
     public function test_user_can_delete_own_media(): void
     {
         $user = User::factory()->create();
+        $user->assignRole('user');
         Passport::actingAs($user);
 
         $media = Media::factory()->create(['uploaded_by' => $user->id, 'status' => 'ready']);
