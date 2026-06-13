@@ -7,10 +7,11 @@ use App\Enums\ArticleVisibility;
 use App\Traits\HasMedia;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Article extends Model
 {
-    use HasMedia, SoftDeletes;
+    use HasFactory, HasMedia, SoftDeletes;
     protected $fillable = [
         'id',
         'title',
