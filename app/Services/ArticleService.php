@@ -120,8 +120,23 @@ class ArticleService
     
         return match ($type) {
             'trending'    => $query->orderByDesc('views')->take(10)->get(),
-            'recommended' => $query->orderByDesc('saves_count')->take(10)->get(),
+            'recommended' => $query->withCount('saveArticles')->orderByDesc('save_articles_count')->take(10)->get(),
             default       => $query->latest('published_at')->take(10)->get(),
+        };
+    }
+
+    public function getLongReads(string $type = 'all', int $minMinutes = 5): Collection
+    {
+        $query = $this->article
+            ->with(['tags', 'category', 'user'])
+            ->where('status', ArticleStatus::PUBLISHED->value)
+            ->whereHas('histroy', function ($q) use ($minMinutes) {
+                $q->where('time_spent', '>=', $minMinutes * 60);
+            });
+
+        return match ($type) {
+            'most-read' => $query->orderByDesc('views')->take(10)->get(),
+            default     => $query->latest('published_at')->take(10)->get(), // 'all'
         };
     }
 

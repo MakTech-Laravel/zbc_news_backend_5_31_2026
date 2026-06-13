@@ -145,4 +145,18 @@ class ArticleController extends Controller
             ArticleResource::collection($articles), HttpStatus::HTTP_OK);
     }
 
+    public function longReads(Request $request)
+    {
+        $type = $request->query('type', 'all');
+
+        $articles = $this->articleService->getLongReads($type);
+
+        return sendResponse(
+            true,
+            'Long reads retrieved successfully',
+            ArticleResource::collection($articles),
+            HttpStatus::HTTP_OK,
+        );
+    }
+
 }
