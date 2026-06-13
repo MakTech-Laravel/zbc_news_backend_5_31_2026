@@ -22,6 +22,8 @@ articles.delete,api,Articles
 articles.restore,api,Articles
 articles.force-delete,api,Articles
 articles.activities,api,Articles
+articles.stats,api,Articles
+user.read-history,api,Articles
 tags.list,api,Tags
 tags.create,api,Tags
 tags.show,api,Tags
@@ -44,6 +46,13 @@ plans.force-delete,api,Membership Plans
 notification-preferences.show,api,Notification Preferences
 notification-preferences.update,api,Notification Preferences
 permissions.list,api,Permissions
+media.list,api,Media
+media.create,api,Media
+media.show,api,Media
+media.delete,api,Media
+media.bulk-delete,api,Media
+media.signed-params,api,Media
+media.transform,api,Media
 users.list,api,Users
 users.create,api,Users
 users.profile,api,Users
@@ -53,3 +62,4 @@ users.update,api,Users
 users.delete,api,Users
 users.article-activities,api,Users
 users.two-factor-enable,api,Users
+users.reading-analytics,api,Users

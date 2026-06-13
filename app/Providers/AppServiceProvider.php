@@ -2,10 +2,18 @@
 
 namespace App\Providers;
 
+use App\Events\MediaUploadCompleted;
+use App\Events\MediaUploadFailed;
+use App\Listeners\LogFailedUpload;
+use App\Listeners\NotifyUserOnUploadComplete;
+use App\Models\Client;
+use App\Models\Media;
+use App\Policies\MediaPolicy;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Passport\Passport;
-use App\Models\Client;
+
 class AppServiceProvider extends ServiceProvider
 {
     /**
@@ -27,9 +35,14 @@ class AppServiceProvider extends ServiceProvider
             now()->addDays(60)
         );
 
+        Gate::policy(Media::class, MediaPolicy::class);
+
         Gate::before(function ($user, $ability) {
             return $user->hasRole('super_admin') ? true : null;
         });
+
+        Event::listen(MediaUploadCompleted::class, NotifyUserOnUploadComplete::class);
+        Event::listen(MediaUploadFailed::class, LogFailedUpload::class);
 
         Passport::useClientModel(Client::class);
     }

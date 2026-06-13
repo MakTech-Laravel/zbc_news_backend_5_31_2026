@@ -11,13 +11,14 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Laravel\Passport\HasApiTokens;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use App\Traits\HasMedia;
 use Spatie\Permission\Traits\HasRoles;
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, HasRoles, Notifiable , LogsActivity, TwoFactorAuthenticatable;
+    use HasApiTokens, HasFactory, HasMedia, HasRoles, Notifiable, LogsActivity, TwoFactorAuthenticatable;
     /**
      * Get the attributes that should be cast.
      *
