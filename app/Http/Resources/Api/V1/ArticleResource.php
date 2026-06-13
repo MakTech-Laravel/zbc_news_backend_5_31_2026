@@ -27,6 +27,7 @@ class ArticleResource extends JsonResource
             'scheduled_publishing' => $this->scheduled_publishing,
             'published_at' => $this->published_at,
             'views' => $this->views,
+            'saves_count' => $this->saves_count,
 
             // relations
             'category' => $this->whenLoaded('category', function () {

@@ -109,6 +109,22 @@ class ArticleService
             ->get();
     }
 
+    public function getLatestArticleByTag(string $tagSlug, string $type = 'latest'): Collection
+    {
+        $query = $this->article
+            ->with(['tags', 'category', 'user'])
+            ->where('status', ArticleStatus::PUBLISHED->value)
+            ->whereHas('tags', function ($q) use ($tagSlug) {
+                $q->where('tag', $tagSlug);
+            });
+    
+        return match ($type) {
+            'trending'    => $query->orderByDesc('views')->take(10)->get(),
+            'recommended' => $query->orderByDesc('saves_count')->take(10)->get(),
+            default       => $query->latest('published_at')->take(10)->get(),
+        };
+    }
+
     public function create(array $data): Article
     {
         return DB::transaction(function () use ($data) {
