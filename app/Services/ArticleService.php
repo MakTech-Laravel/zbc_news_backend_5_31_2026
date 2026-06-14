@@ -404,4 +404,15 @@ class ArticleService
             ->map(fn($tagName) => Tag::firstOrCreate(['tag' => strtolower(trim($tagName))])->id)
             ->toArray();
     }
+
+    public function getGridArticles(int $limit = 50, array $excludeIds = []): Collection
+    {
+        return $this->article
+            ->with(['tags', 'category', 'user'])
+            ->where('status', ArticleStatus::PUBLISHED->value)
+            ->whereNotIn('id', $excludeIds)
+            ->orderByDesc('views')
+            ->take($limit)
+            ->get();
+    }
 }

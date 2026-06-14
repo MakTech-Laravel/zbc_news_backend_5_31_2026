@@ -28,6 +28,7 @@ Route::controller(ArticleController::class)->prefix('articles')->group(function 
     Route::post('/view/{slug}', 'recordView')->name('api.v1.articles.view')->middleware('request_limitter');
     Route::get('/category/{slug}', 'byCategory')->name('api.v1.articles.by-category');
     Route::get('/most-read', 'mostRead')->name('api.v1.articles.most-read');
+    Route::get('/grid', 'gridArticles')->name('api.v1.articles.grid');
 });
 
 Route::controller(SaveArticleController::class)->prefix('save-articles')->group(function () {

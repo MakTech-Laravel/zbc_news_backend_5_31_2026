@@ -99,4 +99,27 @@ class ArticleController extends Controller
             HttpStatus::HTTP_OK,
         );
     }
+
+
+    public function gridArticles(Request $request)
+    {
+        $limit = (int) $request->query('limit', 50);
+        $limit = min(max($limit, 1), 100); 
+        $latestStoryIds = $this->articleService
+            ->getLatestStories()
+            ->pluck('id')
+            ->toArray();
+
+        $articles = $this->articleService->getGridArticles(
+            limit: $limit,
+            excludeIds: $latestStoryIds
+        );
+
+        return sendResponse(
+            true,
+            'Grid articles retrieved successfully',
+            ArticleResource::collection($articles),
+            HttpStatus::HTTP_OK,
+        );
+    }
 }
