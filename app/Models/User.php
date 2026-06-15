@@ -65,10 +65,10 @@ class User extends Authenticatable
         return $this->hasOne(NotificationPreference::class, 'user_id');
     }
 
-    public function readLogs()
-    {
-        return $this->hasMany(ArticleReadLog::class, 'user_id');
-    }
+    // public function readLogs()
+    // {
+    //     return $this->hasMany(ArticleReadLog::class, 'user_id');
+    // }
 
     public function userInformation()
     {

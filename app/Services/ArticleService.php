@@ -11,8 +11,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Collection;
-use App\Models\ArticleReadLog;
-use Illuminate\Http\Request;
+// use App\Models\ArticleReadLog;
+// use Illuminate\Http\Request;
 
 class ArticleService
 {
@@ -48,40 +48,40 @@ class ArticleService
             ->firstOrFail();
     }
 
-    public function incrementViews(Article $article): void
-    {
-        $article->increment('views');
-    }
+    // public function incrementViews(Article $article): void
+    // {
+    //     $article->increment('views');
+    // }
 
 
 
 
-    public function trackView(Article $article, Request $request): void
-    {
-        DB::transaction(function () use ($article, $request) {
-            ArticleReadLog::create([
-                'article_id' => $article->id,
-                'user_id'    => auth()->id(),
-                'ip_address' => $request->ip(),
-                'read_at'    => now(),
-            ]);
+    // public function trackView(Article $article, Request $request): void
+    // {
+    //     DB::transaction(function () use ($article, $request) {
+    //         ArticleReadLog::create([
+    //             'article_id' => $article->id,
+    //             'user_id'    => auth()->id(),
+    //             'ip_address' => $request->ip(),
+    //             'read_at'    => now(),
+    //         ]);
 
-            $article->increment('views');
-        });
-    }
+    //         $article->increment('views');
+    //     });
+    // }
 
 
     public function getMostRead(bool $unique = false, int $limit = 10): Collection
     {
         $countExpr = $unique
-            ? 'COUNT(DISTINCT COALESCE(arl.user_id, arl.ip_address)) as read_count'
-            : 'COUNT(arl.id) as read_count';
-
+            ? 'COUNT(DISTINCT COALESCE(ah.user_id, ah.ip_address)) as read_count'
+            : 'COUNT(ah.id) as read_count';
+    
         return $this->article
             ->select('articles.*')
             ->selectRaw($countExpr)
-            ->join('article_read_logs as arl', 'articles.id', '=', 'arl.article_id')
-            ->where('arl.read_at', '>=', now()->subHours(24))
+            ->join('article_histroys as ah', 'articles.id', '=', 'ah.article_id')
+            ->where('ah.read_at', '>=', now()->subHours(24))
             ->where('articles.status', ArticleStatus::PUBLISHED->value)
             ->groupBy('articles.id')
             ->orderByDesc('read_count')

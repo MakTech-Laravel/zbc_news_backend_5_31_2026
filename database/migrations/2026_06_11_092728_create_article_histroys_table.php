@@ -31,6 +31,9 @@ return new class extends Migration
             $table->foreign('user_id')->references('id')->on('users')->cascadeOnDelete();
 
             $table->timestamps();
+
+            $table->index(['article_id', 'read_at']);
+            $table->index(['user_id', 'read_at']);
         });
     }
 
