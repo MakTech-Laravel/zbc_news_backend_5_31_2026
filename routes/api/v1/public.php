@@ -6,7 +6,7 @@ use App\Http\Controllers\Api\V1\backend\SaveArticleController;
 use App\Http\Controllers\Api\V1\frontend\CategoryController;
 use App\Http\Controllers\Api\V1\frontend\ArticleController;
 use Illuminate\Support\Facades\Route;
-
+use App\Http\Controllers\Api\V1\backend\TagController;
 
 Route::controller(AuthenticableController::class)->prefix('auth')->group(function () {
 
@@ -37,3 +37,4 @@ Route::controller(SaveArticleController::class)->prefix('save-articles')->group(
 
 
 Route::post('/articles/track-read', [ArticleTrackingController::class, 'track'])->name('api.v1.articles.track-read');
+Route::get('/trending-tags', [TagController::class, 'trendingTags'])->name('api.v1.tags.trending-tags');

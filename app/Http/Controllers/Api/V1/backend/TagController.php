@@ -98,4 +98,16 @@ class TagController extends Controller
             HttpStatus::HTTP_OK,
         );
     }
+
+    public function trendingTags()
+    {
+        $tags = $this->tagService->getTrendingTags();
+    
+        return sendResponse(
+            true,
+            'Trending Tags retrieved successfully',
+            TagResource::collection($tags),
+            HttpStatus::HTTP_OK,
+        );
+    }
 }

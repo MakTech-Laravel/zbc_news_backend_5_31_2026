@@ -58,4 +58,13 @@ class TagService
 
         $tag->forceDelete();
     }
+
+    public function getTrendingTags(int $limit = 10)
+    {
+        return $this->tag
+            ->withCount('articles')
+            ->orderBy('articles_count', 'desc')
+            ->limit($limit)
+            ->get();
+    }
 }
