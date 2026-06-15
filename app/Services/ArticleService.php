@@ -11,8 +11,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Collection;
-// use App\Models\ArticleReadLog;
-// use Illuminate\Http\Request;
 
 class ArticleService
 {
@@ -47,29 +45,6 @@ class ArticleService
             ->where('status', ArticleStatus::PUBLISHED->value)
             ->firstOrFail();
     }
-
-    // public function incrementViews(Article $article): void
-    // {
-    //     $article->increment('views');
-    // }
-
-
-
-
-    // public function trackView(Article $article, Request $request): void
-    // {
-    //     DB::transaction(function () use ($article, $request) {
-    //         ArticleReadLog::create([
-    //             'article_id' => $article->id,
-    //             'user_id'    => auth()->id(),
-    //             'ip_address' => $request->ip(),
-    //             'read_at'    => now(),
-    //         ]);
-
-    //         $article->increment('views');
-    //     });
-    // }
-
 
     public function getMostRead(bool $unique = false, int $limit = 10): Collection
     {

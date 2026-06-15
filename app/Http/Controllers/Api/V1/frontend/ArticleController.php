@@ -61,20 +61,6 @@ class ArticleController extends Controller
         );
     }
 
-    // public function recordView(string $slug)
-    // {
-    //     $article = $this->articleService->getPublishedBySlug($slug);
-    //     $this->articleService->trackView($article, request());
-
-
-    //     return sendResponse(
-    //         true,
-    //         'Article view recorded successfully',
-    //         null,
-    //         HttpStatus::HTTP_OK,
-    //     );
-    // }
-
     public function mostRead(Request $request)
     {
         $unique   = filter_var($request->query('unique', false), FILTER_VALIDATE_BOOLEAN);
