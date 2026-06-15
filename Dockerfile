@@ -20,7 +20,7 @@ COPY . .
 
 RUN mkdir -p storage/framework/{views,sessions,cache} storage/logs bootstrap/cache \
     && composer install --no-dev --optimize-autoloader --no-scripts \
-    && npm install && npm run build \
+    && npm install --include=optional && npm run build \
     && chown -R www-data:www-data /var/www \
     && chmod -R 775 storage bootstrap/cache
 
