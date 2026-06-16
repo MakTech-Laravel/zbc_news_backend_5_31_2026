@@ -4,7 +4,10 @@ namespace App\Services;
 
 use App\Enums\ArticleStatus;
 use App\Models\Article;
+use App\Models\ArticleCategory;
 use App\Models\Tag;
+use App\Services\SeoMetaService;
+use App\Services\SiteSettingsService;
 use Spatie\Activitylog\Models\Activity;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -15,7 +18,9 @@ use Illuminate\Database\Eloquent\Collection;
 class ArticleService
 {
     public function __construct(
-        private readonly Article $article
+        private readonly Article $article,
+        private readonly SiteSettingsService $siteSettingsService,
+        private readonly SeoMetaService $seoMetaService,
     ) {}
 
     public function getAllArticles()
@@ -121,6 +126,12 @@ class ArticleService
             $tags = $data['tags'] ?? [];
             unset($data['tags']);
 
+            $categoryTitle = ArticleCategory::query()
+                ->whereKey($data['article_category_id'] ?? null)
+                ->value('title');
+
+            $data = $this->seoMetaService->applyArticleMeta($data, $tags, $categoryTitle);
+
             $data['slug']             = $this->resolveSlug($data);
             $data['status']           = $this->resolveStatus($data);
             $data['published_at']     = $this->resolvePublishedAt($data);
@@ -164,6 +175,15 @@ class ArticleService
         return DB::transaction(function () use ($article, $data) {
             $tags = $data['tags'] ?? null;
             unset($data['tags']);
+
+            $tagNames = is_array($tags)
+                ? $tags
+                : $article->tags()->pluck('tag')->all();
+
+            $categoryId = $data['article_category_id'] ?? $article->article_category_id;
+            $categoryTitle = ArticleCategory::query()->whereKey($categoryId)->value('title');
+
+            $data = $this->seoMetaService->applyArticleMeta($data, $tagNames, $categoryTitle);
 
             $data['slug']             = $this->resolveSlug($data, $article->id);
             $data['status']           = $this->resolveStatus($data);
@@ -267,15 +287,58 @@ class ArticleService
         $article->forceDelete();
     }
 
-    public function getByCategory(string $categorySlug): Collection
+    public function getByCategory(string $categorySlug, ?int $perPage = null, int $page = 1): array
     {
-        return $this->article
+        $category = ArticleCategory::where('slug', $categorySlug)->firstOrFail();
+        $perPage = $perPage ?? $this->siteSettingsService->getPostsPerPage();
+
+        $query = $this->article
             ->with(['tags', 'category', 'user'])
             ->whereHas('category', function ($query) use ($categorySlug) {
                 $query->where('slug', $categorySlug);
             })
             ->where('status', ArticleStatus::PUBLISHED->value)
+            ->latest('published_at');
+
+        $paginator = $query->paginate($perPage, ['*'], 'page', max(1, $page));
+
+        return [
+            'category' => $category,
+            'items'    => $paginator->getCollection(),
+            'meta'     => [
+                'current_page' => $paginator->currentPage(),
+                'last_page'    => $paginator->lastPage(),
+                'per_page'     => $paginator->perPage(),
+                'total'        => $paginator->total(),
+            ],
+        ];
+    }
+
+    public function getRelatedArticles(string $slug, ?int $limit = null): Collection
+    {
+        $article = $this->getPublishedBySlug($slug);
+        $limit = $limit ?? $this->siteSettingsService->getRelatedArticlesCount();
+
+        if ($limit <= 0) {
+            return new Collection();
+        }
+
+        $tagIds = $article->tags->pluck('id');
+
+        return $this->article
+            ->with(['tags', 'category', 'user'])
+            ->where('status', ArticleStatus::PUBLISHED->value)
+            ->where('id', '!=', $article->id)
+            ->where(function ($query) use ($article, $tagIds) {
+                $query->where('category_id', $article->category_id);
+                if ($tagIds->isNotEmpty()) {
+                    $query->orWhereHas('tags', function ($tagQuery) use ($tagIds) {
+                        $tagQuery->whereIn('tags.id', $tagIds);
+                    });
+                }
+            })
             ->latest('published_at')
+            ->take($limit)
             ->get();
     }
 

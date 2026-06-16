@@ -2,44 +2,48 @@
 
 namespace App\Http\Requests\Api\V1;
 
-use App\Models\SiteSettings;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class SiteSettingsRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         return true;
     }
 
     /**
-     * Get the validation rules that apply to the request.
-     *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
-        $settings = SiteSettings::first();
-
-        $timezoneRule = $settings ? 'nullable|integer' : 'required|integer';
-
         return [
             'site_name'                 => 'nullable|string|max:255',
             'site_tag'                  => 'nullable|string|max:255',
             'site_logo'                 => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:2048',
-            'timezone'                  => $timezoneRule,
+            'timezone'                  => 'nullable|string|max:64',
+            'language'                  => 'nullable|string|max:16',
+            'meta_title'                => 'nullable|string|max:255',
+            'meta_description'          => 'nullable|string|max:2000',
+            'meta_keywords'             => 'nullable|string|max:500',
             'default_category_id'       => 'nullable|exists:article_categories,id',
+            'default_post_format'       => 'nullable|string|max:32',
+            'enable_auto_save'          => 'boolean',
+            'require_featured_image'    => 'boolean',
+            'enable_ai_writing'         => 'boolean',
             'posts_per_page'            => 'integer|min:1|max:100',
             'allow_comments'            => 'boolean',
             'authenticate_comment_only' => 'boolean',
-            'related_article'           => 'integer|min:0',
-            'pixeld_id'                 => 'nullable|integer',
-            'g_messurment_id'           => 'nullable|integer',
+            'auto_approve_known_users'  => 'boolean',
+            'related_article'           => 'integer|min:0|max:50',
+            'pixeld_id'                 => 'nullable|string|max:255',
+            'g_messurment_id'           => 'nullable|string|max:255',
             'g_api_secrete'             => 'nullable|string|max:255',
+            'google_analytics_id'       => 'nullable|string|max:255',
+            'facebook_pixel_id'         => 'nullable|string|max:255',
+            'mailchimp_api_key'         => 'nullable|string|max:255',
+            'disqus_shortname'          => 'nullable|string|max:255',
+            'slack_webhook_url'         => 'nullable|string|max:500',
             'enable_comments'           => 'boolean',
         ];
     }

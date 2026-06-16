@@ -10,9 +10,16 @@ use App\Http\Controllers\Api\V1\backend\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\backend\PermissionController;
 use App\Http\Controllers\Api\V1\backend\RoleController;
 use App\Http\Controllers\Api\V1\backend\SaveArticleController;
+use App\Http\Controllers\Api\V1\backend\SeoPageController;
 use App\Http\Controllers\Api\V1\backend\SiteSettingsController;
 use App\Http\Controllers\Api\V1\backend\TagController;
 use App\Http\Controllers\Api\V1\backend\UserController;
+use App\Http\Controllers\Api\V1\backend\AdSlotController;
+use App\Http\Controllers\Api\V1\backend\MonetizationController;
+use App\Http\Controllers\Api\V1\backend\NavigationLinkController;
+use App\Http\Controllers\Api\V1\backend\NewsletterController;
+use App\Http\Controllers\Api\V1\backend\AdminDashboardController;
+use App\Http\Controllers\Api\V1\backend\UserDashboardController;
 use Illuminate\Support\Facades\Route;
 
 Route::controller(CategoryController::class)->prefix('categories')->group(function () {
@@ -109,6 +116,15 @@ Route::controller(SiteSettingsController::class)->prefix('site-settings')->group
         ->middleware('permission:' . PermissionEnum::SITE_SETTINGS_UPDATE->value);
 });
 
+Route::controller(SeoPageController::class)->prefix('seo-pages')->group(function () {
+    Route::get('/', 'index')->name('api.v1.seo-pages.index')
+        ->middleware('permission:' . PermissionEnum::SITE_SETTINGS_LIST->value);
+    Route::get('/show/{pageKey}', 'show')->name('api.v1.seo-pages.show')
+        ->middleware('permission:' . PermissionEnum::SITE_SETTINGS_LIST->value);
+    Route::post('/update/{pageKey}', 'update')->name('api.v1.seo-pages.update')
+        ->middleware('permission:' . PermissionEnum::SITE_SETTINGS_UPDATE->value);
+});
+
 Route::controller(MembershipPlanController::class)->prefix('plans')->group(function () {
     Route::get('/', 'index')->name('api.v1.plans.index')
         ->middleware('permission:' . PermissionEnum::PLANS_LIST->value);
@@ -182,4 +198,32 @@ Route::controller(UserController::class)->prefix('users')->group(function () {
     Route::get('/reading-analytics', [ArticleTrackingController::class, 'readingAnalytics'])
         ->name('api.v1.users.reading-analytics')
         ->middleware('permission:' . PermissionEnum::USERS_READING_ANALYTICS->value);
+});
+
+Route::controller(NavigationLinkController::class)->prefix('navigation-links')->group(function () {
+    Route::get('/', 'index')->name('api.v1.navigation-links.index');
+    Route::post('/store', 'store')->name('api.v1.navigation-links.store');
+    Route::post('/update/{id}', 'update')->name('api.v1.navigation-links.update');
+    Route::delete('/delete/{id}', 'destroy')->name('api.v1.navigation-links.destroy');
+});
+
+Route::controller(AdSlotController::class)->prefix('ad-slots')->group(function () {
+    Route::get('/', 'index')->name('api.v1.ad-slots.index');
+    Route::post('/store', 'store')->name('api.v1.ad-slots.store');
+    Route::post('/update/{id}', 'update')->name('api.v1.ad-slots.update');
+});
+
+Route::get('/monetization/overview', [MonetizationController::class, 'overview'])
+    ->name('api.v1.monetization.overview');
+
+Route::get('/dashboard/overview', [AdminDashboardController::class, 'overview'])
+    ->name('api.v1.admin.dashboard.overview');
+
+Route::get('/user/dashboard', [UserDashboardController::class, 'index'])
+    ->name('api.v1.user.dashboard');
+
+Route::prefix('newsletter')->controller(NewsletterController::class)->group(function () {
+    Route::get('/subscribers', 'subscribers')->name('api.v1.newsletter.subscribers');
+    Route::get('/campaigns', 'campaigns')->name('api.v1.newsletter.campaigns');
+    Route::post('/campaigns/store', 'storeCampaign')->name('api.v1.newsletter.campaigns.store');
 });

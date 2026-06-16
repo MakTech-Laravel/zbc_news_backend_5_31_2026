@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Services\ArticleService;
 use App\Http\Resources\Api\V1\ArticleResource;
+use App\Http\Resources\Api\V1\Category as CategoryResource;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
 
@@ -74,9 +75,40 @@ class ArticleController extends Controller
         );
     }
 
-    public function byCategory(string $slug)
+    public function byCategory(string $slug, Request $request)
     {
-        $articles = $this->articleService->getByCategory($slug);
+        $perPage = $request->query('per_page') ? (int) $request->query('per_page') : null;
+        $page = (int) $request->query('page', 1);
+        $result = $this->articleService->getByCategory($slug, $perPage, $page);
+
+        return sendResponse(
+            true,
+            'Articles retrieved successfully',
+            [
+                'category' => new CategoryResource($result['category']),
+                'articles' => ArticleResource::collection($result['items']),
+                'meta'     => $result['meta'],
+            ],
+            HttpStatus::HTTP_OK,
+        );
+    }
+
+    public function related(string $slug)
+    {
+        $articles = $this->articleService->getRelatedArticles($slug);
+
+        return sendResponse(
+            true,
+            'Related articles retrieved successfully',
+            ArticleResource::collection($articles),
+            HttpStatus::HTTP_OK,
+        );
+    }
+
+    public function articlesByTag(Request $request, string $tagSlug): JsonResponse
+    {
+        $type = (string) $request->query('type', 'latest');
+        $articles = $this->articleService->getLatestArticleByTag($tagSlug, $type);
 
         return sendResponse(
             true,
