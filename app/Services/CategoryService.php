@@ -3,16 +3,13 @@
 namespace App\Services;
 
 use App\Models\ArticleCategory;
+use App\Models\SeoPage;
 
 class CategoryService
 {
-    /**
-     * Create a new class instance.
-     */
-    public function __construct()
-    {
-        //
-    }
+    public function __construct(
+        private readonly SeoMetaService $seoMetaService,
+    ) {}
 
     public function getAllCategories()
     {
@@ -21,19 +18,26 @@ class CategoryService
 
     public function create(array $data): ArticleCategory
     {
-        return ArticleCategory::create($data);
-    }
+        $data = $this->seoMetaService->applyCategoryMeta($data);
 
+        $category = ArticleCategory::create($data);
+        $this->syncSeoPage($category);
+
+        return $category;
+    }
 
     public function getBySlug(string $slug): ArticleCategory
     {
-        return ArticleCategory::where('slug', $slug)->first();
+        return ArticleCategory::where('slug', $slug)->firstOrFail();
     }
 
     public function update(ArticleCategory $category, array $data): ArticleCategory
     {
+        $data = $this->seoMetaService->applyCategoryMeta($data);
         $category->update($data);
         $category->refresh();
+        $this->syncSeoPage($category);
+
         return $category;
     }
 
@@ -47,7 +51,6 @@ class CategoryService
 
         $category->delete();
     }
-
 
     public function restore(string $slug): ArticleCategory
     {
@@ -67,5 +70,20 @@ class CategoryService
             ->firstOrFail();
 
         $category->forceDelete();
+    }
+
+    private function syncSeoPage(ArticleCategory $category): void
+    {
+        SeoPage::updateOrCreate(
+            ['page_key' => 'category-' . $category->slug],
+            [
+                'name'             => $category->title . ' Category',
+                'url_path'         => '/' . $category->slug,
+                'is_template'      => false,
+                'meta_title'       => $category->meta_title,
+                'meta_description' => $category->meta_description,
+                'meta_keywords'    => $category->meta_keywords,
+            ],
+        );
     }
 }

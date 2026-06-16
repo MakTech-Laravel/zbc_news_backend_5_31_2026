@@ -35,6 +35,9 @@ class CategoryController extends Controller
             'slug' => 'required|string|max:255|unique:article_categories,slug',
             'status' => 'required|string|in:' . implode(',', array_column(ArticleCategoryStatus::options(), 'value')),
             'parent_id' => 'nullable|integer|exists:article_categories,id',
+            'meta_title' => 'nullable|string|max:255',
+            'meta_description' => 'nullable|string|max:2000',
+            'meta_keywords' => 'nullable|string|max:500',
         ]);
 
         $category = $this->categoryService->create($validated);
@@ -74,6 +77,9 @@ class CategoryController extends Controller
                 'unique:article_categories,slug,' . $category->id,
             ],
             'parent_id' => ['nullable', 'integer', 'exists:article_categories,id'],
+            'meta_title' => ['nullable', 'string', 'max:255'],
+            'meta_description' => ['nullable', 'string', 'max:2000'],
+            'meta_keywords' => ['nullable', 'string', 'max:500'],
         ]);
 
         $updated = $this->categoryService->update($category, $validated);

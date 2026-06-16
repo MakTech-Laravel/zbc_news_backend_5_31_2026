@@ -20,6 +20,10 @@ class DatabaseSeeder extends Seeder
             ArticleCategorySeeder::class,
             TagsSeeder::class,
             ArticleSeeder::class,
+            SiteSettingsSeeder::class,
+            SeoPageSeeder::class,
+            NavigationLinkSeeder::class,
+            AdSlotSeeder::class,
         ]);
        
     }

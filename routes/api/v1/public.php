@@ -3,8 +3,14 @@
 use App\Http\Controllers\Api\V1\AuthenticableController;
 use App\Http\Controllers\Api\V1\backend\ArticleTrackingController;
 use App\Http\Controllers\Api\V1\backend\SaveArticleController;
+use App\Http\Controllers\Api\V1\backend\SeoPageController;
 use App\Http\Controllers\Api\V1\frontend\CategoryController;
 use App\Http\Controllers\Api\V1\frontend\ArticleController;
+use App\Http\Controllers\Api\V1\frontend\AdSlotController;
+use App\Http\Controllers\Api\V1\frontend\AdTrackingController;
+use App\Http\Controllers\Api\V1\frontend\NavigationController;
+use App\Http\Controllers\Api\V1\frontend\NewsletterController;
+use App\Http\Controllers\Api\V1\frontend\PublicSiteSettingsController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\backend\TagController;
 
@@ -25,10 +31,21 @@ Route::controller(ArticleController::class)->prefix('articles')->group(function 
     Route::get('/latest', 'latest')->name('api.v1.articles.latest');
     Route::get('/latest-stories', 'latestStories')->name('api.v1.articles.latest-stories');
     Route::get('/show/{slug}', 'show')->name('api.v1.articles.show');
+    Route::get('/related/{slug}', 'related')->name('api.v1.articles.related');
+    Route::get('/by-tag/{tagSlug}', 'articlesByTag')->name('api.v1.articles.by-tag');
     // Route::post('/view/{slug}', 'recordView')->name('api.v1.articles.view')->middleware('request_limitter');
     Route::get('/category/{slug}', 'byCategory')->name('api.v1.articles.by-category');
     Route::get('/most-read', 'mostRead')->name('api.v1.articles.most-read');
     Route::get('/grid', 'gridArticles')->name('api.v1.articles.grid');
+});
+
+Route::controller(PublicSiteSettingsController::class)->prefix('site-settings')->group(function () {
+    Route::get('/', 'index')->name('api.v1.public.site-settings.index');
+});
+
+Route::controller(SeoPageController::class)->prefix('seo-pages')->group(function () {
+    Route::get('/', 'index')->name('api.v1.public.seo-pages.index');
+    Route::get('/resolve', 'resolve')->name('api.v1.public.seo-pages.resolve');
 });
 
 Route::controller(SaveArticleController::class)->prefix('save-articles')->group(function () {
@@ -38,3 +55,15 @@ Route::controller(SaveArticleController::class)->prefix('save-articles')->group(
 
 Route::post('/articles/track-read', [ArticleTrackingController::class, 'track'])->name('api.v1.articles.track-read');
 Route::get('/trending-tags', [TagController::class, 'trendingTags'])->name('api.v1.tags.trending-tags');
+
+Route::get('/navigation/quick-links', [NavigationController::class, 'quickLinks'])->name('api.v1.navigation.quick-links');
+Route::get('/ads/slots', [AdSlotController::class, 'index'])->name('api.v1.ads.slots');
+Route::post('/ads/track', [AdTrackingController::class, 'track'])
+    ->middleware('request_limitter')
+    ->name('api.v1.ads.track');
+
+Route::prefix('newsletter')->group(function (): void {
+    Route::post('/subscribe', [NewsletterController::class, 'subscribe'])->name('api.v1.newsletter.subscribe');
+    Route::get('/verify', [NewsletterController::class, 'verify'])->name('api.v1.newsletter.verify');
+    Route::get('/unsubscribe', [NewsletterController::class, 'unsubscribe'])->name('api.v1.newsletter.unsubscribe');
+});

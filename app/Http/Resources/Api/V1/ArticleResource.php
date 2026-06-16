@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Services\SeoMetaService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -15,6 +16,7 @@ class ArticleResource extends JsonResource
             'slug' => $this->slug,
             'meta_title' => $this->meta_title,
             'meta_description' => $this->meta_description,
+            'meta_keywords' => $this->meta_keywords,
             'sub_title' => $this->sub_title,
             'excerpt' => $this->excerpt,
             'article_description' => $this->article_description,
@@ -57,6 +59,15 @@ class ArticleResource extends JsonResource
 
             'created_at' => $this->created_at?->toDateTimeString(),
             'updated_at' => $this->updated_at?->toDateTimeString(),
+
+            'seo' => $this->when(
+                $this->relationLoaded('tags'),
+                function () {
+                    $resolved = app(SeoMetaService::class)->resolveArticleMeta($this->resource);
+
+                    return $resolved['resolved'];
+                },
+            ),
         ];
     }
 }

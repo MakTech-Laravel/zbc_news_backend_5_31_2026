@@ -17,6 +17,9 @@ class ArticleCategory extends Model
         'slug',
         'status',
         'parent_id',
+        'meta_title',
+        'meta_description',
+        'meta_keywords',
     ];
 
     protected $casts = [

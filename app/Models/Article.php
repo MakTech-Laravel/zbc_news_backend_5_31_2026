@@ -20,6 +20,7 @@ class Article extends Model
         'article_description',
         'meta_title',
         'meta_description',
+        'meta_keywords',
         'status',
         'featured_image',
         'open_graph_image',

@@ -16,7 +16,7 @@ class SiteSettingsController extends Controller
 
     public function index()
     {
-        $siteSettings = $this->siteSettingsService->getAll();
+        $siteSettings = $this->siteSettingsService->getOrDefault();
 
         return sendResponse(
             true,
