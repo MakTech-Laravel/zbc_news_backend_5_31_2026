@@ -226,6 +226,8 @@ Route::prefix('newsletter')->controller(NewsletterController::class)->group(func
     Route::get('/analytics', 'analytics')->name('api.v1.newsletter.analytics');
     Route::get('/categories', 'categories')->name('api.v1.admin.newsletter.categories');
     Route::get('/subscribers', 'subscribers')->name('api.v1.newsletter.subscribers');
+    Route::post('/subscribers/update/{id}', 'updateSubscriberStatus')->name('api.v1.newsletter.subscribers.update');
+    Route::post('/subscribers/resend-verification/{id}', 'resendSubscriberVerification')->name('api.v1.newsletter.subscribers.resend-verification');
     Route::delete('/subscribers/{id}', 'deleteSubscriber')->name('api.v1.newsletter.subscribers.delete');
     Route::get('/campaigns', 'campaigns')->name('api.v1.newsletter.campaigns');
     Route::get('/campaigns/{id}', 'showCampaign')->name('api.v1.newsletter.campaigns.show');

@@ -175,6 +175,44 @@ class NewsletterController extends Controller
         return sendResponse(true, 'Subscriber removed successfully', null, HttpStatus::HTTP_OK);
     }
 
+    public function updateSubscriberStatus(Request $request, int $id)
+    {
+        $validated = $request->validate([
+            'status' => ['required', 'string', 'in:pending,verified,unsubscribed'],
+        ]);
+
+        try {
+            $subscriber = $this->newsletterService->updateSubscriberStatus(
+                $id,
+                (string) $validated['status'],
+            );
+        } catch (\InvalidArgumentException $exception) {
+            return sendResponse(false, $exception->getMessage(), null, HttpStatus::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        if (!$subscriber) {
+            return sendResponse(false, 'Subscriber not found', null, HttpStatus::HTTP_NOT_FOUND);
+        }
+
+        return sendResponse(true, 'Subscriber status updated', $subscriber, HttpStatus::HTTP_OK);
+    }
+
+    public function resendSubscriberVerification(int $id)
+    {
+        $subscriber = $this->newsletterService->resendSubscriberVerification($id);
+
+        if (!$subscriber) {
+            return sendResponse(
+                false,
+                'Subscriber not found or not pending verification',
+                null,
+                HttpStatus::HTTP_NOT_FOUND,
+            );
+        }
+
+        return sendResponse(true, 'Verification email sent', $subscriber, HttpStatus::HTTP_OK);
+    }
+
     public function categories()
     {
         return sendResponse(

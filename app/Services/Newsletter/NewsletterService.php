@@ -148,6 +148,64 @@ class NewsletterService
         return (bool) NewsletterSubscriber::query()->whereKey($id)->delete();
     }
 
+    public function updateSubscriberStatus(int $id, string $status): ?NewsletterSubscriber
+    {
+        $allowed = ['pending', 'verified', 'unsubscribed'];
+        if (!in_array($status, $allowed, true)) {
+            throw new \InvalidArgumentException('Invalid subscriber status.');
+        }
+
+        $subscriber = NewsletterSubscriber::query()->find($id);
+        if (!$subscriber) {
+            return null;
+        }
+
+        $updates = ['status' => $status];
+
+        if ($status === 'verified') {
+            $updates['verified_at'] = now();
+            $updates['verification_token'] = null;
+            $updates['unsubscribed_at'] = null;
+        } elseif ($status === 'pending') {
+            $updates['verified_at'] = null;
+            $updates['unsubscribed_at'] = null;
+            if (empty($subscriber->verification_token)) {
+                $updates['verification_token'] = Str::random(64);
+            }
+        } else {
+            $updates['unsubscribed_at'] = now();
+        }
+
+        $subscriber->update($updates);
+
+        if ($status === 'unsubscribed') {
+            NewsletterEvent::query()->create([
+                'newsletter_subscriber_id' => $subscriber->id,
+                'event_type' => 'unsubscribe',
+                'meta' => ['source' => 'admin'],
+            ]);
+        }
+
+        return $subscriber->fresh();
+    }
+
+    public function resendSubscriberVerification(int $id): ?NewsletterSubscriber
+    {
+        $subscriber = NewsletterSubscriber::query()->find($id);
+        if (!$subscriber || $subscriber->status !== 'pending') {
+            return null;
+        }
+
+        if (empty($subscriber->verification_token)) {
+            $subscriber->update(['verification_token' => Str::random(64)]);
+            $subscriber = $subscriber->fresh();
+        }
+
+        $this->sendVerificationEmail($subscriber);
+
+        return $subscriber;
+    }
+
     public function listCampaigns(): LengthAwarePaginator
     {
         return NewsletterCampaign::query()->latest('id')->paginate(20);
