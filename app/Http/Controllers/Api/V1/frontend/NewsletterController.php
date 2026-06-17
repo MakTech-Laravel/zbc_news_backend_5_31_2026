@@ -3,48 +3,33 @@
 namespace App\Http\Controllers\Api\V1\frontend;
 
 use App\Http\Controllers\Controller;
-use App\Mail\NewsletterVerificationMail;
+use App\Models\NewsletterCampaign;
 use App\Models\NewsletterSubscriber;
+use App\Services\Newsletter\NewsletterService;
+use App\Services\Newsletter\NewsletterTrackingService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
 
 class NewsletterController extends Controller
 {
+    public function __construct(
+        private readonly NewsletterService $newsletterService,
+        private readonly NewsletterTrackingService $trackingService,
+    ) {}
+
     public function subscribe(Request $request)
     {
         $validated = $request->validate([
             'email' => ['required', 'email', 'max:255'],
             'name' => ['nullable', 'string', 'max:255'],
-            'preferences' => ['nullable', 'array'],
+            'preferences' => ['nullable'],
+            'source' => ['nullable', 'string', 'max:40'],
         ]);
 
-        $email = strtolower(trim((string) $validated['email']));
-        $verificationToken = Str::random(64);
-        $unsubscribeToken = Str::random(64);
-
-        $subscriber = NewsletterSubscriber::query()->updateOrCreate(
-            ['email' => $email],
-            [
-                'name' => $validated['name'] ?? null,
-                'status' => 'pending',
-                'preferences' => $validated['preferences'] ?? null,
-                'verification_token' => $verificationToken,
-                'unsubscribe_token' => $unsubscribeToken,
-                'verified_at' => null,
-                'unsubscribed_at' => null,
-            ]
+        $subscriber = $this->newsletterService->subscribe(
+            array_merge($validated, ['source' => $validated['source'] ?? 'website']),
+            $request->user(),
         );
-
-        $verifyUrl = rtrim((string) config('app.frontend_url', config('app.url')), '/') .
-            '/newsletter/verify?token=' . $verificationToken;
-
-        try {
-            Mail::to($subscriber->email)->send(new NewsletterVerificationMail($verifyUrl));
-        } catch (\Throwable) {
-            // Keep subscription and token even if local mail transport is unavailable.
-        }
 
         return sendResponse(
             true,
@@ -56,43 +41,114 @@ class NewsletterController extends Controller
 
     public function verify(Request $request)
     {
-        $token = trim((string) $request->query('token'));
-
-        $subscriber = NewsletterSubscriber::query()
-            ->where('verification_token', $token)
-            ->first();
+        $subscriber = $this->newsletterService->verify((string) $request->query('token'));
 
         if (!$subscriber) {
             return sendResponse(false, 'Invalid verification token', null, HttpStatus::HTTP_NOT_FOUND);
         }
 
-        $subscriber->update([
-            'status' => 'verified',
-            'verified_at' => now(),
-            'verification_token' => null,
-        ]);
-
-        return sendResponse(true, 'Newsletter subscription verified', null, HttpStatus::HTTP_OK);
+        return sendResponse(true, 'Newsletter subscription verified', [
+            'email' => $subscriber->email,
+        ], HttpStatus::HTTP_OK);
     }
 
     public function unsubscribe(Request $request)
     {
-        $token = trim((string) $request->query('token'));
-
-        $subscriber = NewsletterSubscriber::query()
-            ->where('unsubscribe_token', $token)
-            ->first();
+        $subscriber = $this->newsletterService->unsubscribe((string) $request->query('token'));
 
         if (!$subscriber) {
             return sendResponse(false, 'Invalid unsubscribe token', null, HttpStatus::HTTP_NOT_FOUND);
         }
 
-        $subscriber->update([
-            'status' => 'unsubscribed',
-            'unsubscribed_at' => now(),
+        return sendResponse(true, 'You have been unsubscribed', [
+            'email' => $subscriber->email,
+        ], HttpStatus::HTTP_OK);
+    }
+
+    public function preferences(Request $request)
+    {
+        $token = trim((string) $request->query('token'));
+        $subscriber = $this->newsletterService->getPreferencesByToken($token);
+
+        if (!$subscriber) {
+            return sendResponse(false, 'Invalid or expired preferences link', null, HttpStatus::HTTP_NOT_FOUND);
+        }
+
+        return sendResponse(true, 'Newsletter preferences retrieved', [
+            'email' => $subscriber->email,
+            'name' => $subscriber->name,
+            'preferences' => $subscriber->preferences,
+            'categories' => $this->newsletterService->preferenceCategories(),
+        ], HttpStatus::HTTP_OK);
+    }
+
+    public function updatePreferences(Request $request)
+    {
+        $validated = $request->validate([
+            'token' => ['required', 'string'],
+            'preferences' => ['required'],
         ]);
 
-        return sendResponse(true, 'You have been unsubscribed', null, HttpStatus::HTTP_OK);
+        $subscriber = $this->newsletterService->updatePreferences(
+            $validated['token'],
+            is_array($validated['preferences']) ? $validated['preferences'] : ['categories' => $validated['preferences']],
+        );
+
+        if (!$subscriber) {
+            return sendResponse(false, 'Invalid or expired preferences link', null, HttpStatus::HTTP_NOT_FOUND);
+        }
+
+        return sendResponse(true, 'Preferences updated successfully', [
+            'preferences' => $subscriber->preferences,
+        ], HttpStatus::HTTP_OK);
+    }
+
+    public function categories()
+    {
+        return sendResponse(
+            true,
+            'Newsletter categories retrieved',
+            $this->newsletterService->preferenceCategories(),
+            HttpStatus::HTTP_OK,
+        );
+    }
+
+    public function trackOpen(int $campaignId, int $subscriberId, string $signature)
+    {
+        if (!$this->trackingService->verify($campaignId, $subscriberId, $signature)) {
+            return response('Invalid signature', HttpStatus::HTTP_FORBIDDEN);
+        }
+
+        $campaign = NewsletterCampaign::query()->find($campaignId);
+        $subscriber = NewsletterSubscriber::query()->find($subscriberId);
+
+        if ($campaign && $subscriber) {
+            $this->trackingService->recordOpen($campaign, $subscriber);
+        }
+
+        $pixel = base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
+
+        return response($pixel, HttpStatus::HTTP_OK, [
+            'Content-Type' => 'image/gif',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate',
+        ]);
+    }
+
+    public function trackClick(Request $request, int $campaignId, int $subscriberId, string $signature)
+    {
+        $url = (string) $request->query('url', '/');
+
+        if (!$this->trackingService->verify($campaignId, $subscriberId, $signature)) {
+            return redirect()->away($url);
+        }
+
+        $campaign = NewsletterCampaign::query()->find($campaignId);
+        $subscriber = NewsletterSubscriber::query()->find($subscriberId);
+
+        if ($campaign && $subscriber) {
+            $this->trackingService->recordClick($campaign, $subscriber, $url);
+        }
+
+        return redirect()->away($url);
     }
 }
-

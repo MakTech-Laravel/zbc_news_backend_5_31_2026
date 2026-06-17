@@ -70,8 +70,13 @@ Route::post('/ads/track', [AdTrackingController::class, 'track'])
     ->middleware('request_limitter')
     ->name('api.v1.ads.track');
 
-Route::prefix('newsletter')->group(function (): void {
-    Route::post('/subscribe', [NewsletterController::class, 'subscribe'])->name('api.v1.newsletter.subscribe');
-    Route::get('/verify', [NewsletterController::class, 'verify'])->name('api.v1.newsletter.verify');
-    Route::get('/unsubscribe', [NewsletterController::class, 'unsubscribe'])->name('api.v1.newsletter.unsubscribe');
+Route::prefix('newsletter')->controller(NewsletterController::class)->group(function (): void {
+    Route::post('/subscribe', 'subscribe')->middleware('request_limitter')->name('api.v1.newsletter.subscribe');
+    Route::get('/verify', 'verify')->name('api.v1.newsletter.verify');
+    Route::get('/unsubscribe', 'unsubscribe')->name('api.v1.newsletter.unsubscribe');
+    Route::get('/preferences', 'preferences')->name('api.v1.newsletter.preferences');
+    Route::put('/preferences', 'updatePreferences')->name('api.v1.newsletter.preferences.update');
+    Route::get('/categories', 'categories')->name('api.v1.newsletter.categories');
+    Route::get('/track/open/{campaignId}/{subscriberId}/{signature}', 'trackOpen')->name('api.v1.newsletter.track.open');
+    Route::get('/track/click/{campaignId}/{subscriberId}/{signature}', 'trackClick')->name('api.v1.newsletter.track.click');
 });
