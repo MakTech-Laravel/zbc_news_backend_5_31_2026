@@ -185,11 +185,6 @@ class UserDashboardService
 
     private function estimateReadTime(?string $content): string
     {
-        if (! $content) {
-            return '3 min read';
-        }
-        $wordCount = str_word_count(strip_tags($content));
-        $minutes   = max(1, (int) round($wordCount / 200));
-        return $minutes . ' min read';
+        return \App\Support\ReadTime::fromHtml($content);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Support\ReadTime;
 use App\Services\SeoMetaService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -20,6 +21,7 @@ class ArticleResource extends JsonResource
             'sub_title' => $this->sub_title,
             'excerpt' => $this->excerpt,
             'article_description' => $this->article_description,
+            'read_time' => ReadTime::fromHtml($this->article_description),
 
             'status' => $this->status?->value ?? $this->status,
             'visibility' => $this->visibility?->value ?? $this->visibility,
