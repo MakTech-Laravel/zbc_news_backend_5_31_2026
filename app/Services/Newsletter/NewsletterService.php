@@ -12,10 +12,14 @@ use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class NewsletterService
 {
+    /** @var array<string, bool> */
+    private static array $columnCache = [];
+
     public function __construct(
         private readonly NewsletterEmailProviderFactory $providerFactory,
         private readonly NewsletterTrackingService $trackingService,
@@ -29,19 +33,7 @@ class NewsletterService
 
         $subscriber = NewsletterSubscriber::query()->updateOrCreate(
             ['email' => $email],
-            [
-                'name' => $data['name'] ?? null,
-                'user_id' => $user?->id,
-                'source' => $data['source'] ?? 'website',
-                'status' => 'pending',
-                'preferences' => $this->normalizePreferences($data['preferences'] ?? null),
-                'is_premium' => (bool) ($user && ($user->hasRole('premium') || $user->hasRole('member'))),
-                'audience_tags' => $data['audience_tags'] ?? null,
-                'verification_token' => $verificationToken,
-                'unsubscribe_token' => $unsubscribeToken,
-                'verified_at' => null,
-                'unsubscribed_at' => null,
-            ],
+            $this->subscriberPayload($data, $user, $verificationToken, $unsubscribeToken),
         );
 
         $this->sendVerificationEmail($subscriber);
@@ -301,6 +293,10 @@ class NewsletterService
 
     public function incrementFailed(NewsletterCampaign $campaign): void
     {
+        if (!$this->hasColumn('newsletter_campaigns', 'failed_count')) {
+            return;
+        }
+
         $campaign->increment('failed_count');
     }
 
@@ -323,11 +319,16 @@ class NewsletterService
             ->values()
             ->all();
 
+        $campaignColumns = ['id', 'title', 'sent_at', 'subscriber_count', 'open_count', 'click_count'];
+        if ($this->hasColumn('newsletter_campaigns', 'failed_count')) {
+            $campaignColumns[] = 'failed_count';
+        }
+
         $campaignStats = NewsletterCampaign::query()
             ->where('status', 'sent')
             ->latest('sent_at')
             ->limit(10)
-            ->get(['id', 'title', 'sent_at', 'subscriber_count', 'open_count', 'click_count', 'failed_count'])
+            ->get($campaignColumns)
             ->map(function (NewsletterCampaign $campaign) {
                 $sent = max(1, (int) $campaign->subscriber_count);
 
@@ -338,7 +339,7 @@ class NewsletterService
                     'subscriber_count' => $campaign->subscriber_count,
                     'open_count' => $campaign->open_count,
                     'click_count' => $campaign->click_count,
-                    'failed_count' => $campaign->failed_count,
+                    'failed_count' => (int) ($campaign->failed_count ?? 0),
                     'open_rate' => round(((int) $campaign->open_count / $sent) * 100, 1),
                     'click_rate' => round(((int) $campaign->click_count / $sent) * 100, 1),
                 ];
@@ -438,18 +439,80 @@ class NewsletterService
         $segments = $data['segments'] ?? null;
         if (is_array($segments) && isset($data['category_slugs'])) {
             $segments['category_slugs'] = $data['category_slugs'];
+        } elseif (isset($data['category_slugs'])) {
+            $segments = ['category_slugs' => $data['category_slugs']];
         }
 
-        return [
+        $payload = [
             'title' => $data['title'],
             'subject' => $data['subject'],
-            'preview_text' => $data['preview_text'] ?? null,
             'content_html' => $data['content_html'],
             'status' => $data['status'] ?? 'draft',
             'scheduled_at' => $data['scheduled_at'] ?? null,
             'segments' => $segments,
-            'audience_type' => $data['audience_type'] ?? 'all',
-            'premium_only' => (bool) ($data['premium_only'] ?? false),
         ];
+
+        if ($this->hasColumn('newsletter_campaigns', 'preview_text')) {
+            $payload['preview_text'] = $data['preview_text'] ?? null;
+        }
+
+        if ($this->hasColumn('newsletter_campaigns', 'audience_type')) {
+            $payload['audience_type'] = $data['audience_type'] ?? 'all';
+        }
+
+        if ($this->hasColumn('newsletter_campaigns', 'premium_only')) {
+            $payload['premium_only'] = (bool) ($data['premium_only'] ?? false);
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function subscriberPayload(
+        array $data,
+        ?User $user,
+        string $verificationToken,
+        string $unsubscribeToken,
+    ): array {
+        $payload = [
+            'name' => $data['name'] ?? null,
+            'status' => 'pending',
+            'preferences' => $this->normalizePreferences($data['preferences'] ?? null),
+            'verification_token' => $verificationToken,
+            'unsubscribe_token' => $unsubscribeToken,
+            'verified_at' => null,
+            'unsubscribed_at' => null,
+        ];
+
+        if ($this->hasColumn('newsletter_subscribers', 'user_id')) {
+            $payload['user_id'] = $user?->id;
+        }
+
+        if ($this->hasColumn('newsletter_subscribers', 'source')) {
+            $payload['source'] = $data['source'] ?? 'website';
+        }
+
+        if ($this->hasColumn('newsletter_subscribers', 'is_premium')) {
+            $payload['is_premium'] = (bool) ($user && ($user->hasRole('premium') || $user->hasRole('member')));
+        }
+
+        if ($this->hasColumn('newsletter_subscribers', 'audience_tags')) {
+            $payload['audience_tags'] = $data['audience_tags'] ?? null;
+        }
+
+        return $payload;
+    }
+
+    private function hasColumn(string $table, string $column): bool
+    {
+        $key = "{$table}.{$column}";
+
+        if (!array_key_exists($key, self::$columnCache)) {
+            self::$columnCache[$key] = Schema::hasColumn($table, $column);
+        }
+
+        return self::$columnCache[$key];
     }
 }

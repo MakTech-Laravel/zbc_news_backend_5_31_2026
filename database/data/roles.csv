@@ -2,6 +2,9 @@ name,guard_name
 super_admin,api
 admin,api
 editor,api
+writer,api
+moderator,api
+subscriber,api
 sub_editor,api
 author,api
 journalist,api

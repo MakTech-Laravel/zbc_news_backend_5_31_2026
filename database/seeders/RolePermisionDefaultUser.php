@@ -2,11 +2,12 @@
 
 namespace Database\Seeders;
 
+use App\Models\Role;
 use App\Models\User;
+use App\Support\SystemRoles;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
 
 class RolePermisionDefaultUser extends Seeder
 {
@@ -24,6 +25,9 @@ class RolePermisionDefaultUser extends Seeder
             ['name' => 'Super Admin', 'email' => 'superadmin@dev.com', 'role' => 'super_admin'],
             ['name' => 'Admin', 'email' => 'admin@dev.com', 'role' => 'admin'],
             ['name' => 'Editor', 'email' => 'editor@dev.com', 'role' => 'editor'],
+            ['name' => 'Writer', 'email' => 'writer@dev.com', 'role' => 'writer'],
+            ['name' => 'Moderator', 'email' => 'moderator@dev.com', 'role' => 'moderator'],
+            ['name' => 'Subscriber', 'email' => 'subscriber@dev.com', 'role' => 'subscriber'],
             ['name' => 'Author', 'email' => 'author@dev.com', 'role' => 'author'],
             ['name' => 'Sub Editor', 'email' => 'subeditor@dev.com', 'role' => 'sub_editor'],
             ['name' => 'Journalist', 'email' => 'journalist@dev.com', 'role' => 'journalist'],
@@ -71,12 +75,28 @@ class RolePermisionDefaultUser extends Seeder
     {
         $rolesCsv = fopen(database_path('data/roles.csv'), 'r');
         $header = fgetcsv($rolesCsv, 0, ',');
+        $protected = SystemRoles::protectedDefinitions();
+
         while (($row = fgetcsv($rolesCsv, 0, ',')) !== false) {
             $data = array_combine($header, $row);
-            Role::firstOrCreate(
-                ['name' => $data['name'], 'guard_name' => $data['guard_name']]
+            $slug = $data['name'];
+
+            $role = Role::firstOrCreate(
+                ['name' => $slug, 'guard_name' => $data['guard_name']],
+                [
+                    'is_protected' => array_key_exists($slug, $protected),
+                    'display_name' => $protected[$slug] ?? null,
+                ],
             );
+
+            if (array_key_exists($slug, $protected)) {
+                $role->update([
+                    'is_protected' => true,
+                    'display_name' => $protected[$slug],
+                ]);
+            }
         }
+
         fclose($rolesCsv);
         $this->command->info('Roles seeded successfully');
     }

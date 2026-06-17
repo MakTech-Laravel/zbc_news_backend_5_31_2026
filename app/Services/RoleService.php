@@ -2,23 +2,17 @@
 
 namespace App\Services;
 
+use App\Models\Role;
+use App\Support\SystemRoles;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
 
 class RoleService
 {
-    /**
-     * Create a new class instance.
-     */
-    public function __construct()
-    {
-        //
-    }
-
     public function getAllRoles(): Collection
     {
-        return Role::with('permissions')->get();
+        return Role::with('permissions')->orderByDesc('is_protected')->orderBy('name')->get();
     }
 
     public function create(array $data): Role
@@ -28,10 +22,10 @@ class RoleService
 
         $role = Role::create([
             'name' => $data['name'],
-            'guard_name' => 'api'
+            'guard_name' => 'api',
+            'is_protected' => false,
+            'display_name' => null,
         ]);
-
-
 
         if (!empty($permissions)) {
             $role->syncPermissions($permissions);
@@ -61,9 +55,18 @@ class RoleService
         $permissions = $data['permissions'] ?? [];
         unset($data['permissions']);
 
-        $role->update([
-            'name' => $data['name']
-        ]);
+        if (SystemRoles::isProtected($role)) {
+            $requestedName = isset($data['name']) ? strtolower(trim((string) $data['name'])) : null;
+            if ($requestedName !== null && $requestedName !== strtolower($role->name)) {
+                throw ValidationException::withMessages([
+                    'name' => ['System role names cannot be changed. You can update permissions only.'],
+                ]);
+            }
+        } else {
+            $role->update([
+                'name' => $data['name'],
+            ]);
+        }
 
         if (!empty($permissions)) {
             $this->syncPermissions($role, $permissions);
@@ -88,7 +91,7 @@ class RoleService
         foreach ($permissions as $permissionName) {
             Permission::firstOrCreate([
                 'name' => $permissionName,
-                'guard_name' => 'api'
+                'guard_name' => 'api',
             ]);
         }
 
@@ -97,10 +100,10 @@ class RoleService
 
     public function delete(Role $role): void
     {
-        $protectedRoles = ['super_admin', 'user', 'admin'];
-
-        if (in_array(strtolower($role->name), $protectedRoles)) {
-            throw new \Exception('This role cannot be deleted');
+        if (SystemRoles::isProtected($role)) {
+            throw ValidationException::withMessages([
+                'role' => ['This system role cannot be deleted. You can update its permissions instead.'],
+            ]);
         }
 
         $role->delete();

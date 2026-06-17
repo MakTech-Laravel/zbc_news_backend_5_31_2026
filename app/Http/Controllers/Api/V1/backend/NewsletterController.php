@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\backend;
 use App\Http\Controllers\Controller;
 use App\Models\NewsletterCampaign;
 use App\Services\Newsletter\NewsletterService;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
@@ -17,10 +18,32 @@ class NewsletterController extends Controller
 
     public function analytics()
     {
+        try {
+            $data = $this->newsletterService->analytics();
+        } catch (QueryException $exception) {
+            report($exception);
+
+            return sendResponse(
+                false,
+                'Newsletter analytics unavailable. Please run database migrations on the server.',
+                null,
+                HttpStatus::HTTP_INTERNAL_SERVER_ERROR,
+            );
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return sendResponse(
+                false,
+                'Unable to load newsletter analytics.',
+                null,
+                HttpStatus::HTTP_INTERNAL_SERVER_ERROR,
+            );
+        }
+
         return sendResponse(
             true,
             'Newsletter analytics retrieved successfully',
-            $this->newsletterService->analytics(),
+            $data,
             HttpStatus::HTTP_OK,
         );
     }
@@ -59,7 +82,28 @@ class NewsletterController extends Controller
     public function storeCampaign(Request $request)
     {
         $validated = $this->validateCampaign($request);
-        $campaign = $this->newsletterService->createCampaign($validated);
+
+        try {
+            $campaign = $this->newsletterService->createCampaign($validated);
+        } catch (QueryException $exception) {
+            report($exception);
+
+            return sendResponse(
+                false,
+                'Newsletter campaigns table is not ready. Please run database migrations on the server.',
+                null,
+                HttpStatus::HTTP_INTERNAL_SERVER_ERROR,
+            );
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return sendResponse(
+                false,
+                'Unable to create newsletter campaign.',
+                null,
+                HttpStatus::HTTP_INTERNAL_SERVER_ERROR,
+            );
+        }
 
         return sendResponse(true, 'Newsletter campaign created successfully', $campaign, HttpStatus::HTTP_CREATED);
     }
