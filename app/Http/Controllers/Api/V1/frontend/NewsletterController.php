@@ -7,6 +7,7 @@ use App\Models\NewsletterCampaign;
 use App\Models\NewsletterSubscriber;
 use App\Services\Newsletter\NewsletterService;
 use App\Services\Newsletter\NewsletterTrackingService;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
 
@@ -26,10 +27,30 @@ class NewsletterController extends Controller
             'source' => ['nullable', 'string', 'max:40'],
         ]);
 
-        $subscriber = $this->newsletterService->subscribe(
-            array_merge($validated, ['source' => $validated['source'] ?? 'website']),
-            $request->user(),
-        );
+        try {
+            $subscriber = $this->newsletterService->subscribe(
+                array_merge($validated, ['source' => $validated['source'] ?? 'website']),
+                $request->user(),
+            );
+        } catch (QueryException $exception) {
+            report($exception);
+
+            return sendResponse(
+                false,
+                'Newsletter storage is not ready. Please run database migrations on the server.',
+                null,
+                HttpStatus::HTTP_INTERNAL_SERVER_ERROR,
+            );
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return sendResponse(
+                false,
+                'Unable to process subscription right now.',
+                null,
+                HttpStatus::HTTP_INTERNAL_SERVER_ERROR,
+            );
+        }
 
         return sendResponse(
             true,

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\RoleRequest;
 use App\Http\Resources\Api\V1\RoleResource;
 use App\Services\RoleService;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
 
 class RoleController extends Controller
@@ -13,9 +14,9 @@ class RoleController extends Controller
     public function __construct(
         private readonly RoleService $roleService
     ) {}
+
     public function index()
     {
-
         $roles = $this->roleService->getAllRoles();
 
         return sendResponse(
@@ -31,7 +32,6 @@ class RoleController extends Controller
         $validate = $request->validated();
         $role = $this->roleService->create($validate);
 
-
         return sendResponse(
             true,
             'Role created successfully',
@@ -42,11 +42,22 @@ class RoleController extends Controller
 
     public function update(RoleRequest $request, $id)
     {
-        $role = $this->roleService->getById($id);
+        $role = $this->roleService->getById((int) $id);
 
-        $validated = $request->validated();
+        if (!$role) {
+            return sendResponse(false, 'Role not found', null, HttpStatus::HTTP_NOT_FOUND);
+        }
 
-        $updated = $this->roleService->update($role, $validated);
+        try {
+            $updated = $this->roleService->update($role, $request->validated());
+        } catch (ValidationException $exception) {
+            return sendResponse(
+                false,
+                $exception->getMessage(),
+                ['errors' => $exception->errors()],
+                HttpStatus::HTTP_UNPROCESSABLE_ENTITY,
+            );
+        }
 
         return sendResponse(
             true,
@@ -60,6 +71,10 @@ class RoleController extends Controller
     {
         $role = $this->roleService->getById($id);
 
+        if (!$role) {
+            return sendResponse(false, 'Role not found', null, HttpStatus::HTTP_NOT_FOUND);
+        }
+
         return sendResponse(
             true,
             'Role retrieved successfully',
@@ -70,8 +85,22 @@ class RoleController extends Controller
 
     public function destroy($id)
     {
-        $role = $this->roleService->getById($id);
-        $this->roleService->delete($role);
+        $role = $this->roleService->getById((int) $id);
+
+        if (!$role) {
+            return sendResponse(false, 'Role not found', null, HttpStatus::HTTP_NOT_FOUND);
+        }
+
+        try {
+            $this->roleService->delete($role);
+        } catch (ValidationException $exception) {
+            return sendResponse(
+                false,
+                collect($exception->errors())->flatten()->first() ?: $exception->getMessage(),
+                ['errors' => $exception->errors()],
+                HttpStatus::HTTP_UNPROCESSABLE_ENTITY,
+            );
+        }
 
         return sendResponse(
             true,
@@ -80,7 +109,7 @@ class RoleController extends Controller
             HttpStatus::HTTP_OK,
         );
     }
-    
+
     public function restore($id)
     {
         $role = $this->roleService->restore($id);
