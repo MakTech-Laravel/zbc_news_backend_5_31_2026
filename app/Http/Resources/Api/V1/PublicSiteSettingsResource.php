@@ -32,6 +32,29 @@ class PublicSiteSettingsResource extends JsonResource
             'google_analytics_id'       => $this->google_analytics_id ?? $this->g_messurment_id,
             'facebook_pixel_id'         => $this->facebook_pixel_id ?? $this->pixeld_id,
             'disqus_shortname'          => $this->disqus_shortname,
+            'frontend_url'              => $this->publicAppUrl((string) config('app.frontend_url')),
+            'api_url'                   => $this->publicAppUrl((string) config('app.url')),
         ];
+    }
+
+    private function publicAppUrl(string $url): ?string
+    {
+        $normalized = rtrim(trim($url), '/');
+
+        if ($normalized === '') {
+            return null;
+        }
+
+        $host = parse_url($normalized, PHP_URL_HOST);
+
+        if (! is_string($host) || $host === '') {
+            return null;
+        }
+
+        if (in_array($host, ['localhost', '127.0.0.1', '[::1]'], true) || str_ends_with($host, '.local')) {
+            return null;
+        }
+
+        return $normalized;
     }
 }
