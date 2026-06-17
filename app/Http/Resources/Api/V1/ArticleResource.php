@@ -23,8 +23,8 @@ class ArticleResource extends JsonResource
 
             'status' => $this->status?->value ?? $this->status,
             'visibility' => $this->visibility?->value ?? $this->visibility,
-            'featured_image' => $this->featured_image,
-            'open_graph_image' => $this->open_graph_image,
+            'featured_image' => $this->resolvePublicImageUrl($this->featured_image),
+            'open_graph_image' => $this->resolvePublicImageUrl($this->open_graph_image),
 
             'scheduled_publishing' => $this->scheduled_publishing,
             'published_at' => $this->published_at,
@@ -69,5 +69,25 @@ class ArticleResource extends JsonResource
                 },
             ),
         ];
+    }
+
+    private function resolvePublicImageUrl(?string $path): ?string
+    {
+        if (! $path) {
+            return null;
+        }
+
+        if (preg_match('/^https?:\/\//i', $path)) {
+            return $path;
+        }
+
+        $normalized = str_starts_with($path, '/') ? $path : '/' . $path;
+        $publicFile = public_path(ltrim($normalized, '/'));
+
+        if (! is_file($publicFile)) {
+            return null;
+        }
+
+        return url($normalized);
     }
 }

@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\frontend\AdTrackingController;
 use App\Http\Controllers\Api\V1\frontend\NavigationController;
 use App\Http\Controllers\Api\V1\frontend\NewsletterController;
 use App\Http\Controllers\Api\V1\frontend\PublicSiteSettingsController;
+use App\Http\Controllers\Api\V1\frontend\SearchController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\backend\TagController;
 
@@ -37,6 +38,7 @@ Route::controller(ArticleController::class)->prefix('articles')->group(function 
     Route::get('/category/{slug}', 'byCategory')->name('api.v1.articles.by-category');
     Route::get('/most-read', 'mostRead')->name('api.v1.articles.most-read');
     Route::get('/grid', 'gridArticles')->name('api.v1.articles.grid');
+    Route::get('/search', [SearchController::class, 'search'])->name('api.v1.articles.search');
 });
 
 Route::controller(PublicSiteSettingsController::class)->prefix('site-settings')->group(function () {
@@ -55,6 +57,12 @@ Route::controller(SaveArticleController::class)->prefix('save-articles')->group(
 
 Route::post('/articles/track-read', [ArticleTrackingController::class, 'track'])->name('api.v1.articles.track-read');
 Route::get('/trending-tags', [TagController::class, 'trendingTags'])->name('api.v1.tags.trending-tags');
+
+Route::controller(SearchController::class)->prefix('search')->group(function () {
+    Route::get('/history', 'history')->name('api.v1.search.history');
+    Route::post('/history', 'storeHistory')->name('api.v1.search.history.store');
+    Route::delete('/history', 'clearHistory')->name('api.v1.search.history.clear');
+});
 
 Route::get('/navigation/quick-links', [NavigationController::class, 'quickLinks'])->name('api.v1.navigation.quick-links');
 Route::get('/ads/slots', [AdSlotController::class, 'index'])->name('api.v1.ads.slots');

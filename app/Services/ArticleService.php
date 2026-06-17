@@ -453,4 +453,30 @@ class ArticleService
             ->take($limit)
             ->get();
     }
+
+    public function searchPublished(string $query, int $limit = 10): Collection
+    {
+        $term = trim($query);
+        if ($term === '') {
+            return collect();
+        }
+
+        $escaped = str_replace(['%', '_'], ['\%', '\_'], $term);
+        $like = '%' . $escaped . '%';
+
+        return $this->article
+            ->with(['tags', 'category', 'user'])
+            ->where('status', ArticleStatus::PUBLISHED->value)
+            ->where(function ($q) use ($like) {
+                $q->where('title', 'like', $like)
+                    ->orWhere('excerpt', 'like', $like)
+                    ->orWhere('sub_title', 'like', $like)
+                    ->orWhere('article_description', 'like', $like)
+                    ->orWhereHas('tags', fn ($tagQuery) => $tagQuery->where('tag', 'like', $like))
+                    ->orWhereHas('category', fn ($catQuery) => $catQuery->where('title', 'like', $like));
+            })
+            ->orderByDesc('published_at')
+            ->limit(min(max($limit, 1), 30))
+            ->get();
+    }
 }
