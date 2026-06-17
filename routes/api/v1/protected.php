@@ -223,7 +223,14 @@ Route::get('/user/dashboard', [UserDashboardController::class, 'index'])
     ->name('api.v1.user.dashboard');
 
 Route::prefix('newsletter')->controller(NewsletterController::class)->group(function () {
+    Route::get('/analytics', 'analytics')->name('api.v1.newsletter.analytics');
+    Route::get('/categories', 'categories')->name('api.v1.admin.newsletter.categories');
     Route::get('/subscribers', 'subscribers')->name('api.v1.newsletter.subscribers');
+    Route::delete('/subscribers/{id}', 'deleteSubscriber')->name('api.v1.newsletter.subscribers.delete');
     Route::get('/campaigns', 'campaigns')->name('api.v1.newsletter.campaigns');
+    Route::get('/campaigns/{id}', 'showCampaign')->name('api.v1.newsletter.campaigns.show');
     Route::post('/campaigns/store', 'storeCampaign')->name('api.v1.newsletter.campaigns.store');
+    Route::post('/campaigns/update/{id}', 'updateCampaign')->name('api.v1.newsletter.campaigns.update');
+    Route::post('/campaigns/schedule/{id}', 'scheduleCampaign')->name('api.v1.newsletter.campaigns.schedule');
+    Route::post('/campaigns/send/{id}', 'sendCampaign')->name('api.v1.newsletter.campaigns.send');
 });
