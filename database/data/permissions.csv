@@ -45,6 +45,14 @@ plans.restore,api,Membership Plans
 plans.force-delete,api,Membership Plans
 notification-preferences.show,api,Notification Preferences
 notification-preferences.update,api,Notification Preferences
+user-notifications.list,api,User Notifications
+user-notifications.mark-read,api,User Notifications
+user-notifications.mark-all-read,api,User Notifications
+comments.create,api,Comments
+comments.list,api,Comments
+comments.approve,api,Comments
+comments.reject,api,Comments
+comments.delete,api,Comments
 permissions.list,api,Permissions
 media.list,api,Media
 media.create,api,Media

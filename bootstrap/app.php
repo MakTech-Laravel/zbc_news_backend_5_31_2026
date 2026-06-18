@@ -20,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
             'request_limitter' => \App\Http\Middleware\Api\V1\BruteForceAttackLimitterForPostForm::class,
+            'optional_api_auth' => \App\Http\Middleware\OptionalApiAuth::class,
         ]);
         
         $middleware->prepend(HandleCors::class);
