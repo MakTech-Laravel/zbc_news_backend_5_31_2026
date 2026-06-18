@@ -28,8 +28,8 @@ class ArticleResource extends JsonResource
             'featured_image' => $this->resolvePublicImageUrl($this->featured_image),
             'open_graph_image' => $this->resolvePublicImageUrl($this->open_graph_image),
 
-            'scheduled_publishing' => $this->scheduled_publishing,
-            'published_at' => $this->published_at,
+            'scheduled_publishing' => $this->scheduled_publishing?->toIso8601String(),
+            'published_at' => $this->published_at?->toIso8601String(),
             'views' => $this->views,
             'saves_count' => $this->save_articles_count ?? 0,
 
@@ -59,8 +59,8 @@ class ArticleResource extends JsonResource
                 });
             }),
 
-            'created_at' => $this->created_at?->toDateTimeString(),
-            'updated_at' => $this->updated_at?->toDateTimeString(),
+            'created_at' => $this->created_at?->toIso8601String(),
+            'updated_at' => $this->updated_at?->toIso8601String(),
 
             'seo' => $this->when(
                 $this->relationLoaded('tags'),

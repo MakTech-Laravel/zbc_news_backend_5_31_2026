@@ -9,6 +9,7 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
 use App\Models\Article;
+
 class ArticleRequest extends FormRequest
 {
     /**
@@ -17,6 +18,38 @@ class ArticleRequest extends FormRequest
     public function authorize(): bool
     {
         return true;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $merge = [];
+
+        if ($this->filled('scheduled_publishing')) {
+            $merge['scheduled_publishing'] = $this->normalizeDatetimeInput(
+                (string) $this->input('scheduled_publishing'),
+            );
+        }
+
+        if ($this->filled('published_at')) {
+            $merge['published_at'] = $this->normalizeDatetimeInput(
+                (string) $this->input('published_at'),
+            );
+        }
+
+        if ($merge !== []) {
+            $this->merge($merge);
+        }
+    }
+
+    private function normalizeDatetimeInput(string $value): string
+    {
+        $value = trim(str_replace('T', ' ', $value));
+
+        if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/', $value)) {
+            return $value.':00';
+        }
+
+        return $value;
     }
 
     /**
@@ -54,9 +87,9 @@ class ArticleRequest extends FormRequest
             'open_graph_image'        => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048', 'sometimes'],
             'article_category_id'   => ['required', 'integer', 'exists:article_categories,id'],
             'scheduled_publishing' => [
-                Rule::requiredIf(fn() => $this->input('status') === ArticleStatus::SCHEDULED->value),
+                Rule::requiredIf(fn () => $this->input('status') === ArticleStatus::SCHEDULED->value),
                 'nullable',
-                'date_format:Y-m-d H:i:s',
+                'date',
                 'after:now',
             ],
             'published_at'          => ['nullable', 'date'],
@@ -69,8 +102,8 @@ class ArticleRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'scheduled_publishing.required' => 'Scheduled publishing date is required when status is scheduled.',
-            'scheduled_publishing.after'    => 'Scheduled publishing date must be a future date.',
+            'scheduled_publishing.required' => 'Scheduled publishing date and time are required when status is scheduled.',
+            'scheduled_publishing.after'    => 'Scheduled publishing must be a future date and time.',
         ];
     }
 }
