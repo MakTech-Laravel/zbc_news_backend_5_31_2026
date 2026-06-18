@@ -403,14 +403,17 @@ class ArticleService
 
     private function resolvePublishedAt(array $data, ?Article $existing = null): ?\Carbon\Carbon
     {
-        $status = $data['status'] ?? ArticleStatus::DRAFT->value;
+        $status = $data['status'] ?? $existing?->status?->value ?? ArticleStatus::DRAFT->value;
 
-        return match ($status) {
-            ArticleStatus::PUBLISHED->value => isset($data['published_at'])
-                ? \Carbon\Carbon::parse($data['published_at'])
-                : ($existing?->published_at ?? now()),
-            default => null,
-        };
+        if ($status !== ArticleStatus::PUBLISHED->value) {
+            return null;
+        }
+
+        if (! empty($data['published_at'])) {
+            return \Carbon\Carbon::parse($data['published_at']);
+        }
+
+        return $existing?->published_at ?? now();
     }
 
     private function resolveImage(
