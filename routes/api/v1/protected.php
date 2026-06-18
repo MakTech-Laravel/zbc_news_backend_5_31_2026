@@ -18,8 +18,10 @@ use App\Http\Controllers\Api\V1\backend\AdSlotController;
 use App\Http\Controllers\Api\V1\backend\MonetizationController;
 use App\Http\Controllers\Api\V1\backend\NavigationLinkController;
 use App\Http\Controllers\Api\V1\backend\NewsletterController;
-use App\Http\Controllers\Api\V1\backend\AdminDashboardController;
+use App\Http\Controllers\Api\V1\backend\AdminCommentController;
+use App\Http\Controllers\Api\V1\backend\AdminSearchController;
 use App\Http\Controllers\Api\V1\backend\UserDashboardController;
+use App\Http\Controllers\Api\V1\backend\UserNotificationController;
 use Illuminate\Support\Facades\Route;
 
 Route::controller(CategoryController::class)->prefix('categories')->group(function () {
@@ -151,6 +153,26 @@ Route::controller(NotificationPreferenceController::class)->prefix('notification
         ->middleware('permission:' . PermissionEnum::NOTIFICATION_PREFERENCES_UPDATE->value);
 });
 
+Route::controller(UserNotificationController::class)->prefix('user/notifications')->group(function () {
+    Route::get('/', 'index')->name('api.v1.user-notifications.index')
+        ->middleware('permission:' . PermissionEnum::USER_NOTIFICATIONS_LIST->value);
+    Route::post('/{id}/read', 'markRead')->name('api.v1.user-notifications.mark-read')
+        ->middleware('permission:' . PermissionEnum::USER_NOTIFICATIONS_MARK_READ->value);
+    Route::post('/read-all', 'markAllRead')->name('api.v1.user-notifications.mark-all-read')
+        ->middleware('permission:' . PermissionEnum::USER_NOTIFICATIONS_MARK_ALL_READ->value);
+});
+
+Route::controller(AdminCommentController::class)->prefix('comments')->group(function () {
+    Route::get('/', 'index')->name('api.v1.comments.index')
+        ->middleware('permission:' . PermissionEnum::COMMENTS_LIST->value);
+    Route::post('/{id}/approve', 'approve')->name('api.v1.comments.approve')
+        ->middleware('permission:' . PermissionEnum::COMMENTS_APPROVE->value);
+    Route::post('/{id}/reject', 'reject')->name('api.v1.comments.reject')
+        ->middleware('permission:' . PermissionEnum::COMMENTS_REJECT->value);
+    Route::delete('/{id}', 'destroy')->name('api.v1.comments.destroy')
+        ->middleware('permission:' . PermissionEnum::COMMENTS_DELETE->value);
+});
+
 Route::controller(PermissionController::class)->prefix('permissions')->group(function () {
     Route::get('/', 'index')->name('api.v1.permissions.index')
         ->middleware('permission:' . PermissionEnum::PERMISSIONS_LIST->value);
@@ -218,6 +240,9 @@ Route::get('/monetization/overview', [MonetizationController::class, 'overview']
 
 Route::get('/dashboard/overview', [AdminDashboardController::class, 'overview'])
     ->name('api.v1.admin.dashboard.overview');
+
+Route::get('/search', [AdminSearchController::class, 'index'])
+    ->name('api.v1.admin.search');
 
 Route::get('/user/dashboard', [UserDashboardController::class, 'index'])
     ->name('api.v1.user.dashboard');

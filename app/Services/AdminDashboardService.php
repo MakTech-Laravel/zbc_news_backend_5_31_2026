@@ -160,29 +160,18 @@ class AdminDashboardService
 
     private function getMonthlyRevenue(): array
     {
-        $labels = [];
-        $adRev  = [];
-        $subs   = [];
-
-        for ($i = 5; $i >= 0; $i--) {
-            $month = now()->subMonths($i);
-            $start = $month->copy()->startOfMonth();
-            $end   = $month->copy()->endOfMonth();
-            $labels[] = $month->format('M');
-
-            // ad revenue from ad_slot_events
-            $revenue = \App\Models\AdSlotEvent::whereBetween('created_at', [$start, $end])
-                ->sum('revenue_cents');
-            $adRev[]  = (int) $revenue;
-
-            // subscriptions placeholder – no subscription revenue model yet
-            $subs[] = 0;
-        }
+        $earnings = app(MonetizationAnalyticsService::class)->getMonthlyEarnings();
 
         return [
-            'labels'        => $labels,
-            'ad_revenue'    => $adRev,
-            'subscriptions' => $subs,
+            'labels' => array_column($earnings, 'label'),
+            'ad_revenue' => array_map(
+                fn (array $row) => (int) round(($row['ad_revenue_cents'] ?? 0) / 100),
+                $earnings,
+            ),
+            'subscriptions' => array_map(
+                fn (array $row) => (int) round(($row['subscription_revenue_cents'] ?? 0) / 100),
+                $earnings,
+            ),
         ];
     }
 

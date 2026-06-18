@@ -59,6 +59,16 @@ enum PermissionEnum: string
     case NOTIFICATION_PREFERENCES_SHOW = 'notification-preferences.show';
     case NOTIFICATION_PREFERENCES_UPDATE = 'notification-preferences.update';
 
+    case USER_NOTIFICATIONS_LIST = 'user-notifications.list';
+    case USER_NOTIFICATIONS_MARK_READ = 'user-notifications.mark-read';
+    case USER_NOTIFICATIONS_MARK_ALL_READ = 'user-notifications.mark-all-read';
+
+    case COMMENTS_CREATE = 'comments.create';
+    case COMMENTS_LIST = 'comments.list';
+    case COMMENTS_APPROVE = 'comments.approve';
+    case COMMENTS_REJECT = 'comments.reject';
+    case COMMENTS_DELETE = 'comments.delete';
+
     case PERMISSIONS_LIST = 'permissions.list';
 
     case MEDIA_LIST = 'media.list';

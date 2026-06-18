@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\AuthenticableController;
 use App\Http\Controllers\Api\V1\backend\ArticleTrackingController;
 use App\Http\Controllers\Api\V1\backend\SaveArticleController;
 use App\Http\Controllers\Api\V1\backend\SeoPageController;
+use App\Http\Controllers\Api\V1\frontend\CommentController;
 use App\Http\Controllers\Api\V1\frontend\CategoryController;
 use App\Http\Controllers\Api\V1\frontend\ArticleController;
 use App\Http\Controllers\Api\V1\frontend\AdSlotController;
@@ -19,6 +20,10 @@ Route::controller(AuthenticableController::class)->prefix('auth')->group(functio
 
     Route::post('/login', 'login')->name('api.v1.auth.login')->middleware('request_limitter');
     Route::post('/register', 'register')->name('api.v1.auth.register')->middleware('request_limitter');
+    Route::post('/forgot-password', 'forgotPassword')->name('api.v1.auth.forgot-password')->middleware('request_limitter');
+    Route::post('/reset-password', 'resetPassword')->name('api.v1.auth.reset-password')->middleware('request_limitter');
+    Route::post('/otp/verify', 'verifyOtp')->name('api.v1.auth.otp.verify')->middleware('request_limitter');
+    Route::post('/otp/resend', 'resendOtp')->name('api.v1.auth.otp.resend')->middleware('request_limitter');
     Route::post('/two-factor-challenge', 'twoFactorChallenge')->name('api.v1.auth.two-factor-challenge')->middleware('request_limitter');
     Route::post('/logout', 'logout')->name('api.v1.auth.logout')->middleware('auth:api');;
 });
@@ -41,6 +46,13 @@ Route::controller(ArticleController::class)->prefix('articles')->group(function 
     Route::get('/search', [SearchController::class, 'search'])->name('api.v1.articles.search');
 });
 
+Route::controller(CommentController::class)->group(function () {
+    Route::get('/articles/{slug}/comments', 'index')->name('api.v1.articles.comments.index');
+    Route::post('/articles/{slug}/comments', 'store')
+        ->middleware('request_limitter')
+        ->name('api.v1.articles.comments.store');
+});
+
 Route::controller(PublicSiteSettingsController::class)->prefix('site-settings')->group(function () {
     Route::get('/', 'index')->name('api.v1.public.site-settings.index');
 });
@@ -58,7 +70,7 @@ Route::controller(SaveArticleController::class)->prefix('save-articles')->group(
 Route::post('/articles/track-read', [ArticleTrackingController::class, 'track'])->name('api.v1.articles.track-read');
 Route::get('/trending-tags', [TagController::class, 'trendingTags'])->name('api.v1.tags.trending-tags');
 
-Route::controller(SearchController::class)->prefix('search')->group(function () {
+Route::controller(SearchController::class)->prefix('search')->middleware('optional_api_auth')->group(function () {
     Route::get('/history', 'history')->name('api.v1.search.history');
     Route::post('/history', 'storeHistory')->name('api.v1.search.history.store');
     Route::delete('/history', 'clearHistory')->name('api.v1.search.history.clear');

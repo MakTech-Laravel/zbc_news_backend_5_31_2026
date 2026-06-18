@@ -6,6 +6,7 @@ return [
         'api/*',
         'auth/*',
         'oauth/*',
+        'broadcasting/auth',
         ''
     ],
 

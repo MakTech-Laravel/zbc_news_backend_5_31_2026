@@ -85,7 +85,14 @@ class MonetizationAnalyticsService
             ? round(($lastMonthClicks / $lastMonthImpressions) * 100, 2)
             : 0.0;
 
+        $monthRevenueCents = $this->sumRevenue($monthStart, now())
+            + $this->subscriptionRevenueCents($monthStart, now());
+        $lastMonthRevenueCents = $this->sumRevenue($lastMonthStart, $lastMonthEnd)
+            + $this->subscriptionRevenueCents($lastMonthStart, $lastMonthEnd);
+
         return [
+            'total_revenue' => $monthRevenueCents,
+            'revenue_change_pct' => $this->percentChange($monthRevenueCents, $lastMonthRevenueCents),
             'metrics' => [
                 'today_revenue' => $this->metricPayload($todayRevenue, $yesterdayRevenue, 'currency'),
                 'week_revenue' => $this->metricPayload($weekRevenue, $lastWeekRevenue, 'currency'),
@@ -190,6 +197,17 @@ class MonetizationAnalyticsService
         return (int) AdSlotEvent::query()
             ->whereBetween('created_at', [$from, $to])
             ->sum('revenue_cents');
+    }
+
+    private function subscriptionRevenueCents(Carbon $from, Carbon $to): int
+    {
+        $subscriberValue = (int) config('monetization.newsletter_subscriber_value_cents', 500);
+        $newSubscribers = NewsletterSubscriber::query()
+            ->where('status', 'verified')
+            ->whereBetween('verified_at', [$from, $to])
+            ->count();
+
+        return $newSubscribers * $subscriberValue;
     }
 
     private function countEvents(string $eventType, Carbon $from, Carbon $to): int
