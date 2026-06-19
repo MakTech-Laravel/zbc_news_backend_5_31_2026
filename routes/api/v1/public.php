@@ -46,7 +46,7 @@ Route::controller(ArticleController::class)->prefix('articles')->group(function 
     Route::get('/search', [SearchController::class, 'search'])->name('api.v1.articles.search');
 });
 
-Route::controller(CommentController::class)->group(function () {
+Route::controller(CommentController::class)->middleware('optional_api_auth')->group(function () {
     Route::get('/articles/{slug}/comments', 'index')->name('api.v1.articles.comments.index');
     Route::post('/articles/{slug}/comments', 'store')
         ->middleware('request_limitter')
