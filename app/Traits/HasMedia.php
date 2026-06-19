@@ -24,7 +24,7 @@ trait HasMedia
         return $this->mediaInCollection($collection)->latest()->first();
     }
 
-    public function avatar(): ?Media
+    public function avatarMedia(): ?Media
     {
         return $this->firstMedia('avatar');
     }
