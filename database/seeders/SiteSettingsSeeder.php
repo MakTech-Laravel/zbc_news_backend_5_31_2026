@@ -29,7 +29,7 @@ class SiteSettingsSeeder extends Seeder
             'enable_ai_writing'         => false,
             'posts_per_page'            => 10,
             'allow_comments'            => true,
-            'authenticate_comment_only' => true,
+            'authenticate_comment_only' => false,
             'auto_approve_known_users'  => false,
             'related_article'           => 3,
             'enable_comments'           => true,

@@ -42,7 +42,7 @@ class SiteSettingsService
             'language'                  => 'en',
             'posts_per_page'            => 10,
             'allow_comments'            => true,
-            'authenticate_comment_only' => true,
+            'authenticate_comment_only' => false,
             'auto_approve_known_users'  => false,
             'related_article'           => 3,
             'enable_comments'           => true,
