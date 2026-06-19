@@ -18,7 +18,7 @@ class ArticleCommentResource extends JsonResource
             'id' => (string) $this->id,
             'body' => $this->body,
             'authorName' => $this->authorName(),
-            'authorAvatar' => $this->user?->avatar ?? null,
+            'authorAvatar' => $this->resolveAuthorAvatar(),
             'isOwn' => $user && $this->user_id && (int) $this->user_id === (int) $user->id,
             'status' => $this->status->value,
             'time' => $this->created_at?->diffForHumans() ?? '',
@@ -29,5 +29,19 @@ class ArticleCommentResource extends JsonResource
             'articleSlug' => $this->whenLoaded('article', fn () => $this->article?->slug),
             'replies' => ArticleCommentResource::collection($replies),
         ];
+    }
+
+    private function resolveAuthorAvatar(): ?string
+    {
+        if (! $this->user) {
+            return null;
+        }
+
+        $media = $this->user->firstMedia('avatar');
+        if (! $media) {
+            return null;
+        }
+
+        return $media->thumbnail_url ?? $media->url;
     }
 }
