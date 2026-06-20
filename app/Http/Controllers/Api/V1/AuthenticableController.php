@@ -174,10 +174,10 @@ class AuthenticableController extends Controller
 
         if (! $user) {
             return sendResponse(
-                true,
-                'If that email exists, a reset code has been sent.',
+                false,
+                'No account found with this email address.',
                 null,
-                HttpStatus::HTTP_OK,
+                HttpStatus::HTTP_NOT_FOUND,
             );
         }
 
@@ -190,7 +190,7 @@ class AuthenticableController extends Controller
 
         return sendResponse(
             true,
-            'If that email exists, a reset code has been sent.',
+            'A reset code has been sent to your email.',
             $payload,
             HttpStatus::HTTP_OK,
         );
