@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use App\Mail\AuthOtpMail;
 use App\Models\AuthOtpCode;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class AuthOtpService
 {
@@ -30,6 +32,8 @@ class AuthOtpService
             'created_at' => now(),
         ]);
 
+        $this->sendOtpEmail($normalizedEmail, $plainCode, $purpose);
+
         if (config('app.debug')) {
             Log::info('Auth OTP issued', [
                 'email' => $normalizedEmail,
@@ -39,6 +43,21 @@ class AuthOtpService
         }
 
         return $plainCode;
+    }
+
+    private function sendOtpEmail(string $email, string $otp, string $purpose): void
+    {
+        $siteName = (string) config('mail.from.name', config('app.name', 'ZBC News'));
+
+        try {
+            Mail::to($email)->send(new AuthOtpMail($otp, $purpose, $siteName));
+        } catch (\Throwable $exception) {
+            Log::error('Failed to send auth OTP email', [
+                'email' => $email,
+                'purpose' => $purpose,
+                'message' => $exception->getMessage(),
+            ]);
+        }
     }
 
     public function verify(string $email, string $purpose, string $code): bool
