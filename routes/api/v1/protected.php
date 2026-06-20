@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\V1\backend\AdminCommentController;
 use App\Http\Controllers\Api\V1\backend\AdminSearchController;
 use App\Http\Controllers\Api\V1\backend\UserDashboardController;
 use App\Http\Controllers\Api\V1\backend\UserNotificationController;
+use App\Http\Controllers\Api\V1\backend\AdminDashboardController;
 use Illuminate\Support\Facades\Route;
 
 Route::controller(CategoryController::class)->prefix('categories')->group(function () {
