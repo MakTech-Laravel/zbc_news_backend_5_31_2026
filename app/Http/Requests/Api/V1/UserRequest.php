@@ -34,7 +34,7 @@ class UserRequest extends FormRequest
 
             "role" => "required|string|exists:roles,name",
 
-            "profile_image" => "nullable|image|mimes:jpg,jpeg,png,webp|max:2048",
+            "profile_image" => "nullable|string|max:2048",
             "bio"           => "nullable|string|max:1000",
             "region"        => "nullable|string|max:255",
         ];

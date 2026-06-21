@@ -78,10 +78,6 @@ class UserController extends Controller
     {
         $data = $request->validated();
 
-        if ($request->hasFile('profile_image')) {
-            $data['profile_image'] = $request->file('profile_image');
-        }
-
         $user = $this->userService->updateUser($id, $data);
 
         return sendResponse(

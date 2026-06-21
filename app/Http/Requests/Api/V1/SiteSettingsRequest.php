@@ -20,7 +20,7 @@ class SiteSettingsRequest extends FormRequest
         return [
             'site_name'                 => 'nullable|string|max:255',
             'site_tag'                  => 'nullable|string|max:255',
-            'site_logo'                 => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:2048',
+            'site_logo'                 => 'nullable|string|max:2048',
             'timezone'                  => 'nullable|string|max:64',
             'language'                  => 'nullable|string|max:16',
             'meta_title'                => 'nullable|string|max:255',

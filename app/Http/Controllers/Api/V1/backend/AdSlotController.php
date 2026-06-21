@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api\V1\backend;
 use App\Http\Controllers\Controller;
 use App\Models\AdSlot;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
 
 class AdSlotController extends Controller
@@ -46,28 +45,10 @@ class AdSlotController extends Controller
             'is_active' => ['nullable', 'boolean'],
             'google_ad_client' => ['nullable', 'string', 'max:100'],
             'google_ad_slot' => ['nullable', 'string', 'max:100'],
-            'manual_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:4096'],
-            'manual_image_url' => ['nullable', 'string', 'max:500'],
+            'manual_image_url' => ['nullable', 'string', 'max:2048'],
             'manual_click_url' => ['nullable', 'string', 'max:500'],
             'manual_html' => ['nullable', 'string'],
         ]);
-
-        if ($request->hasFile('manual_image')) {
-            if ($slot->manual_image_url) {
-                $oldUrlPath = parse_url($slot->manual_image_url, PHP_URL_PATH) ?? '';
-                if (str_starts_with($oldUrlPath, '/storage/')) {
-                    $oldPath = substr($oldUrlPath, strlen('/storage/'));
-                    if (str_starts_with($oldPath, 'ad-slots/')) {
-                        Storage::disk('public')->delete($oldPath);
-                    }
-                }
-            }
-
-            $path = $request->file('manual_image')->store('ad-slots', 'public');
-            $validated['manual_image_url'] = Storage::url($path);
-        }
-
-        unset($validated['manual_image']);
 
         $slot->update($validated);
         return sendResponse(true, 'Ad slot updated successfully', $slot, HttpStatus::HTTP_OK);

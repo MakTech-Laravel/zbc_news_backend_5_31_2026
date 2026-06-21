@@ -422,21 +422,47 @@ class ArticleService
         string $storagePath,
         ?Article $existing = null
     ): ?string {
-        if (!empty($data[$field]) && $data[$field] instanceof UploadedFile) {
-            if ($existing?->{$field}) {
-                $oldPath = ltrim(
-                    parse_url($existing->{$field}, PHP_URL_PATH),
-                    '/storage/'
-                );
-                Storage::disk('public')->delete($oldPath);
+        if (array_key_exists($field, $data)) {
+            $value = $data[$field];
+
+            if ($value instanceof UploadedFile) {
+                if ($existing?->{$field}) {
+                    $this->deleteStoredImage($existing->{$field});
+                }
+
+                $path = $value->store($storagePath, 'public');
+
+                return Storage::url($path);
             }
 
-            $path = $data[$field]->store($storagePath, 'public');
+            if (is_string($value)) {
+                $trimmed = trim($value);
 
-            return Storage::url($path);
+                return $trimmed !== '' ? $trimmed : null;
+            }
+
+            if ($value === null) {
+                return null;
+            }
         }
 
         return $existing?->{$field} ?? null;
+    }
+
+    private function deleteStoredImage(?string $storedValue): void
+    {
+        if (! $storedValue || preg_match('/^https?:\/\//i', $storedValue)) {
+            return;
+        }
+
+        $oldPath = ltrim(
+            parse_url($storedValue, PHP_URL_PATH) ?? $storedValue,
+            '/storage/'
+        );
+
+        if ($oldPath !== '') {
+            Storage::disk('public')->delete($oldPath);
+        }
     }
 
     private function resolveTags(array $tags): array
