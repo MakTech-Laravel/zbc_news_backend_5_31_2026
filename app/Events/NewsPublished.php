@@ -16,7 +16,7 @@ class NewsPublished implements ShouldBroadcast
         public readonly int    $articleId,
         public readonly string $title,
         public readonly string $slug,
-        public readonly string $category,
+        public readonly ?string $category,
     ) {}
 
     public function broadcastOn(): array

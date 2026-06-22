@@ -46,11 +46,14 @@ class ArticleController extends Controller
 
         $article = $this->articleService->create($data);
 
+        $article->fresh();
+        $article->load('category');
+
         event(new \App\Events\NewsPublished(
             articleId: $article->id,
             title: $article->title,
             slug: $article->slug,
-            category: $article->category->name,
+            category: $article->category?->name ?? 'Uncategorized',
         ));
 
         return sendResponse(
