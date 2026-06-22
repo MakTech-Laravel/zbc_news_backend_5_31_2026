@@ -9,6 +9,7 @@ use App\Services\ArticleService;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 
 class ArticleController extends Controller
 {
@@ -48,6 +49,10 @@ class ArticleController extends Controller
 
         $article->fresh();
         $article->load('category');
+
+        Log::info('Article created', [
+            'article' => $article,
+        ]);
 
         event(new \App\Events\NewsPublished(
             articleId: $article->id,

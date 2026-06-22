@@ -7,6 +7,7 @@ use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
 class NewsPublished implements ShouldBroadcast
 {
@@ -21,6 +22,9 @@ class NewsPublished implements ShouldBroadcast
 
     public function broadcastOn(): array
     {
+        Log::info('NewsPublished event broadcasted on channel', [
+            'channel' => 'news-updates',
+        ]);
         return [
             new Channel('news-updates'),
         ];
@@ -32,11 +36,23 @@ class NewsPublished implements ShouldBroadcast
      */
     public function broadcastAs(): string
     {
+        Log::info('NewsPublished event broadcasted', [
+            'articleId' => $this->articleId,
+            'title' => $this->title,
+            'slug' => $this->slug,
+            'category' => $this->category,
+        ]);
         return 'NewsPublished';
     }
 
     public function broadcastWith(): array
     {
+        Log::info('NewsPublished event broadcasted with', [
+            'id' => $this->articleId,
+            'title' => $this->title,
+            'slug' => $this->slug,
+            'category' => $this->category,
+        ]);
         return [
             'id'       => $this->articleId,
             'title'    => $this->title,
