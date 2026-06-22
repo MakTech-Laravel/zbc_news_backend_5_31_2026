@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Hash;
 use Spatie\Activitylog\Models\Activity;
 use App\Models\Article;
 use App\Models\UserInformation;
+use App\Services\NotificationPreferenceService;
 use Illuminate\Support\Arr;
 
 class UserService
@@ -20,7 +21,8 @@ class UserService
         private readonly User $user,
         private readonly Activity $activity,
         private readonly Article $article,
-        private readonly UserInformation $userInformation
+        private readonly UserInformation $userInformation,
+        private readonly NotificationPreferenceService $notificationPreferenceService,
     ) {}
 
     public function getAllUsers()
@@ -40,12 +42,14 @@ class UserService
         $user = $this->user->create([
             'name' => $data['name'],
             'email' => $data['email'],
-            'password' => bcrypt($data['password']),
+            'password' => $data['password'],
         ]);
 
         if (isset($data['role'])) {
             $user->assignRole($data['role']);
         }
+
+        $this->notificationPreferenceService->getOrCreate($user);
 
         $this->userInformation->create([
             'user_id' => $user->id,

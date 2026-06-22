@@ -14,6 +14,7 @@ use App\Http\Resources\Api\V1\UserResource;
 use App\Http\Resources\TokenResource;
 use App\Models\User;
 use App\Services\AuthOtpService;
+use App\Services\NotificationPreferenceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -25,6 +26,7 @@ class AuthenticableController extends Controller
 {
     public function __construct(
         private readonly AuthOtpService $authOtpService,
+        private readonly NotificationPreferenceService $notificationPreferenceService,
     ) {}
 
     public function register(RegisterRequest $request): JsonResponse
@@ -36,6 +38,8 @@ class AuthenticableController extends Controller
         ]);
 
         $user->assignRole('user');
+
+        $this->notificationPreferenceService->getOrCreate($user);
 
         $otp = $this->authOtpService->issue($user->email, AuthOtpService::PURPOSE_REGISTER);
 

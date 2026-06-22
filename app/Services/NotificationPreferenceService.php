@@ -14,10 +14,7 @@ class NotificationPreferenceService
 
     public function getOrCreate(User $user): NotificationPreference
     {
-        $preference = NotificationPreference::firstOrCreate(
-            ['user_id' => $user->id],
-            ['daily_newsletter' => false],
-        );
+        $preference = NotificationPreference::ensureForUser($user);
 
         $preference->daily_newsletter = $this->newsletterService->isUserSubscribed($user);
         $preference->save();
@@ -33,7 +30,7 @@ class NotificationPreferenceService
 
         $preference = NotificationPreference::updateOrCreate(
             ['user_id' => $user->id],
-            $data,
+            array_merge(NotificationPreference::DEFAULTS, $data),
         );
 
         $preference->daily_newsletter = $this->newsletterService->isUserSubscribed($user);

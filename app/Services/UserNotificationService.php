@@ -127,9 +127,10 @@ class UserNotificationService
 
     private function notifyBreakingNews(Article $article): void
     {
-        $userIds = NotificationPreference::query()
-            ->where('breaking_news', true)
-            ->pluck('user_id');
+        $userIds = NotificationPreference::filterUserIds(
+            User::query()->pluck('id'),
+            'breaking_news',
+        );
 
         foreach ($userIds as $userId) {
             $user = User::query()->find($userId);
@@ -169,12 +170,16 @@ class UserNotificationService
             return;
         }
 
-        $eligibleIds = NotificationPreference::query()
-            ->whereIn('user_id', $readerIds)
-            ->where('personalized_recommendations', true)
-            ->pluck('user_id');
+        $eligibleIds = NotificationPreference::filterUserIds(
+            $readerIds,
+            'personalized_recommendations',
+        );
 
         foreach ($eligibleIds as $userId) {
+            if ((int) $userId === (int) $article->user_id) {
+                continue;
+            }
+
             $user = User::query()->find($userId);
             if (! $user) {
                 continue;
@@ -202,10 +207,10 @@ class UserNotificationService
             return;
         }
 
-        $eligibleIds = NotificationPreference::query()
-            ->whereIn('user_id', $saverIds)
-            ->where('saved_article_updates', true)
-            ->pluck('user_id');
+        $eligibleIds = NotificationPreference::filterUserIds(
+            $saverIds,
+            'saved_article_updates',
+        );
 
         foreach ($eligibleIds as $userId) {
             $user = User::query()->find($userId);
@@ -254,12 +259,7 @@ class UserNotificationService
             return;
         }
 
-        $wantsReplies = NotificationPreference::query()
-            ->where('user_id', $parentUser->id)
-            ->where('comment_replies', true)
-            ->exists();
-
-        if (! $wantsReplies) {
+        if (! NotificationPreference::wants($parentUser->id, 'comment_replies')) {
             return;
         }
 

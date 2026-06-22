@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\ArticleStatus;
+use App\Jobs\DispatchArticlePublishedNotifications;
 use App\Models\Article;
 use App\Models\ArticleCategory;
 use App\Models\Tag;
@@ -162,7 +163,13 @@ class ArticleService
                 ])
                 ->log('Article created');
 
-            return $article->load('tags');
+            $article = $article->load('tags');
+
+            if ($article->status === ArticleStatus::PUBLISHED) {
+                DispatchArticlePublishedNotifications::dispatch($article->id, 'published');
+            }
+
+            return $article;
         });
     }
 
@@ -200,7 +207,13 @@ class ArticleService
                 'published_at',
             ]);
 
+            $previousStatus = $article->status;
+
             $article->update($data);
+
+            $contentChanged = $article->wasChanged(['title', 'article_description', 'excerpt', 'sub_title']);
+            $becamePublished = $previousStatus !== ArticleStatus::PUBLISHED
+                && $article->status === ArticleStatus::PUBLISHED;
 
             if (!is_null($tags)) {
                 $tagIds = $this->resolveTags($tags);
@@ -219,7 +232,15 @@ class ArticleService
                 ])
                 ->log('Article updated');
 
-            return $article->fresh()->load('tags');
+            $article = $article->fresh()->load('tags');
+
+            if ($becamePublished) {
+                DispatchArticlePublishedNotifications::dispatch($article->id, 'published');
+            } elseif ($article->status === ArticleStatus::PUBLISHED && $contentChanged) {
+                DispatchArticlePublishedNotifications::dispatch($article->id, 'updated');
+            }
+
+            return $article;
         });
     }
 
