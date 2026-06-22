@@ -18,7 +18,8 @@ COPY --from=composer:2.6 /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www
 COPY . .
 
-RUN mkdir -p storage/framework/{views,sessions,cache} storage/logs bootstrap/cache \
+RUN cp .env.example .env 2>/dev/null || touch .env \
+    && mkdir -p storage/framework/{views,sessions,cache} storage/logs bootstrap/cache \
     && composer install --no-dev --optimize-autoloader --no-scripts \
     && npm install --include=optional && npm run build \
     && chown -R www-data:www-data /var/www \
@@ -26,6 +27,8 @@ RUN mkdir -p storage/framework/{views,sessions,cache} storage/logs bootstrap/cac
 
 COPY ./docker/nginx.conf /etc/nginx/nginx.conf
 COPY ./docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY ./docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 EXPOSE 80
-CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+CMD ["/entrypoint.sh"]
