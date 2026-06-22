@@ -3,12 +3,13 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Support\MediaUrl;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\Models\Activity;
 use App\Models\Article;
 use App\Models\UserInformation;
+use App\Services\NotificationPreferenceService;
 use Illuminate\Support\Arr;
 
 class UserService
@@ -20,7 +21,8 @@ class UserService
         private readonly User $user,
         private readonly Activity $activity,
         private readonly Article $article,
-        private readonly UserInformation $userInformation
+        private readonly UserInformation $userInformation,
+        private readonly NotificationPreferenceService $notificationPreferenceService,
     ) {}
 
     public function getAllUsers()
@@ -40,18 +42,18 @@ class UserService
         $user = $this->user->create([
             'name' => $data['name'],
             'email' => $data['email'],
-            'password' => bcrypt($data['password']),
+            'password' => $data['password'],
         ]);
 
         if (isset($data['role'])) {
             $user->assignRole($data['role']);
         }
 
+        $this->notificationPreferenceService->getOrCreate($user);
+
         $this->userInformation->create([
             'user_id' => $user->id,
-            'profile_image' => isset($data['profile_image']) && $data['profile_image'] instanceof UploadedFile
-                ? $data['profile_image']->store('user_profiles', 'public')
-                : null,
+            'profile_image' => $this->resolveProfileImageValue($data['profile_image'] ?? null),
             'bio'    => $data['bio'] ?? null,
             'region' => $data['region'] ?? null,
         ]);
@@ -75,12 +77,16 @@ class UserService
             $user->syncRoles([$data['role']]);
         }
 
-        if (isset($data['profile_image']) && $data['profile_image'] instanceof UploadedFile) {
-            $existingImage = $user->userInformation?->profile_image;
-            if ($existingImage && Storage::disk('public')->exists($existingImage)) {
-                Storage::disk('public')->delete($existingImage);
+        $profileImage = null;
+
+        if (array_key_exists('profile_image', $data)) {
+            if ($data['profile_image'] instanceof UploadedFile) {
+                MediaUrl::deleteLocalIfStored($user->userInformation?->profile_image);
+                $profileImage = $data['profile_image']->store('user_profiles', 'public');
+            } else {
+                MediaUrl::deleteLocalIfStored($user->userInformation?->profile_image);
+                $profileImage = $this->resolveProfileImageValue($data['profile_image']);
             }
-            $profileImage = $data['profile_image']->store('user_profiles', 'public');
         }
 
         UserInformation::updateOrCreate(
@@ -111,8 +117,8 @@ class UserService
             }
         }
 
-        if ($user->userInformation && $user->userInformation->profile_image && Storage::disk('public')->exists($user->userInformation->profile_image)) {
-            Storage::disk('public')->delete($user->userInformation->profile_image);
+        if ($user->userInformation?->profile_image) {
+            MediaUrl::deleteLocalIfStored($user->userInformation->profile_image);
         }
 
         $user->syncRoles([]);
@@ -141,5 +147,20 @@ class UserService
                     'created_at' => $activity->created_at,
                 ];
             });
+    }
+
+    private function resolveProfileImageValue(mixed $value): ?string
+    {
+        if ($value instanceof UploadedFile) {
+            return $value->store('user_profiles', 'public');
+        }
+
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+
+        return $trimmed !== '' ? $trimmed : null;
     }
 }

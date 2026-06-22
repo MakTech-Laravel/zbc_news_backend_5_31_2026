@@ -2,32 +2,21 @@
 
 namespace App\Observers;
 
-use App\Enums\ArticleStatus;
-use App\Jobs\DispatchArticlePublishedNotifications;
 use App\Models\Article;
 
+/**
+ * Article lifecycle side-effects are handled in ArticleService and PublishScheduledArticles
+ * after tags are synced, so notification jobs receive complete article data.
+ */
 class ArticleObserver
 {
     public function created(Article $article): void
     {
-        if ($article->status === ArticleStatus::PUBLISHED) {
-            DispatchArticlePublishedNotifications::dispatch($article->id, 'published');
-        }
+        //
     }
 
     public function updated(Article $article): void
     {
-        if ($article->wasChanged('status') && $article->status === ArticleStatus::PUBLISHED) {
-            DispatchArticlePublishedNotifications::dispatch($article->id, 'published');
-
-            return;
-        }
-
-        if (
-            $article->status === ArticleStatus::PUBLISHED
-            && $article->wasChanged(['title', 'article_description', 'excerpt', 'sub_title'])
-        ) {
-            DispatchArticlePublishedNotifications::dispatch($article->id, 'updated');
-        }
+        //
     }
 }

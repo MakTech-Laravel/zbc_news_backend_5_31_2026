@@ -30,9 +30,8 @@ class SiteSettingsController extends Controller
     {
         $data = $request->validated();
 
-        if ($request->hasFile('site_logo')) {
-            $data['site_logo'] = $request->file('site_logo')
-                ->store('site_logos', 'public');
+        if (array_key_exists('site_logo', $data) && is_string($data['site_logo'])) {
+            $data['site_logo'] = trim($data['site_logo']) ?: null;
         }
 
         $siteSettings = $this->siteSettingsService->createOrUpdate($data);

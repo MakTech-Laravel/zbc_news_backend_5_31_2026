@@ -26,7 +26,7 @@ class ProfileUpdateRequest extends FormRequest
 
         return [
             "name"   => "required|string|max:255",
-            "profile_image" => "nullable|image|mimes:jpg,jpeg,png,webp|max:2048",
+            "profile_image" => "nullable|string|max:2048",
             "email"  => ["required", "email", "max:255", Rule::unique('users')->ignore($userId)],
             "region" => "nullable|string|max:255",
             "bio"    => "nullable|string|max:1000",

@@ -2,9 +2,9 @@
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Support\MediaUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\Storage;
 
 class UserResource extends JsonResource
 {
@@ -25,9 +25,7 @@ class UserResource extends JsonResource
             'roles' => $this->getRoleNames(),
             'permissions' => $this->getAllPermissions(),
             'user_information' => $this->whenLoaded('userInformation', fn() => [
-                'profile_image' => $this->userInformation->profile_image
-                    ? Storage::url($this->userInformation->profile_image)
-                    : null,
+                'profile_image' => MediaUrl::resolvePublic($this->userInformation->profile_image),
                 'bio'           => $this->userInformation->bio,
                 'region'        => $this->userInformation->region,
             ]),

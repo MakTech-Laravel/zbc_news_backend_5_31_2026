@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Support\MediaUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -13,9 +14,7 @@ class SiteSettingsResource extends JsonResource
             'id'                        => $this->id,
             'site_name'                 => $this->site_name,
             'site_tag'                  => $this->site_tag,
-            'site_logo'                 => $this->site_logo
-                                            ? asset('storage/' . $this->site_logo)
-                                            : null,
+            'site_logo'                 => MediaUrl::resolvePublic($this->site_logo),
             'timezone'                  => $this->timezone,
             'language'                  => $this->language,
             'meta_title'                => $this->meta_title,

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\ArticleStatus;
+use App\Jobs\DispatchArticlePublishedNotifications;
 use App\Models\Article;
 use App\Models\ArticleCategory;
 use App\Models\Tag;
@@ -162,7 +163,13 @@ class ArticleService
                 ])
                 ->log('Article created');
 
-            return $article->load('tags');
+            $article = $article->load('tags');
+
+            if ($article->status === ArticleStatus::PUBLISHED) {
+                DispatchArticlePublishedNotifications::dispatch($article->id, 'published');
+            }
+
+            return $article;
         });
     }
 
@@ -200,7 +207,13 @@ class ArticleService
                 'published_at',
             ]);
 
+            $previousStatus = $article->status;
+
             $article->update($data);
+
+            $contentChanged = $article->wasChanged(['title', 'article_description', 'excerpt', 'sub_title']);
+            $becamePublished = $previousStatus !== ArticleStatus::PUBLISHED
+                && $article->status === ArticleStatus::PUBLISHED;
 
             if (!is_null($tags)) {
                 $tagIds = $this->resolveTags($tags);
@@ -219,7 +232,15 @@ class ArticleService
                 ])
                 ->log('Article updated');
 
-            return $article->fresh()->load('tags');
+            $article = $article->fresh()->load('tags');
+
+            if ($becamePublished) {
+                DispatchArticlePublishedNotifications::dispatch($article->id, 'published');
+            } elseif ($article->status === ArticleStatus::PUBLISHED && $contentChanged) {
+                DispatchArticlePublishedNotifications::dispatch($article->id, 'updated');
+            }
+
+            return $article;
         });
     }
 
@@ -422,21 +443,47 @@ class ArticleService
         string $storagePath,
         ?Article $existing = null
     ): ?string {
-        if (!empty($data[$field]) && $data[$field] instanceof UploadedFile) {
-            if ($existing?->{$field}) {
-                $oldPath = ltrim(
-                    parse_url($existing->{$field}, PHP_URL_PATH),
-                    '/storage/'
-                );
-                Storage::disk('public')->delete($oldPath);
+        if (array_key_exists($field, $data)) {
+            $value = $data[$field];
+
+            if ($value instanceof UploadedFile) {
+                if ($existing?->{$field}) {
+                    $this->deleteStoredImage($existing->{$field});
+                }
+
+                $path = $value->store($storagePath, 'public');
+
+                return Storage::url($path);
             }
 
-            $path = $data[$field]->store($storagePath, 'public');
+            if (is_string($value)) {
+                $trimmed = trim($value);
 
-            return Storage::url($path);
+                return $trimmed !== '' ? $trimmed : null;
+            }
+
+            if ($value === null) {
+                return null;
+            }
         }
 
         return $existing?->{$field} ?? null;
+    }
+
+    private function deleteStoredImage(?string $storedValue): void
+    {
+        if (! $storedValue || preg_match('/^https?:\/\//i', $storedValue)) {
+            return;
+        }
+
+        $oldPath = ltrim(
+            parse_url($storedValue, PHP_URL_PATH) ?? $storedValue,
+            '/storage/'
+        );
+
+        if ($oldPath !== '') {
+            Storage::disk('public')->delete($oldPath);
+        }
     }
 
     private function resolveTags(array $tags): array

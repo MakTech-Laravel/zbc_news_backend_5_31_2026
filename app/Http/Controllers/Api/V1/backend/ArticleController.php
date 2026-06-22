@@ -44,10 +44,6 @@ class ArticleController extends Controller
     {
         $data = $request->validated();
 
-        if ($request->hasFile('featured_image')) {
-            $data['featured_image'] = $request->file('featured_image');
-        }
-
         $article = $this->articleService->create($data);
 
         return sendResponse(
@@ -61,10 +57,6 @@ class ArticleController extends Controller
     public function update(ArticleRequest $request, string $slug)
     {
         $data = $request->validated();
-
-        if ($request->hasFile('featured_image')) {
-            $data['featured_image'] = $request->file('featured_image');
-        }
 
         $updated = $this->articleService->update($slug, $data);
 

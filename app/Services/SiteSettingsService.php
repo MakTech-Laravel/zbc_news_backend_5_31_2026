@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use App\Models\SiteSettings;
+use App\Support\MediaUrl;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Storage;
 
 class SiteSettingsService
 {
@@ -74,8 +74,8 @@ class SiteSettingsService
     {
         $settings = $this->siteSettings->first();
 
-        if ($settings && isset($data['site_logo']) && $settings->site_logo) {
-            Storage::disk('public')->delete($settings->site_logo);
+        if ($settings && array_key_exists('site_logo', $data) && $settings->site_logo) {
+            MediaUrl::deleteLocalIfStored($settings->site_logo);
         }
 
         if ($settings) {
