@@ -46,6 +46,13 @@ class ArticleController extends Controller
 
         $article = $this->articleService->create($data);
 
+        event(new \App\Events\NewsPublished(
+            articleId: $article->id,
+            title: $article->title,
+            slug: $article->slug,
+            category: $article->category->name,
+        ));
+
         return sendResponse(
             true,
             'Article created successfully',
@@ -67,7 +74,7 @@ class ArticleController extends Controller
             HttpStatus::HTTP_OK,
         );
     }
-    
+
     public function destroy(string $slug)
     {
         $this->articleService->delete($slug);
@@ -133,8 +140,12 @@ class ArticleController extends Controller
 
         $articles = $this->articleService->getLatestArticleByTag($tagSlug, $type);
 
-        return sendResponse(true, 'Articles retrieved successfully',
-            ArticleResource::collection($articles), HttpStatus::HTTP_OK);
+        return sendResponse(
+            true,
+            'Articles retrieved successfully',
+            ArticleResource::collection($articles),
+            HttpStatus::HTTP_OK
+        );
     }
 
     public function longReads(Request $request)
@@ -150,5 +161,4 @@ class ArticleController extends Controller
             HttpStatus::HTTP_OK,
         );
     }
-
 }

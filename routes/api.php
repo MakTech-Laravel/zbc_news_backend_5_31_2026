@@ -12,3 +12,7 @@ Route::get('/user', function (Request $request) {
 
 Route::middleware('auth:api')->prefix('/v1/admin')->name('admin.api.v1.')->group(base_path('routes/api/v1/protected.php'));
 Route::prefix('/v1')->name('api.v1.')->group(base_path('routes/api/v1/public.php'));
+
+Route::middleware('auth:api')->post('/v1/broadcasting/auth', function (Request $request) {
+    return Broadcast::auth($request);
+});
