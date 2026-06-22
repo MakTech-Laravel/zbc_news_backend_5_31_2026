@@ -1,5 +1,4 @@
 <?php
-// app/Events/NewsPublished.php
 
 namespace App\Events;
 
@@ -23,14 +22,13 @@ class NewsPublished implements ShouldBroadcast
     public function broadcastOn(): array
     {
         return [
-            new Channel('news-updates'), // public channel
+            new Channel('news-updates'),
         ];
     }
 
     /**
-     * The event name the frontend listens for.
-     * Frontend: channel.listen('.NewsPublished', callback)
-     *           Note the dot prefix when using broadcastAs()
+     * Frontend listens as: channel.listen('.NewsPublished', callback)
+     * The dot prefix is required when using broadcastAs()
      */
     public function broadcastAs(): string
     {
