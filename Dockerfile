@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y \
     libjpeg62-turbo-dev libfreetype6-dev supervisor \
     && docker-php-ext-install bcmath \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install pdo_mysql mbstring zip gd \
+    && docker-php-ext-install pdo_mysql mbstring zip gd pcntl \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
