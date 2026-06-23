@@ -4,17 +4,18 @@ use App\Http\Controllers\Api\V1\AuthenticableController;
 use App\Http\Controllers\Api\V1\backend\ArticleTrackingController;
 use App\Http\Controllers\Api\V1\backend\SaveArticleController;
 use App\Http\Controllers\Api\V1\backend\SeoPageController;
-use App\Http\Controllers\Api\V1\frontend\CommentController;
-use App\Http\Controllers\Api\V1\frontend\CategoryController;
-use App\Http\Controllers\Api\V1\frontend\ArticleController;
+use App\Http\Controllers\Api\V1\backend\TagController;
 use App\Http\Controllers\Api\V1\frontend\AdSlotController;
 use App\Http\Controllers\Api\V1\frontend\AdTrackingController;
+use App\Http\Controllers\Api\V1\frontend\ArticleController;
+use App\Http\Controllers\Api\V1\frontend\CategoryController;
+use App\Http\Controllers\Api\V1\frontend\CommentController;
 use App\Http\Controllers\Api\V1\frontend\NavigationController;
 use App\Http\Controllers\Api\V1\frontend\NewsletterController;
 use App\Http\Controllers\Api\V1\frontend\PublicSiteSettingsController;
 use App\Http\Controllers\Api\V1\frontend\SearchController;
+use App\Http\Controllers\Api\V1\RealtimeController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\V1\backend\TagController;
 
 Route::controller(AuthenticableController::class)->prefix('auth')->group(function () {
 
@@ -25,11 +26,17 @@ Route::controller(AuthenticableController::class)->prefix('auth')->group(functio
     Route::post('/otp/verify', 'verifyOtp')->name('api.v1.auth.otp.verify')->middleware('request_limitter');
     Route::post('/otp/resend', 'resendOtp')->name('api.v1.auth.otp.resend')->middleware('request_limitter');
     Route::post('/two-factor-challenge', 'twoFactorChallenge')->name('api.v1.auth.two-factor-challenge')->middleware('request_limitter');
-    Route::post('/logout', 'logout')->name('api.v1.auth.logout')->middleware('auth:api');;
+    Route::post('/logout', 'logout')->name('api.v1.auth.logout')->middleware('auth:api');
 });
 
 Route::controller(CategoryController::class)->prefix('categories')->group(function () {
     Route::get('/', 'index')->name('api.v1.categories.index');
+});
+
+// Public realtime diagnostics (used by the frontend /ws-test console).
+Route::controller(RealtimeController::class)->prefix('realtime')->group(function () {
+    Route::get('/ping', 'ping')->middleware('throttle:30,1')->name('api.v1.realtime.ping');
+    Route::get('/health', 'health')->name('api.v1.realtime.health');
 });
 
 Route::controller(ArticleController::class)->prefix('articles')->group(function () {
@@ -65,7 +72,6 @@ Route::controller(SeoPageController::class)->prefix('seo-pages')->group(function
 Route::controller(SaveArticleController::class)->prefix('save-articles')->group(function () {
     Route::get('/check/{articleId}', 'checkSaved')->name('api.v1.save-articles.check');
 });
-
 
 Route::post('/articles/track-read', [ArticleTrackingController::class, 'track'])->name('api.v1.articles.track-read');
 Route::get('/trending-tags', [TagController::class, 'trendingTags'])->name('api.v1.tags.trending-tags');
