@@ -7,19 +7,24 @@ return [
         'auth/*',
         'oauth/*',
         'broadcasting/auth',
-        ''
+        'login',
+        'logout',
+        'sanctum/csrf-cookie',
     ],
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => array_values(array_filter(array_unique([
-        env('FRONTEND_URL'),
-        'http://localhost:5173',
-        'http://localhost:5174',
-        'https://zbc.maktechlaravel.cloud',
-    ]))),
+    'allowed_origins' => array_values(array_filter(array_unique(array_merge(
+        array_map('trim', explode(',', (string) env('CORS_ALLOWED_ORIGINS', ''))),
+        [
+            env('FRONTEND_URL'),
+            env('APP_URL'),
+        ],
+    )))),
 
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => array_values(array_filter(
+        array_map('trim', explode(',', (string) env('CORS_ALLOWED_ORIGINS_PATTERNS', '')))
+    )),
 
     'allowed_headers' => ['*'],
 
