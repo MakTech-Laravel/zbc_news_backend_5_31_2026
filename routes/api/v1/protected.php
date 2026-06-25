@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\V1\backend\NavigationLinkController;
 use App\Http\Controllers\Api\V1\backend\NewsletterController;
 use App\Http\Controllers\Api\V1\backend\AdminCommentController;
 use App\Http\Controllers\Api\V1\backend\AdminSearchController;
+use App\Http\Controllers\Api\V1\backend\AnnouncementController;
 use App\Http\Controllers\Api\V1\backend\UserDashboardController;
 use App\Http\Controllers\Api\V1\backend\UserNotificationController;
 use App\Http\Controllers\Api\V1\backend\AdminDashboardController;
@@ -161,6 +162,21 @@ Route::controller(UserNotificationController::class)->prefix('user/notifications
         ->middleware('permission:' . PermissionEnum::USER_NOTIFICATIONS_MARK_READ->value);
     Route::post('/read-all', 'markAllRead')->name('api.v1.user-notifications.mark-all-read')
         ->middleware('permission:' . PermissionEnum::USER_NOTIFICATIONS_MARK_ALL_READ->value);
+});
+
+Route::controller(AnnouncementController::class)->prefix('announcements')->group(function () {
+    Route::get('/', 'index')->name('api.v1.announcements.index')
+        ->middleware('permission:' . PermissionEnum::ANNOUNCEMENTS_LIST->value);
+    Route::post('/store', 'store')->name('api.v1.announcements.store')
+        ->middleware('permission:' . PermissionEnum::ANNOUNCEMENTS_CREATE->value);
+    Route::get('/show/{id}', 'show')->name('api.v1.announcements.show')
+        ->middleware('permission:' . PermissionEnum::ANNOUNCEMENTS_SHOW->value);
+    Route::put('/update/{id}', 'update')->name('api.v1.announcements.update')
+        ->middleware('permission:' . PermissionEnum::ANNOUNCEMENTS_UPDATE->value);
+    Route::post('/publish/{id}', 'publish')->name('api.v1.announcements.publish')
+        ->middleware('permission:' . PermissionEnum::ANNOUNCEMENTS_PUBLISH->value);
+    Route::delete('/delete/{id}', 'destroy')->name('api.v1.announcements.destroy')
+        ->middleware('permission:' . PermissionEnum::ANNOUNCEMENTS_DELETE->value);
 });
 
 Route::controller(AdminCommentController::class)->prefix('comments')->group(function () {

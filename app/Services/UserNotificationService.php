@@ -5,18 +5,24 @@ namespace App\Services;
 use App\Enums\NotificationCategory;
 use App\Enums\NotificationIcon;
 use App\Events\UserNotificationCreated;
+use App\Jobs\NotifyBreakingNewsBatch;
+use App\Models\Announcement;
 use App\Models\Article;
 use App\Models\ArticleComment;
 use App\Models\ArticleHistroy;
+use App\Models\NewsletterCampaign;
 use App\Models\NotificationPreference;
 use App\Models\SaveArticle;
 use App\Models\User;
 use App\Models\UserNotification;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 
 class UserNotificationService
 {
+    private const BREAKING_BATCH_SIZE = 200;
+
     public function listForUser(User $user, ?string $category = null, int $limit = 50): Collection
     {
         $query = UserNotification::query()
@@ -106,14 +112,114 @@ class UserNotificationService
             $this->notifyBreakingNews($article);
         }
 
-        $this->notifyTopicFollowers($article);
+        $topicCount = $this->notifyTopicFollowers($article);
+
+        Log::info('Article published notifications dispatched', [
+            'article_id' => $article->id,
+            'breaking' => $this->isBreakingArticle($article),
+            'topic_notifications' => $topicCount,
+        ]);
     }
 
     public function dispatchArticleUpdatedNotifications(Article $article): void
     {
         $article->loadMissing(['category']);
 
-        $this->notifySavedArticleWatchers($article);
+        $savedCount = $this->notifySavedArticleWatchers($article);
+
+        Log::info('Article updated notifications dispatched', [
+            'article_id' => $article->id,
+            'saved_notifications' => $savedCount,
+        ]);
+    }
+
+    public function dispatchNewsletterCampaignNotifications(NewsletterCampaign $campaign): void
+    {
+        $userIds = NotificationPreference::query()
+            ->where('daily_newsletter', true)
+            ->pluck('user_id');
+
+        $sent = 0;
+        $preview = $campaign->preview_text ?: strip_tags((string) $campaign->content_html);
+        $body = mb_strlen($preview) > 160 ? mb_substr($preview, 0, 157).'...' : $preview;
+
+        foreach ($userIds->chunk(self::BREAKING_BATCH_SIZE) as $chunk) {
+            foreach ($chunk as $userId) {
+                $user = User::query()->find($userId);
+
+                if (! $user) {
+                    continue;
+                }
+
+                $created = $this->notifyUser(
+                    $user,
+                    NotificationCategory::SYSTEM,
+                    NotificationIcon::RECOMMENDED,
+                    $campaign->subject ?: $campaign->title,
+                    $body ?: 'A new newsletter edition is available.',
+                    null,
+                    "newsletter:campaign:{$campaign->id}:user:{$userId}",
+                );
+
+                if ($created) {
+                    $sent++;
+                }
+            }
+        }
+
+        Log::info('Newsletter campaign in-app notifications dispatched', [
+            'campaign_id' => $campaign->id,
+            'sent' => $sent,
+        ]);
+    }
+
+    public function dispatchAnnouncementNotifications(Announcement $announcement): int
+    {
+        $query = User::query()->orderBy('id');
+
+        if ($announcement->audience === 'authenticated_only') {
+            $query->whereNotNull('email_verified_at');
+        }
+
+        $sent = 0;
+
+        $query->pluck('id')
+            ->chunk(self::BREAKING_BATCH_SIZE)
+            ->each(function ($userIds) use ($announcement, &$sent) {
+                $eligibleIds = NotificationPreference::filterUserIds(
+                    $userIds,
+                    'platform_announcements',
+                );
+
+                foreach ($eligibleIds as $userId) {
+                    $user = User::query()->find($userId);
+
+                    if (! $user) {
+                        continue;
+                    }
+
+                    $created = $this->notifyUser(
+                        $user,
+                        NotificationCategory::SYSTEM,
+                        NotificationIcon::ANNOUNCEMENT,
+                        $announcement->title,
+                        $announcement->body,
+                        null,
+                        "announcement:{$announcement->id}:user:{$userId}",
+                    );
+
+                    if ($created) {
+                        $sent++;
+                    }
+                }
+            });
+
+        Log::info('Announcement notifications dispatched', [
+            'announcement_id' => $announcement->id,
+            'sent' => $sent,
+        ]);
+
+        return $sent;
     }
 
     private function isBreakingArticle(Article $article): bool
@@ -127,33 +233,32 @@ class UserNotificationService
 
     private function notifyBreakingNews(Article $article): void
     {
-        $userIds = NotificationPreference::filterUserIds(
-            User::query()->pluck('id'),
-            'breaking_news',
-        );
+        $userIds = NotificationPreference::query()
+            ->where('breaking_news', true)
+            ->orderBy('user_id')
+            ->pluck('user_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
 
-        foreach ($userIds as $userId) {
-            $user = User::query()->find($userId);
-            if (! $user) {
-                continue;
-            }
-
-            $this->notifyUser(
-                $user,
-                NotificationCategory::BREAKING,
-                NotificationIcon::BREAKING,
-                'Breaking News',
-                $article->title,
-                $article->slug,
-                "breaking:article:{$article->id}",
-            );
+        if ($userIds === []) {
+            return;
         }
+
+        foreach (array_chunk($userIds, self::BREAKING_BATCH_SIZE) as $batch) {
+            NotifyBreakingNewsBatch::dispatch($article->id, $batch);
+        }
+
+        Log::info('Breaking news notification batches queued', [
+            'article_id' => $article->id,
+            'recipient_batches' => (int) ceil(count($userIds) / self::BREAKING_BATCH_SIZE),
+            'recipient_count' => count($userIds),
+        ]);
     }
 
-    private function notifyTopicFollowers(Article $article): void
+    private function notifyTopicFollowers(Article $article): int
     {
         if (! $article->article_category_id) {
-            return;
+            return 0;
         }
 
         $categoryTitle = $article->category?->title ?? 'News';
@@ -167,7 +272,7 @@ class UserNotificationService
             ->pluck('article_histroys.user_id');
 
         if ($readerIds->isEmpty()) {
-            return;
+            return 0;
         }
 
         $eligibleIds = NotificationPreference::filterUserIds(
@@ -175,17 +280,20 @@ class UserNotificationService
             'personalized_recommendations',
         );
 
+        $sent = 0;
+
         foreach ($eligibleIds as $userId) {
             if ((int) $userId === (int) $article->user_id) {
                 continue;
             }
 
             $user = User::query()->find($userId);
+
             if (! $user) {
                 continue;
             }
 
-            $this->notifyUser(
+            $created = $this->notifyUser(
                 $user,
                 NotificationCategory::TOPIC,
                 $icon,
@@ -194,17 +302,23 @@ class UserNotificationService
                 $article->slug,
                 "topic:article:{$article->id}:user:{$userId}",
             );
+
+            if ($created) {
+                $sent++;
+            }
         }
+
+        return $sent;
     }
 
-    private function notifySavedArticleWatchers(Article $article): void
+    private function notifySavedArticleWatchers(Article $article): int
     {
         $saverIds = SaveArticle::query()
             ->where('article_id', $article->id)
             ->pluck('user_id');
 
         if ($saverIds->isEmpty()) {
-            return;
+            return 0;
         }
 
         $eligibleIds = NotificationPreference::filterUserIds(
@@ -212,13 +326,16 @@ class UserNotificationService
             'saved_article_updates',
         );
 
+        $sent = 0;
+
         foreach ($eligibleIds as $userId) {
             $user = User::query()->find($userId);
+
             if (! $user) {
                 continue;
             }
 
-            $this->notifyUser(
+            $created = $this->notifyUser(
                 $user,
                 NotificationCategory::SAVED,
                 NotificationIcon::SAVED,
@@ -227,7 +344,13 @@ class UserNotificationService
                 $article->slug,
                 "saved:article:{$article->id}:user:{$userId}",
             );
+
+            if ($created) {
+                $sent++;
+            }
         }
+
+        return $sent;
     }
 
     private function iconForCategory(?string $slug): NotificationIcon
@@ -255,6 +378,7 @@ class UserNotificationService
         }
 
         $parentUser = User::query()->find($parent->user_id);
+
         if (! $parentUser) {
             return;
         }
@@ -275,5 +399,10 @@ class UserNotificationService
             $reply->article?->slug,
             "comment-reply:{$reply->id}",
         );
+
+        Log::info('Comment reply notification dispatched', [
+            'reply_id' => $reply->id,
+            'recipient_id' => $parentUser->id,
+        ]);
     }
 }

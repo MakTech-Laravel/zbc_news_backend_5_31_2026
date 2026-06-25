@@ -21,6 +21,7 @@ class NotificationPreferenceResource extends JsonResource
             'personalized_recommendations' => $this->personalized_recommendations,
             'comment_replies'              => $this->comment_replies,
             'saved_article_updates'        => $this->saved_article_updates,
+            'platform_announcements'       => $this->platform_announcements,
         ];
     }
 }

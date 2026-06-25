@@ -28,6 +28,7 @@ class NotificationPreferenceRequest extends FormRequest
             'personalized_recommendations' => ['required', 'boolean'],
             'comment_replies'              => ['required', 'boolean'],
             'saved_article_updates'        => ['required', 'boolean'],
+            'platform_announcements'       => ['required', 'boolean'],
         ];
     }
 }

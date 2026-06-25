@@ -21,6 +21,12 @@ editor,save-articles.list
 editor,save-articles.toggle
 editor,site-settings.list
 editor,site-settings.update
+editor,announcements.list
+editor,announcements.create
+editor,announcements.show
+editor,announcements.update
+editor,announcements.delete
+editor,announcements.publish
 editor,notification-preferences.show
 editor,notification-preferences.update
 editor,user-notifications.list

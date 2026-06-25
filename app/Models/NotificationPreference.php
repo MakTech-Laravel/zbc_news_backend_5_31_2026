@@ -13,6 +13,7 @@ class NotificationPreference extends Model
         'personalized_recommendations' => true,
         'comment_replies' => false,
         'saved_article_updates' => false,
+        'platform_announcements' => true,
     ];
 
     protected $fillable = [
@@ -22,6 +23,7 @@ class NotificationPreference extends Model
         'personalized_recommendations',
         'comment_replies',
         'saved_article_updates',
+        'platform_announcements',
     ];
 
     protected function casts(): array
@@ -32,6 +34,7 @@ class NotificationPreference extends Model
             'personalized_recommendations' => 'boolean',
             'comment_replies' => 'boolean',
             'saved_article_updates' => 'boolean',
+            'platform_announcements' => 'boolean',
         ];
     }
 

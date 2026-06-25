@@ -89,4 +89,11 @@ enum PermissionEnum: string
     case USERS_ARTICLE_ACTIVITIES = 'users.article-activities';
     case USERS_TWO_FACTOR_ENABLE = 'users.two-factor-enable';
     case USERS_READING_ANALYTICS = 'users.reading-analytics';
+
+    case ANNOUNCEMENTS_LIST = 'announcements.list';
+    case ANNOUNCEMENTS_CREATE = 'announcements.create';
+    case ANNOUNCEMENTS_SHOW = 'announcements.show';
+    case ANNOUNCEMENTS_UPDATE = 'announcements.update';
+    case ANNOUNCEMENTS_DELETE = 'announcements.delete';
+    case ANNOUNCEMENTS_PUBLISH = 'announcements.publish';
 }

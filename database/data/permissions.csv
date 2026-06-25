@@ -71,3 +71,9 @@ users.delete,api,Users
 users.article-activities,api,Users
 users.two-factor-enable,api,Users
 users.reading-analytics,api,Users
+announcements.list,api,Announcements
+announcements.create,api,Announcements
+announcements.show,api,Announcements
+announcements.update,api,Announcements
+announcements.delete,api,Announcements
+announcements.publish,api,Announcements

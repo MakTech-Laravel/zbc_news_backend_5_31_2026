@@ -6,10 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\ArticleRequest;
 use App\Http\Resources\Api\V1\ArticleResource;
 use App\Services\ArticleService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Log;
 
 class ArticleController extends Controller
 {
@@ -46,20 +45,6 @@ class ArticleController extends Controller
         $data = $request->validated();
 
         $article = $this->articleService->create($data);
-
-        $article->fresh();
-        $article->load('category');
-
-        Log::info('Article created', [
-            'article' => $article,
-        ]);
-
-        event(new \App\Events\NewsPublished(
-            articleId: $article->id,
-            title: $article->title,
-            slug: $article->slug,
-            category: $article->category?->name ?? 'Uncategorized',
-        ));
 
         return sendResponse(
             true,

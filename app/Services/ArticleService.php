@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\ArticleStatus;
+use App\Events\NewsPublished;
 use App\Jobs\DispatchArticlePublishedNotifications;
 use App\Models\Article;
 use App\Models\ArticleCategory;
@@ -167,6 +168,7 @@ class ArticleService
 
             if ($article->status === ArticleStatus::PUBLISHED) {
                 DispatchArticlePublishedNotifications::dispatch($article->id, 'published');
+                $this->broadcastPublishedArticle($article);
             }
 
             return $article;
@@ -236,6 +238,7 @@ class ArticleService
 
             if ($becamePublished) {
                 DispatchArticlePublishedNotifications::dispatch($article->id, 'published');
+                $this->broadcastPublishedArticle($article);
             } elseif ($article->status === ArticleStatus::PUBLISHED && $contentChanged) {
                 DispatchArticlePublishedNotifications::dispatch($article->id, 'updated');
             }
@@ -528,5 +531,21 @@ class ArticleService
             ->orderByDesc('published_at')
             ->limit(min(max($limit, 1), 30))
             ->get();
+    }
+
+    public function broadcastPublishedArticle(Article $article): void
+    {
+        if ($article->status !== ArticleStatus::PUBLISHED) {
+            return;
+        }
+
+        $article->loadMissing('category');
+
+        event(new NewsPublished(
+            articleId: $article->id,
+            title: $article->title,
+            slug: $article->slug,
+            category: $article->category?->title ?? 'Uncategorized',
+        ));
     }
 }

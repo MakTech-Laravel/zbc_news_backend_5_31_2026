@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\NewsletterCampaign;
 use App\Services\Newsletter\NewsletterService;
+use App\Services\UserNotificationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
@@ -18,7 +19,7 @@ class SendNewsletterCampaignJob implements ShouldQueue
         public int $campaignId,
     ) {}
 
-    public function handle(NewsletterService $newsletterService): void
+    public function handle(NewsletterService $newsletterService, UserNotificationService $notificationService): void
     {
         $campaign = NewsletterCampaign::query()->find($this->campaignId);
 
@@ -35,5 +36,7 @@ class SendNewsletterCampaignJob implements ShouldQueue
             });
 
         $campaign->update(['status' => 'sent', 'sent_at' => now()]);
+
+        $notificationService->dispatchNewsletterCampaignNotifications($campaign->fresh());
     }
 }

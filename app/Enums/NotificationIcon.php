@@ -10,4 +10,5 @@ enum NotificationIcon: string
     case REPLY = 'reply';
     case SAVED = 'saved';
     case BUSINESS = 'business';
+    case ANNOUNCEMENT = 'announcement';
 }
