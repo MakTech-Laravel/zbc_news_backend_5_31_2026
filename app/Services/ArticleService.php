@@ -354,7 +354,7 @@ class ArticleService
             ->where('status', ArticleStatus::PUBLISHED->value)
             ->where('id', '!=', $article->id)
             ->where(function ($query) use ($article, $tagIds) {
-                $query->where('category_id', $article->category_id);
+                $query->where('article_category_id', $article->article_category_id);
                 if ($tagIds->isNotEmpty()) {
                     $query->orWhereHas('tags', function ($tagQuery) use ($tagIds) {
                         $tagQuery->whereIn('tags.id', $tagIds);

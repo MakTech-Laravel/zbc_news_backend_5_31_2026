@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\Api\V1\AuthenticableController;
 use App\Http\Controllers\Api\V1\backend\ArticleTrackingController;
-use App\Http\Controllers\Api\V1\backend\SaveArticleController;
 use App\Http\Controllers\Api\V1\backend\SeoPageController;
 use App\Http\Controllers\Api\V1\backend\TagController;
 use App\Http\Controllers\Api\V1\frontend\AdSlotController;
@@ -67,10 +66,6 @@ Route::controller(PublicSiteSettingsController::class)->prefix('site-settings')-
 Route::controller(SeoPageController::class)->prefix('seo-pages')->group(function () {
     Route::get('/', 'index')->name('api.v1.public.seo-pages.index');
     Route::get('/resolve', 'resolve')->name('api.v1.public.seo-pages.resolve');
-});
-
-Route::controller(SaveArticleController::class)->prefix('save-articles')->group(function () {
-    Route::get('/check/{articleId}', 'checkSaved')->name('api.v1.save-articles.check');
 });
 
 Route::post('/articles/track-read', [ArticleTrackingController::class, 'track'])->name('api.v1.articles.track-read');

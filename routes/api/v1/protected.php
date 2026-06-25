@@ -109,6 +109,8 @@ Route::controller(TagController::class)->prefix('tags')->group(function () {
 Route::controller(SaveArticleController::class)->prefix('save-articles')->group(function () {
     Route::get('/', 'index')->name('api.v1.save-articles.index')
         ->middleware('permission:' . PermissionEnum::SAVE_ARTICLES_LIST->value);
+    Route::get('/check/{articleId}', 'checkSaved')->name('api.v1.save-articles.check')
+        ->middleware('permission:' . PermissionEnum::SAVE_ARTICLES_LIST->value);
     Route::post('/toggle', 'toggle')->name('api.v1.save-articles.toggle')
         ->middleware('permission:' . PermissionEnum::SAVE_ARTICLES_TOGGLE->value);
 });
