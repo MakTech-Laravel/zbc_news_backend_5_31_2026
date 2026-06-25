@@ -2,6 +2,7 @@
 
 namespace App\Services\Newsletter;
 
+use App\Enums\ArticleCategoryStatus;
 use App\Jobs\SendNewsletterCampaignJob;
 use App\Mail\NewsletterVerificationMail;
 use App\Models\ArticleCategory;
@@ -512,11 +513,12 @@ class NewsletterService
     public function preferenceCategories(): array
     {
         return ArticleCategory::query()
-            ->orderBy('name')
-            ->get(['id', 'name', 'slug'])
+            ->where('status', ArticleCategoryStatus::ACTIVE)
+            ->orderBy('title')
+            ->get(['id', 'title', 'slug'])
             ->map(fn (ArticleCategory $category) => [
                 'id' => $category->id,
-                'name' => $category->name,
+                'name' => $category->title,
                 'slug' => $category->slug,
             ])
             ->values()
