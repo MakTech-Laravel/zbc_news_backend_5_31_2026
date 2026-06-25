@@ -226,6 +226,9 @@ Route::controller(UserController::class)->prefix('users')->group(function () {
         ->middleware('permission:' . PermissionEnum::USERS_PROFILE->value);
     Route::put('/profile/update', 'profileUpdate')->name('api.v1.users.profile-update')
         ->middleware('permission:' . PermissionEnum::USERS_PROFILE_UPDATE->value);
+    Route::get('/reading-analytics', [ArticleTrackingController::class, 'readingAnalytics'])
+        ->name('api.v1.users.reading-analytics')
+        ->middleware('permission:' . PermissionEnum::USERS_READING_ANALYTICS->value);
     Route::get('/show/{id}', 'show')->name('api.v1.users.show')
         ->middleware('permission:' . PermissionEnum::USERS_SHOW->value);
     Route::post('/update/{id}', 'update')->name('api.v1.users.update')
@@ -236,9 +239,6 @@ Route::controller(UserController::class)->prefix('users')->group(function () {
         ->middleware('permission:' . PermissionEnum::USERS_ARTICLE_ACTIVITIES->value);
     Route::post('/two-factor-enable', 'twoFactorEnable')->name('api.v1.users.two-factor-enable')
         ->middleware('permission:' . PermissionEnum::USERS_TWO_FACTOR_ENABLE->value);
-    Route::get('/reading-analytics', [ArticleTrackingController::class, 'readingAnalytics'])
-        ->name('api.v1.users.reading-analytics')
-        ->middleware('permission:' . PermissionEnum::USERS_READING_ANALYTICS->value);
 });
 
 Route::controller(NavigationLinkController::class)->prefix('navigation-links')->group(function () {

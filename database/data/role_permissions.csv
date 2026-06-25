@@ -126,6 +126,7 @@ user,media.transform
 user,users.profile
 user,users.profile-update
 user,user.read-history
+user,users.reading-analytics
 writer,articles.list
 writer,articles.trashed
 writer,articles.create
@@ -153,6 +154,7 @@ writer,media.signed-params
 writer,media.transform
 writer,users.profile
 writer,users.profile-update
+writer,users.reading-analytics
 moderator,articles.list
 moderator,articles.show
 moderator,articles.update
@@ -188,6 +190,7 @@ subscriber,media.transform
 subscriber,users.profile
 subscriber,users.profile-update
 subscriber,user.read-history
+subscriber,users.reading-analytics
 editor,comments.create
 editor,comments.list
 editor,comments.approve
