@@ -35,13 +35,12 @@ class AuthenticableController extends Controller
             'name' => $request->resolvedName(),
             'email' => strtolower($request->string('email')->toString()),
             'password' => Hash::make($request->string('password')->toString()),
+            'email_verified_at' => now(),
         ]);
 
         $user->assignRole('user');
 
         $this->notificationPreferenceService->getOrCreate($user);
-
-        $otp = $this->authOtpService->issue($user->email, AuthOtpService::PURPOSE_REGISTER);
 
         $tokenResult = $user->createToken('auth_token');
 
@@ -52,14 +51,9 @@ class AuthenticableController extends Controller
             'user' => new UserResource($user),
         ];
 
-        if (config('app.debug')) {
-            $payload['otp'] = $otp;
-            $payload['verification_code'] = $otp;
-        }
-
         return sendResponse(
             true,
-            'User registered successfully. Please verify your email with the OTP sent.',
+            'User registered successfully.',
             $payload,
             HttpStatus::HTTP_CREATED,
         );
@@ -83,6 +77,10 @@ class AuthenticableController extends Controller
         }
 
         $user = User::where('email', $request->email)->first();
+
+        if (! $user->email_verified_at) {
+            $user->forceFill(['email_verified_at' => now()])->save();
+        }
 
         $user->load(['roles', 'permissions']);
 
