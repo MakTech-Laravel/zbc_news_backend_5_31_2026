@@ -24,12 +24,16 @@ class ProfileUpdateRequest extends FormRequest
     {
         $userId = $this->user()->id;
 
+        $profileImageRule = $this->hasFile('profile_image')
+            ? ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:5120']
+            : ['nullable', 'string', 'max:2048'];
+
         return [
-            "name"   => "required|string|max:255",
-            "profile_image" => "nullable|string|max:2048",
-            "email"  => ["required", "email", "max:255", Rule::unique('users')->ignore($userId)],
-            "region" => "nullable|string|max:255",
-            "bio"    => "nullable|string|max:1000",
+            'name' => 'required|string|max:255',
+            'profile_image' => $profileImageRule,
+            'email' => ['required', 'email', 'max:255', Rule::unique('users')->ignore($userId)],
+            'region' => 'nullable|string|max:255',
+            'bio' => 'nullable|string|max:1000',
         ];
     }
 }
