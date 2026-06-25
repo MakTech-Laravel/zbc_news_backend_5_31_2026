@@ -21,8 +21,8 @@ class AdminDashboardService
         $lastWeekEnd   = $now->copy()->subWeek()->endOfWeek();
 
         // ── Published Articles ────────────────────────────
-        $publishedNow  = Article::where('status', ArticleStatus::Published)->count();
-        $publishedLast = Article::where('status', ArticleStatus::Published)
+        $publishedNow  = Article::where('status', ArticleStatus::PUBLISHED->value)->count();
+        $publishedLast = Article::where('status', ArticleStatus::PUBLISHED->value)
             ->whereBetween('published_at', [$lastMonthStart, $lastMonthEnd])
             ->count();
 
@@ -42,8 +42,8 @@ class AdminDashboardService
         $revenuePct    = $monetization['revenue_change_pct'] ?? 0;
 
         // ── Draft / Scheduled ─────────────────────────────────
-        $drafts     = Article::where('status', ArticleStatus::Draft)->count();
-        $scheduled  = Article::where('status', ArticleStatus::Scheduled)->count();
+        $drafts     = Article::where('status', ArticleStatus::DRAFT->value)->count();
+        $scheduled  = Article::where('status', ArticleStatus::SCHEDULED->value)->count();
 
         // ── Engagement Rate (avg scroll depth this month) ─────
         $engagementRate = ArticleHistroy::where('read_at', '>=', $monthStart)
@@ -177,7 +177,7 @@ class AdminDashboardService
 
     private function getRecentArticles(): array
     {
-        return Article::with('category:id,name,slug')
+        return Article::with('category:id,title,slug')
             ->orderByDesc('updated_at')
             ->limit(5)
             ->get()
@@ -195,14 +195,14 @@ class AdminDashboardService
 
     private function getTopArticles(): array
     {
-        return Article::with('category:id,name,slug')
-            ->where('status', ArticleStatus::Published)
+        return Article::with('category:id,title,slug')
+            ->where('status', ArticleStatus::PUBLISHED->value)
             ->orderByDesc('views')
             ->limit(5)
             ->get()
             ->map(function (Article $a, int $index) {
                 $slug  = $a->category?->slug ?? 'general';
-                $label = $a->category?->name ?? 'General';
+                $label = $a->category?->title ?? 'General';
                 return [
                     'rank'          => $index + 1,
                     'title'         => $a->title,

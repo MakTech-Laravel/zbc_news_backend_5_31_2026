@@ -6,7 +6,6 @@ use App\Enums\ArticleStatus;
 use App\Models\Article;
 use App\Models\ArticleHistroy;
 use App\Models\Tag;
-use Carbon\Carbon;
 
 class UserDashboardService
 {
@@ -23,8 +22,8 @@ class UserDashboardService
 
     private function getFeaturedStory(): ?array
     {
-        $article = Article::with(['category:id,name,slug,title', 'tags:id,tag'])
-            ->where('status', ArticleStatus::Published)
+        $article = Article::with(['category:id,title,slug', 'tags:id,tag'])
+            ->where('status', ArticleStatus::PUBLISHED->value)
             ->orderByDesc('views')
             ->first();
 
@@ -32,7 +31,7 @@ class UserDashboardService
             return null;
         }
 
-        $categoryLabel = $article->category?->title ?? $article->category?->name ?? 'General';
+        $categoryLabel = $article->category?->title ?? 'General';
 
         return [
             'id'        => $article->id,
@@ -48,8 +47,8 @@ class UserDashboardService
 
     private function getFeeds(): array
     {
-        $recommended = Article::with(['category:id,name,slug,title'])
-            ->where('status', ArticleStatus::Published)
+        $recommended = Article::with(['category:id,title,slug'])
+            ->where('status', ArticleStatus::PUBLISHED->value)
             ->orderByDesc('views')
             ->limit(6)
             ->get()
@@ -57,8 +56,8 @@ class UserDashboardService
             ->values()
             ->toArray();
 
-        $latest = Article::with(['category:id,name,slug,title'])
-            ->where('status', ArticleStatus::Published)
+        $latest = Article::with(['category:id,title,slug'])
+            ->where('status', ArticleStatus::PUBLISHED->value)
             ->orderByDesc('published_at')
             ->limit(6)
             ->get()
@@ -66,8 +65,8 @@ class UserDashboardService
             ->values()
             ->toArray();
 
-        $trending = Article::with(['category:id,name,slug,title'])
-            ->where('status', ArticleStatus::Published)
+        $trending = Article::with(['category:id,title,slug'])
+            ->where('status', ArticleStatus::PUBLISHED->value)
             ->orderByDesc('views')
             ->offset(6)
             ->limit(6)
@@ -85,7 +84,7 @@ class UserDashboardService
 
     private function mapFeedArticle(Article $a): array
     {
-        $categoryLabel = $a->category?->title ?? $a->category?->name ?? 'General';
+        $categoryLabel = $a->category?->title ?? 'General';
 
         return [
             'id'          => $a->id,
@@ -105,7 +104,7 @@ class UserDashboardService
     {
         $histories = ArticleHistroy::with([
                 'article:id,title,slug,featured_image,article_description,article_category_id,published_at',
-                'article.category:id,name,slug,title',
+                'article.category:id,title,slug',
             ])
             ->where('user_id', $userId)
             ->where('is_guest', false)
@@ -118,7 +117,7 @@ class UserDashboardService
             if (! $a) {
                 return null;
             }
-            $categoryLabel = $a->category?->title ?? $a->category?->name ?? 'General';
+            $categoryLabel = $a->category?->title ?? 'General';
             return [
                 'id'          => $a->id,
                 'title'       => $a->title,
