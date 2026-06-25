@@ -14,18 +14,21 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => array_values(array_filter(array_unique(array_merge(
-        array_map('trim', explode(',', (string) env('CORS_ALLOWED_ORIGINS', ''))),
-        [
-            env('FRONTEND_URL'),
-            env('APP_URL'),
-        ],
-    )))),
+    // 'allowed_origins' => array_values(array_filter(array_unique(array_merge(
+    //     array_map('trim', explode(',', (string) env('CORS_ALLOWED_ORIGINS', ''))),
+    //     [
+    //         env('FRONTEND_URL'),
+    //         env('APP_URL'),
+    //     ],
+    // )))),
+    'allowed_origins' => ['*'],
 
-    'allowed_origins_patterns' => array_values(array_filter(
-        array_map('trim', explode(',', (string) env('CORS_ALLOWED_ORIGINS_PATTERNS', '')))
-    )),
+    // 'allowed_origins_patterns' => array_values(array_filter(
+    //     array_map('trim', explode(',', (string) env('CORS_ALLOWED_ORIGINS_PATTERNS', '')))
+    // )),
 
+    'allowed_origins_patterns' => ['*'],
+    
     'allowed_headers' => ['*'],
 
     'exposed_headers' => [],
