@@ -10,6 +10,7 @@ use App\Models\NewsletterCampaign;
 use App\Models\NewsletterEvent;
 use App\Models\NewsletterSubscriber;
 use App\Models\User;
+use App\Services\UserNotificationService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -24,6 +25,7 @@ class NewsletterService
     public function __construct(
         private readonly NewsletterEmailProviderFactory $providerFactory,
         private readonly NewsletterTrackingService $trackingService,
+        private readonly UserNotificationService $userNotificationService,
     ) {}
 
     public function subscribe(array $data, ?User $user = null): NewsletterSubscriber
@@ -38,6 +40,8 @@ class NewsletterService
         );
 
         $this->sendVerificationEmail($subscriber);
+
+        $this->userNotificationService->dispatchNewsletterSubscriptionAdminNotifications($subscriber);
 
         return $subscriber;
     }
@@ -82,6 +86,13 @@ class NewsletterService
             'verified_at' => now(),
             'verification_token' => null,
         ]);
+
+        $subscriber = $subscriber->fresh();
+
+        $this->userNotificationService->dispatchNewsletterSubscriptionAdminNotifications(
+            $subscriber,
+            verified: true,
+        );
 
         return $subscriber;
     }
@@ -260,7 +271,14 @@ class NewsletterService
             ),
         );
 
-        return $subscriber->fresh();
+        $subscriber = $subscriber->fresh();
+
+        $this->userNotificationService->dispatchNewsletterSubscriptionAdminNotifications(
+            $subscriber,
+            verified: true,
+        );
+
+        return $subscriber;
     }
 
     public function listCampaigns(): LengthAwarePaginator

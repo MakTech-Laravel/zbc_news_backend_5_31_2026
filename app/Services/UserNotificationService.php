@@ -11,6 +11,7 @@ use App\Models\Article;
 use App\Models\ArticleComment;
 use App\Models\ArticleHistroy;
 use App\Models\NewsletterCampaign;
+use App\Models\NewsletterSubscriber;
 use App\Models\NotificationPreference;
 use App\Models\SaveArticle;
 use App\Models\User;
@@ -216,6 +217,64 @@ class UserNotificationService
 
         Log::info('Announcement notifications dispatched', [
             'announcement_id' => $announcement->id,
+            'sent' => $sent,
+        ]);
+
+        return $sent;
+    }
+
+    public function dispatchNewsletterSubscriptionAdminNotifications(
+        NewsletterSubscriber $subscriber,
+        bool $verified = false,
+    ): int {
+        $adminIds = User::query()
+            ->role(['admin', 'super_admin'])
+            ->pluck('id');
+
+        if ($adminIds->isEmpty()) {
+            return 0;
+        }
+
+        $label = $subscriber->name ?: $subscriber->email;
+        $source = $subscriber->source ?? 'website';
+
+        if ($verified) {
+            $title = 'Newsletter subscription verified';
+            $body = "{$label} ({$subscriber->email}) verified their newsletter subscription via {$source}.";
+            $dedupeKey = "newsletter:verified:admin:{$subscriber->id}";
+        } else {
+            $title = 'New newsletter subscription';
+            $body = "{$label} ({$subscriber->email}) subscribed to the newsletter via {$source}. Verification is pending.";
+            $dedupeKey = "newsletter:subscribe:admin:{$subscriber->id}";
+        }
+
+        $sent = 0;
+
+        foreach ($adminIds as $adminId) {
+            $admin = User::query()->find($adminId);
+
+            if (! $admin) {
+                continue;
+            }
+
+            $created = $this->notifyUser(
+                $admin,
+                NotificationCategory::SYSTEM,
+                NotificationIcon::RECOMMENDED,
+                $title,
+                $body,
+                null,
+                "{$dedupeKey}:user:{$adminId}",
+            );
+
+            if ($created) {
+                $sent++;
+            }
+        }
+
+        Log::info('Newsletter subscription admin notifications dispatched', [
+            'subscriber_id' => $subscriber->id,
+            'verified' => $verified,
             'sent' => $sent,
         ]);
 
