@@ -42,6 +42,7 @@ Route::controller(ArticleController::class)->prefix('articles')->group(function 
     Route::get('/', 'index')->name('api.v1.articles.index');
     Route::get('/latest', 'latest')->name('api.v1.articles.latest');
     Route::get('/latest-stories', 'latestStories')->name('api.v1.articles.latest-stories');
+    Route::get('/breaking', 'breakingNews')->name('api.v1.articles.breaking');
     Route::get('/show/{slug}', 'show')->name('api.v1.articles.show');
     Route::get('/related/{slug}', 'related')->name('api.v1.articles.related');
     Route::get('/by-tag/{tagSlug}', 'articlesByTag')->name('api.v1.articles.by-tag');

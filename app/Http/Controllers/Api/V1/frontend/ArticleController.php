@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Api\V1\frontend;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use App\Services\ArticleService;
 use App\Http\Resources\Api\V1\ArticleResource;
 use App\Http\Resources\Api\V1\Category as CategoryResource;
+use App\Services\ArticleService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
 
 class ArticleController extends Controller
@@ -19,6 +19,7 @@ class ArticleController extends Controller
     public function index()
     {
         $articles = $this->articleService->getAllArticles();
+
         return sendResponse(
             true,
             'Articles retrieved successfully',
@@ -42,9 +43,23 @@ class ArticleController extends Controller
     public function latestStories()
     {
         $articles = $this->articleService->getLatestStories();
+
         return sendResponse(
             true,
             'Latest stories retrieved successfully',
+            ArticleResource::collection($articles),
+            HttpStatus::HTTP_OK,
+        );
+    }
+
+    public function breakingNews(Request $request): JsonResponse
+    {
+        $limit = (int) $request->query('limit', 10);
+        $articles = $this->articleService->getBreakingNewsArticles($limit);
+
+        return sendResponse(
+            true,
+            'Breaking news articles retrieved successfully',
             ArticleResource::collection($articles),
             HttpStatus::HTTP_OK,
         );
@@ -64,7 +79,7 @@ class ArticleController extends Controller
 
     public function mostRead(Request $request)
     {
-        $unique   = filter_var($request->query('unique', false), FILTER_VALIDATE_BOOLEAN);
+        $unique = filter_var($request->query('unique', false), FILTER_VALIDATE_BOOLEAN);
         $articles = $this->articleService->getMostRead(unique: $unique);
 
         return sendResponse(
@@ -87,7 +102,7 @@ class ArticleController extends Controller
             [
                 'category' => new CategoryResource($result['category']),
                 'articles' => ArticleResource::collection($result['items']),
-                'meta'     => $result['meta'],
+                'meta' => $result['meta'],
             ],
             HttpStatus::HTTP_OK,
         );
@@ -118,11 +133,10 @@ class ArticleController extends Controller
         );
     }
 
-
     public function gridArticles(Request $request)
     {
         $limit = (int) $request->query('limit', 50);
-        $limit = min(max($limit, 1), 100); 
+        $limit = min(max($limit, 1), 100);
         $latestStoryIds = $this->articleService
             ->getLatestStories()
             ->pluck('id')

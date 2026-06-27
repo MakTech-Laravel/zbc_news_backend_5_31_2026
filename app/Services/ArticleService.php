@@ -8,14 +8,14 @@ use App\Jobs\DispatchArticlePublishedNotifications;
 use App\Models\Article;
 use App\Models\ArticleCategory;
 use App\Models\Tag;
-use App\Services\SeoMetaService;
-use App\Services\SiteSettingsService;
-use Spatie\Activitylog\Models\Activity;
+use App\Support\BreakingTag;
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Illuminate\Database\Eloquent\Collection;
+use Spatie\Activitylog\Models\Activity;
 
 class ArticleService
 {
@@ -27,7 +27,10 @@ class ArticleService
 
     public function getAllArticles()
     {
-        return $this->article->with(['tags', 'category', 'user'])->get();
+        return $this->article
+            ->with(['tags', 'category', 'user'])
+            ->latest()
+            ->get();
     }
 
     public function getTrashedArticles()
@@ -58,7 +61,7 @@ class ArticleService
         $countExpr = $unique
             ? 'COUNT(DISTINCT COALESCE(ah.user_id, ah.ip_address)) as read_count'
             : 'COUNT(ah.id) as read_count';
-    
+
         return $this->article
             ->select('articles.*')
             ->selectRaw($countExpr)
@@ -91,6 +94,19 @@ class ArticleService
             ->get();
     }
 
+    public function getBreakingNewsArticles(int $limit = 10): Collection
+    {
+        $limit = min(max($limit, 1), 10);
+
+        return $this->article
+            ->with(['tags', 'category', 'user'])
+            ->where('status', ArticleStatus::PUBLISHED->value)
+            ->whereHas('tags', fn ($query) => $query->whereIn('tag', BreakingTag::VALUES))
+            ->latest('published_at')
+            ->limit($limit)
+            ->get();
+    }
+
     public function getLatestArticleByTag(string $tagSlug, string $type = 'latest'): Collection
     {
         $query = $this->article
@@ -99,11 +115,11 @@ class ArticleService
             ->whereHas('tags', function ($q) use ($tagSlug) {
                 $q->where('tag', $tagSlug);
             });
-    
+
         return match ($type) {
-            'trending'    => $query->orderByDesc('views')->take(10)->get(),
+            'trending' => $query->orderByDesc('views')->take(10)->get(),
             'recommended' => $query->withCount('saveArticles')->orderByDesc('save_articles_count')->take(10)->get(),
-            default       => $query->latest('published_at')->take(10)->get(),
+            default => $query->latest('published_at')->take(10)->get(),
         };
     }
 
@@ -118,7 +134,7 @@ class ArticleService
 
         return match ($type) {
             'most-read' => $query->orderByDesc('views')->take(10)->get(),
-            default     => $query->latest('published_at')->take(10)->get(), // 'all'
+            default => $query->latest('published_at')->take(10)->get(), // 'all'
         };
     }
 
@@ -134,16 +150,16 @@ class ArticleService
 
             $data = $this->seoMetaService->applyArticleMeta($data, $tags, $categoryTitle);
 
-            $data['slug']             = $this->resolveSlug($data);
-            $data['status']           = $this->resolveStatus($data);
-            $data['published_at']     = $this->resolvePublishedAt($data);
-            $data['featured_image']   = $this->resolveImage($data, 'featured_image', 'articles/featured-images');
+            $data['slug'] = $this->resolveSlug($data);
+            $data['status'] = $this->resolveStatus($data);
+            $data['published_at'] = $this->resolvePublishedAt($data);
+            $data['featured_image'] = $this->resolveImage($data, 'featured_image', 'articles/featured-images');
             $data['open_graph_image'] = $this->resolveImage($data, 'open_graph_image', 'articles/og-images');
-            $data['user_id']          = auth()->user()->id;
+            $data['user_id'] = auth()->user()->id;
 
             $article = $this->article->create($data);
 
-            if (!empty($tags)) {
+            if (! empty($tags)) {
                 $tagIds = $this->resolveTags($tags);
                 $article->tags()->sync($tagIds);
             }
@@ -152,15 +168,15 @@ class ArticleService
                 ->performedOn($article)
                 ->causedBy(auth()->user())
                 ->withProperties([
-                    'article_title'        => $article->title,
-                    'article_slug'         => $article->slug,
-                    'status'               => $article->status,
-                    'article_category_id'  => $article->article_category_id,
-                    'tags'                 => $tags,
+                    'article_title' => $article->title,
+                    'article_slug' => $article->slug,
+                    'status' => $article->status,
+                    'article_category_id' => $article->article_category_id,
+                    'tags' => $tags,
                     'scheduled_publishing' => $article->scheduled_publishing,
-                    'published_at'         => $article->published_at,
-                    'ip_address'           => request()->ip(),
-                    'user_agent'           => request()->userAgent(),
+                    'published_at' => $article->published_at,
+                    'ip_address' => request()->ip(),
+                    'user_agent' => request()->userAgent(),
                 ])
                 ->log('Article created');
 
@@ -194,10 +210,10 @@ class ArticleService
 
             $data = $this->seoMetaService->applyArticleMeta($data, $tagNames, $categoryTitle);
 
-            $data['slug']             = $this->resolveSlug($data, $article->id);
-            $data['status']           = $this->resolveStatus($data);
-            $data['published_at']     = $this->resolvePublishedAt($data, $article);
-            $data['featured_image']   = $this->resolveImage($data, 'featured_image', 'articles/featured-images', $article);
+            $data['slug'] = $this->resolveSlug($data, $article->id);
+            $data['status'] = $this->resolveStatus($data);
+            $data['published_at'] = $this->resolvePublishedAt($data, $article);
+            $data['featured_image'] = $this->resolveImage($data, 'featured_image', 'articles/featured-images', $article);
             $data['open_graph_image'] = $this->resolveImage($data, 'open_graph_image', 'articles/og-images', $article);
 
             $old = $article->only([
@@ -217,7 +233,7 @@ class ArticleService
             $becamePublished = $previousStatus !== ArticleStatus::PUBLISHED
                 && $article->status === ArticleStatus::PUBLISHED;
 
-            if (!is_null($tags)) {
+            if (! is_null($tags)) {
                 $tagIds = $this->resolveTags($tags);
                 $article->tags()->sync($tagIds);
             }
@@ -226,9 +242,9 @@ class ArticleService
                 ->performedOn($article)
                 ->causedBy(auth()->user())
                 ->withProperties([
-                    'old'        => $old,
-                    'new'        => $article->fresh()->only(array_keys($old)),
-                    'tags'       => $tags,
+                    'old' => $old,
+                    'new' => $article->fresh()->only(array_keys($old)),
+                    'tags' => $tags,
                     'ip_address' => request()->ip(),
                     'user_agent' => request()->userAgent(),
                 ])
@@ -256,10 +272,10 @@ class ArticleService
             ->causedBy(auth()->user())
             ->withProperties([
                 'article_title' => $article->title,
-                'article_slug'  => $article->slug,
-                'status'        => $article->status,
-                'ip_address'    => request()->ip(),
-                'user_agent'    => request()->userAgent(),
+                'article_slug' => $article->slug,
+                'status' => $article->status,
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
             ])
             ->log('Article deleted');
 
@@ -280,10 +296,10 @@ class ArticleService
             ->causedBy(auth()->user())
             ->withProperties([
                 'article_title' => $article->title,
-                'article_slug'  => $article->slug,
-                'status'        => $article->status,
-                'ip_address'    => request()->ip(),
-                'user_agent'    => request()->userAgent(),
+                'article_slug' => $article->slug,
+                'status' => $article->status,
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
             ])
             ->log('Article restored');
 
@@ -302,9 +318,9 @@ class ArticleService
             ->causedBy(auth()->user())
             ->withProperties([
                 'article_title' => $article->title,
-                'article_slug'  => $article->slug,
-                'ip_address'    => request()->ip(),
-                'user_agent'    => request()->userAgent(),
+                'article_slug' => $article->slug,
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
             ])
             ->log('Article permanently deleted');
 
@@ -328,12 +344,12 @@ class ArticleService
 
         return [
             'category' => $category,
-            'items'    => $paginator->getCollection(),
-            'meta'     => [
+            'items' => $paginator->getCollection(),
+            'meta' => [
                 'current_page' => $paginator->currentPage(),
-                'last_page'    => $paginator->lastPage(),
-                'per_page'     => $paginator->perPage(),
-                'total'        => $paginator->total(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
             ],
         ];
     }
@@ -344,7 +360,7 @@ class ArticleService
         $limit = $limit ?? $this->siteSettingsService->getRelatedArticlesCount();
 
         if ($limit <= 0) {
-            return new Collection();
+            return new Collection;
         }
 
         $tagIds = $article->tags->pluck('id');
@@ -378,15 +394,15 @@ class ArticleService
             ->get()
             ->map(function ($activity) {
                 return [
-                    'id'          => $activity->id,
+                    'id' => $activity->id,
                     'description' => $activity->description,
-                    'event'       => $activity->event,
-                    'causer'      => $activity->causer?->name,
-                    'old'         => $activity->properties['old'] ?? null,
-                    'new'         => $activity->properties['new'] ?? null,
-                    'tags'        => $activity->properties['tags'] ?? null,
-                    'ip_address'  => $activity->properties['ip_address'] ?? null,
-                    'created_at'  => $activity->created_at,
+                    'event' => $activity->event,
+                    'causer' => $activity->causer?->name,
+                    'old' => $activity->properties['old'] ?? null,
+                    'new' => $activity->properties['new'] ?? null,
+                    'tags' => $activity->properties['tags'] ?? null,
+                    'ip_address' => $activity->properties['ip_address'] ?? null,
+                    'created_at' => $activity->created_at,
                 ];
             });
     }
@@ -397,15 +413,15 @@ class ArticleService
 
     private function resolveSlug(array $data, ?int $excludeId = null): string
     {
-        $base  = Str::slug(!empty($data['slug']) ? $data['slug'] : $data['title']);
-        $slug  = $base;
+        $base = Str::slug(! empty($data['slug']) ? $data['slug'] : $data['title']);
+        $slug = $base;
         $count = 1;
 
         while (
             $this->article
-            ->where('slug', $slug)
-            ->when($excludeId, fn($q) => $q->where('id', '!=', $excludeId))
-            ->exists()
+                ->where('slug', $slug)
+                ->when($excludeId, fn ($q) => $q->where('id', '!=', $excludeId))
+                ->exists()
         ) {
             $slug = "{$base}-{$count}";
             $count++;
@@ -425,7 +441,7 @@ class ArticleService
         return $status;
     }
 
-    private function resolvePublishedAt(array $data, ?Article $existing = null): ?\Carbon\Carbon
+    private function resolvePublishedAt(array $data, ?Article $existing = null): ?Carbon
     {
         $status = $data['status'] ?? $existing?->status?->value ?? ArticleStatus::DRAFT->value;
 
@@ -434,7 +450,7 @@ class ArticleService
         }
 
         if (! empty($data['published_at'])) {
-            return \Carbon\Carbon::parse($data['published_at']);
+            return Carbon::parse($data['published_at']);
         }
 
         return $existing?->published_at ?? now();
@@ -492,7 +508,7 @@ class ArticleService
     private function resolveTags(array $tags): array
     {
         return collect($tags)
-            ->map(fn($tagName) => Tag::firstOrCreate(['tag' => strtolower(trim($tagName))])->id)
+            ->map(fn ($tagName) => Tag::firstOrCreate(['tag' => strtolower(trim($tagName))])->id)
             ->toArray();
     }
 
@@ -515,7 +531,7 @@ class ArticleService
         }
 
         $escaped = str_replace(['%', '_'], ['\%', '\_'], $term);
-        $like = '%' . $escaped . '%';
+        $like = '%'.$escaped.'%';
 
         return $this->article
             ->with(['tags', 'category', 'user'])
