@@ -27,16 +27,14 @@ class ArticleService
 
     public function getAllArticles()
     {
-        return $this->article
-            ->with(['tags', 'category', 'user'])
+        return $this->articleQuery()
             ->latest()
             ->get();
     }
 
     public function getTrashedArticles()
     {
-        return $this->article
-            ->with(['tags', 'category', 'user'])
+        return $this->articleQuery()
             ->onlyTrashed()
             ->latest('deleted_at')
             ->get();
@@ -44,13 +42,12 @@ class ArticleService
 
     public function getBySlug(string $slug): Article
     {
-        return $this->article->with(['tags', 'category', 'user'])->where('slug', $slug)->firstOrFail();
+        return $this->articleQuery()->where('slug', $slug)->firstOrFail();
     }
 
     public function getPublishedBySlug(string $slug): Article
     {
-        return $this->article
-            ->with(['tags', 'category', 'user'])
+        return $this->articleQuery()
             ->where('slug', $slug)
             ->where('status', ArticleStatus::PUBLISHED->value)
             ->firstOrFail();
@@ -71,14 +68,14 @@ class ArticleService
             ->groupBy('articles.id')
             ->orderByDesc('read_count')
             ->with(['tags', 'category', 'user'])
+            ->withSum('histroy', 'time_spent')
             ->limit($limit)
             ->get();
     }
 
     public function getLatestArticle(): Article
     {
-        return $this->article
-            ->with(['tags', 'category', 'user'])
+        return $this->articleQuery()
             ->where('status', ArticleStatus::PUBLISHED->value)
             ->latest('published_at')
             ->firstOrFail();
@@ -86,8 +83,7 @@ class ArticleService
 
     public function getLatestStories(): Collection
     {
-        return $this->article
-            ->with(['tags', 'category', 'user'])
+        return $this->articleQuery()
             ->where('status', ArticleStatus::PUBLISHED->value)
             ->latest('published_at')
             ->take(10)
@@ -98,8 +94,7 @@ class ArticleService
     {
         $limit = min(max($limit, 1), 10);
 
-        return $this->article
-            ->with(['tags', 'category', 'user'])
+        return $this->articleQuery()
             ->where('status', ArticleStatus::PUBLISHED->value)
             ->whereHas('tags', fn ($query) => $query->whereIn('tag', BreakingTag::VALUES))
             ->latest('published_at')
@@ -109,8 +104,7 @@ class ArticleService
 
     public function getLatestArticleByTag(string $tagSlug, string $type = 'latest'): Collection
     {
-        $query = $this->article
-            ->with(['tags', 'category', 'user'])
+        $query = $this->articleQuery()
             ->where('status', ArticleStatus::PUBLISHED->value)
             ->whereHas('tags', function ($q) use ($tagSlug) {
                 $q->where('tag', $tagSlug);
@@ -125,8 +119,7 @@ class ArticleService
 
     public function getLongReads(string $type = 'all', int $minMinutes = 5): Collection
     {
-        $query = $this->article
-            ->with(['tags', 'category', 'user'])
+        $query = $this->articleQuery()
             ->where('status', ArticleStatus::PUBLISHED->value)
             ->whereHas('histroy', function ($q) use ($minMinutes) {
                 $q->where('time_spent', '>=', $minMinutes * 60);
@@ -332,8 +325,7 @@ class ArticleService
         $category = ArticleCategory::where('slug', $categorySlug)->firstOrFail();
         $perPage = $perPage ?? $this->siteSettingsService->getPostsPerPage();
 
-        $query = $this->article
-            ->with(['tags', 'category', 'user'])
+        $query = $this->articleQuery()
             ->whereHas('category', function ($query) use ($categorySlug) {
                 $query->where('slug', $categorySlug);
             })
@@ -365,8 +357,7 @@ class ArticleService
 
         $tagIds = $article->tags->pluck('id');
 
-        return $this->article
-            ->with(['tags', 'category', 'user'])
+        return $this->articleQuery()
             ->where('status', ArticleStatus::PUBLISHED->value)
             ->where('id', '!=', $article->id)
             ->where(function ($query) use ($article, $tagIds) {
@@ -410,6 +401,13 @@ class ArticleService
     // =========================================================================
     // Private Resolvers
     // =========================================================================
+
+    private function articleQuery()
+    {
+        return $this->article
+            ->with(['tags', 'category', 'user'])
+            ->withReadingTime();
+    }
 
     private function resolveSlug(array $data, ?int $excludeId = null): string
     {
@@ -514,8 +512,7 @@ class ArticleService
 
     public function getGridArticles(int $limit = 50, array $excludeIds = []): Collection
     {
-        return $this->article
-            ->with(['tags', 'category', 'user'])
+        return $this->articleQuery()
             ->where('status', ArticleStatus::PUBLISHED->value)
             ->whereNotIn('id', $excludeIds)
             ->orderByDesc('views')
@@ -533,8 +530,7 @@ class ArticleService
         $escaped = str_replace(['%', '_'], ['\%', '\_'], $term);
         $like = '%'.$escaped.'%';
 
-        return $this->article
-            ->with(['tags', 'category', 'user'])
+        return $this->articleQuery()
             ->where('status', ArticleStatus::PUBLISHED->value)
             ->where(function ($q) use ($like) {
                 $q->where('title', 'like', $like)
