@@ -1,0 +1,41 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    name: Deploy to GCP Server
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.GCP_SERVER_IP }}
+          username: ${{ secrets.GCP_SERVER_USER }}
+          key: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            cd /var/www/zbc-news
+
+            echo "── Pulling latest backend code ──"
+            git -C backend checkout -- .
+            git -C backend pull origin main
+
+            echo "── Rebuilding backend container ──"
+            docker compose --env-file .env up -d --build backend
+
+            echo "── Waiting for backend to be ready ──"
+            sleep 10
+
+            echo "── Running migrations ──"
+            docker compose exec -T backend php artisan migrate --force
+
+            echo "── Clearing and rebuilding caches ──"
+            docker compose exec -T backend php artisan config:cache
+            docker compose exec -T backend php artisan route:cache
+            docker compose exec -T backend php artisan view:cache
+
+            echo "── Backend deployed at $(date) ──"
