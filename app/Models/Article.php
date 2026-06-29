@@ -4,14 +4,17 @@ namespace App\Models;
 
 use App\Enums\ArticleStatus;
 use App\Enums\ArticleVisibility;
+use App\Support\ReadTime;
 use App\Traits\HasMedia;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Article extends Model
 {
     use HasFactory, HasMedia, SoftDeletes;
+
     protected $fillable = [
         'id',
         'title',
@@ -32,7 +35,7 @@ class Article extends Model
         'user_id',
         'views',
     ];
-    
+
     protected $casts = [
         'status' => ArticleStatus::class,
         'visibility' => ArticleVisibility::class,
@@ -45,12 +48,12 @@ class Article extends Model
     {
         return $this->belongsTo(ArticleCategory::class, 'article_category_id');
     }
-    
+
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id');
     }
-    
+
     public function tags()
     {
         return $this->belongsToMany(Tag::class, 'article_tags', 'article_id', 'tag_id');
@@ -70,10 +73,25 @@ class Article extends Model
     // {
     //     return $this->hasMany(ArticleReadLog::class, 'article_id');
     // }
-    
+
     public function histroy()
     {
         return $this->hasMany(ArticleHistroy::class, 'article_id');
     }
-}
 
+    public function scopeWithReadingTime(Builder $query): Builder
+    {
+        return $query->withSum('histroy', 'time_spent');
+    }
+
+    public function formattedReadTime(): string
+    {
+        $seconds = (int) ($this->histroy_sum_time_spent ?? 0);
+
+        if ($seconds > 0) {
+            return ReadTime::fromSeconds($seconds);
+        }
+
+        return ReadTime::fromHtml($this->article_description);
+    }
+}

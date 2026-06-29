@@ -16,6 +16,7 @@ use App\Models\NotificationPreference;
 use App\Models\SaveArticle;
 use App\Models\User;
 use App\Models\UserNotification;
+use App\Support\BreakingTag;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -283,11 +284,7 @@ class UserNotificationService
 
     private function isBreakingArticle(Article $article): bool
     {
-        return $article->tags->contains(function ($tag) {
-            $normalized = strtolower($tag->tag);
-
-            return in_array($normalized, ['breaking', 'breaking-news', 'breaking news'], true);
-        });
+        return $article->tags->contains(fn ($tag) => BreakingTag::isBreaking($tag->tag));
     }
 
     private function notifyBreakingNews(Article $article): void
