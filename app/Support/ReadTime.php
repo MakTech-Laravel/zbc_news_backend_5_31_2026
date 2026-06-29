@@ -13,7 +13,18 @@ class ReadTime
         }
 
         $wordCount = str_word_count(strip_tags($content));
-        $minutes   = max(1, (int) round($wordCount / self::WORDS_PER_MINUTE));
+        $minutes = max(1, (int) round($wordCount / self::WORDS_PER_MINUTE));
+
+        return "{$minutes} min read";
+    }
+
+    public static function fromSeconds(int $seconds): string
+    {
+        if ($seconds <= 0) {
+            return '1 min read';
+        }
+
+        $minutes = max(1, (int) ceil($seconds / 60));
 
         return "{$minutes} min read";
     }

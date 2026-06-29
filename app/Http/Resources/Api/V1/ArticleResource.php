@@ -2,7 +2,6 @@
 
 namespace App\Http\Resources\Api\V1;
 
-use App\Support\ReadTime;
 use App\Services\SeoMetaService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -21,7 +20,7 @@ class ArticleResource extends JsonResource
             'sub_title' => $this->sub_title,
             'excerpt' => $this->excerpt,
             'article_description' => $this->article_description,
-            'read_time' => ReadTime::fromHtml($this->article_description),
+            'read_time' => $this->formattedReadTime(),
 
             'status' => $this->status?->value ?? $this->status,
             'visibility' => $this->visibility?->value ?? $this->visibility,
@@ -83,7 +82,7 @@ class ArticleResource extends JsonResource
             return $path;
         }
 
-        $normalized = str_starts_with($path, '/') ? $path : '/' . $path;
+        $normalized = str_starts_with($path, '/') ? $path : '/'.$path;
         $publicFile = public_path(ltrim($normalized, '/'));
 
         if (! is_file($publicFile)) {
