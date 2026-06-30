@@ -23,6 +23,7 @@ class UserService
         private readonly Article $article,
         private readonly UserInformation $userInformation,
         private readonly NotificationPreferenceService $notificationPreferenceService,
+        private readonly CloudinaryService $cloudinary,
     ) {}
 
     public function getAllUsers()
@@ -80,12 +81,18 @@ class UserService
         $profileImage = null;
 
         if (array_key_exists('profile_image', $data)) {
+            $currentImage = $user->userInformation?->profile_image;
+
             if ($data['profile_image'] instanceof UploadedFile) {
-                MediaUrl::deleteLocalIfStored($user->userInformation?->profile_image);
-                $profileImage = $data['profile_image']->store('user_profiles', 'public');
+                $this->deleteStoredProfileImage($currentImage);
+                $profileImage = $this->uploadProfileImageToCloudinary($data['profile_image']);
             } else {
-                MediaUrl::deleteLocalIfStored($user->userInformation?->profile_image);
-                $profileImage = $this->resolveProfileImageValue($data['profile_image']);
+                $resolved = $this->resolveProfileImageValue($data['profile_image']);
+
+                if ($this->profileImagesAreDifferent($currentImage, $resolved)) {
+                    $this->deleteStoredProfileImage($currentImage);
+                    $profileImage = $resolved;
+                }
             }
         }
 
@@ -118,7 +125,7 @@ class UserService
         }
 
         if ($user->userInformation?->profile_image) {
-            MediaUrl::deleteLocalIfStored($user->userInformation->profile_image);
+            $this->deleteStoredProfileImage($user->userInformation->profile_image);
         }
 
         $user->syncRoles([]);
@@ -152,7 +159,7 @@ class UserService
     private function resolveProfileImageValue(mixed $value): ?string
     {
         if ($value instanceof UploadedFile) {
-            return $value->store('user_profiles', 'public');
+            return $this->uploadProfileImageToCloudinary($value);
         }
 
         if (! is_string($value)) {
@@ -162,5 +169,46 @@ class UserService
         $trimmed = trim($value);
 
         return $trimmed !== '' ? $trimmed : null;
+    }
+
+    private function uploadProfileImageToCloudinary(UploadedFile $file): string
+    {
+        $result = $this->cloudinary->upload($file, ['folder' => 'user_profiles']);
+
+        return $result['secure_url'];
+    }
+
+    private function profileImagesAreDifferent(?string $current, ?string $incoming): bool
+    {
+        return $this->normalizeProfileImageReference($current)
+            !== $this->normalizeProfileImageReference($incoming);
+    }
+
+    private function normalizeProfileImageReference(?string $value): ?string
+    {
+        if (! $value) {
+            return null;
+        }
+
+        return MediaUrl::resolvePublic($value) ?? $value;
+    }
+
+    private function deleteStoredProfileImage(?string $value): void
+    {
+        if (! $value) {
+            return;
+        }
+
+        if (MediaUrl::isRemote($value) && str_contains($value, 'res.cloudinary.com')) {
+            $publicId = $this->cloudinary->publicIdFromUrl($value);
+
+            if ($publicId) {
+                $this->cloudinary->delete($publicId, 'image');
+            }
+
+            return;
+        }
+
+        MediaUrl::deleteLocalIfStored($value);
     }
 }

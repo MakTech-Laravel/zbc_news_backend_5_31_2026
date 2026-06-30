@@ -105,6 +105,25 @@ class CloudinaryService
         return (array) $result;
     }
 
+    public function publicIdFromUrl(string $url): ?string
+    {
+        if (! str_contains($url, 'res.cloudinary.com')) {
+            return null;
+        }
+
+        $path = parse_url($url, PHP_URL_PATH);
+
+        if (! is_string($path) || ! preg_match('#/upload/(?:[^/]+/)*(?:v\d+/)?(.+)$#', $path, $matches)) {
+            return null;
+        }
+
+        $publicIdWithExt = $matches[1];
+        $directory = pathinfo($publicIdWithExt, PATHINFO_DIRNAME);
+        $filename = pathinfo($publicIdWithExt, PATHINFO_FILENAME);
+
+        return $directory === '.' ? $filename : "{$directory}/{$filename}";
+    }
+
     public function delete(string $publicId, string $resourceType = 'image'): bool
     {
         if (str_starts_with($publicId, 'pending_')) {
