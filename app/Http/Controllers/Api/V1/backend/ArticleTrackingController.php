@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api\V1\backend;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Api\v1\TrackArticleRequest;
+use App\Http\Requests\Api\V1\TrackArticleRequest;
 use App\Services\ArticleTrackingService;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
