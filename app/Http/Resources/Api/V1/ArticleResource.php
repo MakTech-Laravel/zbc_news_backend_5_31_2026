@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Api\V1;
 
 use App\Services\SeoMetaService;
+use App\Support\MediaUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -24,8 +25,8 @@ class ArticleResource extends JsonResource
 
             'status' => $this->status?->value ?? $this->status,
             'visibility' => $this->visibility?->value ?? $this->visibility,
-            'featured_image' => $this->resolvePublicImageUrl($this->featured_image),
-            'open_graph_image' => $this->resolvePublicImageUrl($this->open_graph_image),
+            'featured_image' => MediaUrl::resolvePublic($this->featured_image),
+            'open_graph_image' => MediaUrl::resolvePublic($this->open_graph_image),
 
             'scheduled_publishing' => $this->scheduled_publishing?->toIso8601String(),
             'published_at' => $this->published_at?->toIso8601String(),
@@ -70,25 +71,5 @@ class ArticleResource extends JsonResource
                 },
             ),
         ];
-    }
-
-    private function resolvePublicImageUrl(?string $path): ?string
-    {
-        if (! $path) {
-            return null;
-        }
-
-        if (preg_match('/^https?:\/\//i', $path)) {
-            return $path;
-        }
-
-        $normalized = str_starts_with($path, '/') ? $path : '/'.$path;
-        $publicFile = public_path(ltrim($normalized, '/'));
-
-        if (! is_file($publicFile)) {
-            return null;
-        }
-
-        return url($normalized);
     }
 }

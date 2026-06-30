@@ -21,8 +21,8 @@ class MediaUploadTest extends TestCase
         parent::setUp();
         Storage::fake('local');
 
-        Role::create(['name' => 'user', 'guard_name' => 'api']);
-        Role::create(['name' => 'super_admin', 'guard_name' => 'api']);
+        Role::query()->firstOrCreate(['name' => 'user', 'guard_name' => 'api']);
+        Role::query()->firstOrCreate(['name' => 'super_admin', 'guard_name' => 'api']);
 
         $this->seedPermissionsForUserRole();
 
@@ -52,11 +52,10 @@ class MediaUploadTest extends TestCase
         $permissions = ['media.create', 'media.delete', 'media.list', 'media.show'];
 
         foreach ($permissions as $name) {
-            \Spatie\Permission\Models\Permission::create([
-                'name' => $name,
-                'guard_name' => 'api',
-                'group_name' => 'Media',
-            ]);
+            \Spatie\Permission\Models\Permission::query()->firstOrCreate(
+                ['name' => $name, 'guard_name' => 'api'],
+                ['group_name' => 'Media'],
+            );
         }
 
         Role::findByName('user', 'api')->givePermissionTo($permissions);

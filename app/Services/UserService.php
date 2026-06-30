@@ -2,28 +2,25 @@
 
 namespace App\Services;
 
+use App\Models\Article;
 use App\Models\User;
-use App\Support\MediaUrl;
+use App\Models\UserInformation;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Activitylog\Models\Activity;
-use App\Models\Article;
-use App\Models\UserInformation;
-use App\Services\NotificationPreferenceService;
-use Illuminate\Support\Arr;
 
 class UserService
 {
-    /**
-     * Create a new class instance.
-     */
+    private const PROFILE_IMAGE_FOLDER = 'user_profiles';
+
     public function __construct(
         private readonly User $user,
         private readonly Activity $activity,
         private readonly Article $article,
         private readonly UserInformation $userInformation,
         private readonly NotificationPreferenceService $notificationPreferenceService,
-        private readonly CloudinaryService $cloudinary,
+        private readonly StoredImageService $storedImageService,
     ) {}
 
     public function getAllUsers()
@@ -38,8 +35,6 @@ class UserService
 
     public function create(array $data)
     {
-
-
         $user = $this->user->create([
             'name' => $data['name'],
             'email' => $data['email'],
@@ -52,9 +47,17 @@ class UserService
 
         $this->notificationPreferenceService->getOrCreate($user);
 
+        $profileImage = $data['profile_image'] ?? null;
+
+        if ($profileImage instanceof UploadedFile) {
+            $profileImage = $this->storedImageService->upload($profileImage, self::PROFILE_IMAGE_FOLDER);
+        } else {
+            $profileImage = $this->storedImageService->resolveValue($profileImage);
+        }
+
         $this->userInformation->create([
             'user_id' => $user->id,
-            'profile_image' => $this->resolveProfileImageValue($data['profile_image'] ?? null),
+            'profile_image' => $profileImage,
             'bio'    => $data['bio'] ?? null,
             'region' => $data['region'] ?? null,
         ]);
@@ -66,7 +69,7 @@ class UserService
     {
         $user = $this->user->findOrFail($id);
 
-        if (!empty($data['password'])) {
+        if (! empty($data['password'])) {
             $data['password'] = Hash::make($data['password']);
         } else {
             unset($data['password']);
@@ -84,13 +87,13 @@ class UserService
             $currentImage = $user->userInformation?->profile_image;
 
             if ($data['profile_image'] instanceof UploadedFile) {
-                $this->deleteStoredProfileImage($currentImage);
-                $profileImage = $this->uploadProfileImageToCloudinary($data['profile_image']);
+                $this->storedImageService->delete($currentImage);
+                $profileImage = $this->storedImageService->upload($data['profile_image'], self::PROFILE_IMAGE_FOLDER);
             } else {
-                $resolved = $this->resolveProfileImageValue($data['profile_image']);
+                $resolved = $this->storedImageService->resolveValue($data['profile_image']);
 
-                if ($this->profileImagesAreDifferent($currentImage, $resolved)) {
-                    $this->deleteStoredProfileImage($currentImage);
+                if ($this->storedImageService->isDifferent($currentImage, $resolved)) {
+                    $this->storedImageService->delete($currentImage);
                     $profileImage = $resolved;
                 }
             }
@@ -125,7 +128,7 @@ class UserService
         }
 
         if ($user->userInformation?->profile_image) {
-            $this->deleteStoredProfileImage($user->userInformation->profile_image);
+            $this->storedImageService->delete($user->userInformation->profile_image);
         }
 
         $user->syncRoles([]);
@@ -154,61 +157,5 @@ class UserService
                     'created_at' => $activity->created_at,
                 ];
             });
-    }
-
-    private function resolveProfileImageValue(mixed $value): ?string
-    {
-        if ($value instanceof UploadedFile) {
-            return $this->uploadProfileImageToCloudinary($value);
-        }
-
-        if (! is_string($value)) {
-            return null;
-        }
-
-        $trimmed = trim($value);
-
-        return $trimmed !== '' ? $trimmed : null;
-    }
-
-    private function uploadProfileImageToCloudinary(UploadedFile $file): string
-    {
-        $result = $this->cloudinary->upload($file, ['folder' => 'user_profiles']);
-
-        return $result['secure_url'];
-    }
-
-    private function profileImagesAreDifferent(?string $current, ?string $incoming): bool
-    {
-        return $this->normalizeProfileImageReference($current)
-            !== $this->normalizeProfileImageReference($incoming);
-    }
-
-    private function normalizeProfileImageReference(?string $value): ?string
-    {
-        if (! $value) {
-            return null;
-        }
-
-        return MediaUrl::resolvePublic($value) ?? $value;
-    }
-
-    private function deleteStoredProfileImage(?string $value): void
-    {
-        if (! $value) {
-            return;
-        }
-
-        if (MediaUrl::isRemote($value) && str_contains($value, 'res.cloudinary.com')) {
-            $publicId = $this->cloudinary->publicIdFromUrl($value);
-
-            if ($publicId) {
-                $this->cloudinary->delete($publicId, 'image');
-            }
-
-            return;
-        }
-
-        MediaUrl::deleteLocalIfStored($value);
     }
 }

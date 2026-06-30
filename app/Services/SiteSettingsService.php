@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\SiteSettings;
-use App\Support\MediaUrl;
 use Illuminate\Support\Facades\Cache;
 
 class SiteSettingsService
@@ -11,7 +10,8 @@ class SiteSettingsService
     private const CACHE_KEY = 'site_settings_singleton';
 
     public function __construct(
-        private SiteSettings $siteSettings
+        private SiteSettings $siteSettings,
+        private readonly StoredImageService $storedImageService,
     ) {}
 
     public function getAll(): ?SiteSettings
@@ -74,8 +74,13 @@ class SiteSettingsService
     {
         $settings = $this->siteSettings->first();
 
-        if ($settings && array_key_exists('site_logo', $data) && $settings->site_logo) {
-            MediaUrl::deleteLocalIfStored($settings->site_logo);
+        if ($settings && array_key_exists('site_logo', $data)) {
+            $incomingLogo = is_string($data['site_logo']) ? trim($data['site_logo']) : null;
+            $incomingLogo = $incomingLogo !== '' ? $incomingLogo : null;
+
+            if ($this->storedImageService->isDifferent($settings->site_logo, $incomingLogo)) {
+                $this->storedImageService->delete($settings->site_logo);
+            }
         }
 
         if ($settings) {

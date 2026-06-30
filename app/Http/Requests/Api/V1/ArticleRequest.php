@@ -67,6 +67,14 @@ class ArticleRequest extends FormRequest
             $articleId = $article?->id;
         }
 
+        $featuredImageRule = $this->hasFile('featured_image')
+            ? ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:5120']
+            : ['nullable', 'string', 'max:2048'];
+
+        $openGraphImageRule = $this->hasFile('open_graph_image')
+            ? ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:5120']
+            : ['nullable', 'string', 'max:2048'];
+
         return [
             'title'                 => ['required', 'string', 'max:255'],
             'slug'  => [
@@ -83,8 +91,8 @@ class ArticleRequest extends FormRequest
             'excerpt'               => ['nullable', 'string'],
             'status'                => ['nullable', new Enum(ArticleStatus::class)],
             'visibility'                => ['nullable', new Enum(ArticleVisibility::class)],
-            'featured_image'        => ['nullable', 'string', 'max:2048'],
-            'open_graph_image'      => ['nullable', 'string', 'max:2048'],
+            'featured_image'        => $featuredImageRule,
+            'open_graph_image'      => $openGraphImageRule,
             'article_category_id'   => ['required', 'integer', 'exists:article_categories,id'],
             'scheduled_publishing' => [
                 Rule::requiredIf(fn () => $this->input('status') === ArticleStatus::SCHEDULED->value),

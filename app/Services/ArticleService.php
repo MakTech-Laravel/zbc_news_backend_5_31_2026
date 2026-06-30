@@ -13,7 +13,6 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Spatie\Activitylog\Models\Activity;
 
@@ -23,6 +22,7 @@ class ArticleService
         private readonly Article $article,
         private readonly SiteSettingsService $siteSettingsService,
         private readonly SeoMetaService $seoMetaService,
+        private readonly StoredImageService $storedImageService,
     ) {}
 
     public function getAllArticles()
@@ -317,6 +317,9 @@ class ArticleService
             ])
             ->log('Article permanently deleted');
 
+        $this->storedImageService->delete($article->featured_image);
+        $this->storedImageService->delete($article->open_graph_image);
+
         $article->forceDelete();
     }
 
@@ -457,50 +460,41 @@ class ArticleService
     private function resolveImage(
         array $data,
         string $field,
-        string $storagePath,
+        string $folder,
         ?Article $existing = null
     ): ?string {
-        if (array_key_exists($field, $data)) {
-            $value = $data[$field];
-
-            if ($value instanceof UploadedFile) {
-                if ($existing?->{$field}) {
-                    $this->deleteStoredImage($existing->{$field});
-                }
-
-                $path = $value->store($storagePath, 'public');
-
-                return Storage::url($path);
-            }
-
-            if (is_string($value)) {
-                $trimmed = trim($value);
-
-                return $trimmed !== '' ? $trimmed : null;
-            }
-
-            if ($value === null) {
-                return null;
-            }
+        if (! array_key_exists($field, $data)) {
+            return $existing?->{$field} ?? null;
         }
 
-        return $existing?->{$field} ?? null;
-    }
+        $value = $data[$field];
+        $current = $existing?->{$field};
 
-    private function deleteStoredImage(?string $storedValue): void
-    {
-        if (! $storedValue || preg_match('/^https?:\/\//i', $storedValue)) {
-            return;
+        if ($value instanceof UploadedFile) {
+            $this->storedImageService->delete($current);
+
+            return $this->storedImageService->upload($value, $folder);
         }
 
-        $oldPath = ltrim(
-            parse_url($storedValue, PHP_URL_PATH) ?? $storedValue,
-            '/storage/'
-        );
+        if (is_string($value)) {
+            $resolved = $this->storedImageService->resolveValue($value);
 
-        if ($oldPath !== '') {
-            Storage::disk('public')->delete($oldPath);
+            if ($this->storedImageService->isDifferent($current, $resolved)) {
+                $this->storedImageService->delete($current);
+
+                return $resolved;
+            }
+
+            return $current;
         }
+
+        if ($value === null) {
+            $this->storedImageService->delete($current);
+
+            return null;
+        }
+
+        return $current;
     }
 
     private function resolveTags(array $tags): array
