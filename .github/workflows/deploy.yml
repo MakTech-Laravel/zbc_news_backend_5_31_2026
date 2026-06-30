@@ -30,8 +30,8 @@ jobs:
             echo "── Waiting for backend to be ready ──"
             sleep 10
 
-            # echo "── Running migrations ──"
-            # docker compose exec -T backend php artisan migrate --force
+            echo "── Running migrations ──"
+            docker compose exec -T backend php artisan migrate --force
 
             echo "── Clearing and rebuilding caches ──"
             docker compose exec -T backend php artisan config:cache
