@@ -17,13 +17,14 @@ class NewsletterVerificationMail extends Mailable
 
     public function build(): self
     {
+        $subject = "Verify your {$this->siteName} newsletter subscription";
+
         return $this
-            ->subject("Verify your {$this->siteName} newsletter subscription")
-            ->html(
-                "<p>Thanks for subscribing to {$this->siteName}.</p>" .
-                "<p>Please verify your email by clicking the link below:</p>" .
-                "<p><a href=\"{$this->verifyUrl}\">Verify subscription</a></p>"
-            );
+            ->subject($subject)
+            ->view('emails.newsletter-verification', [
+                'subjectLine' => $subject,
+                'siteName' => $this->siteName,
+                'verifyUrl' => $this->verifyUrl,
+            ]);
     }
 }
-

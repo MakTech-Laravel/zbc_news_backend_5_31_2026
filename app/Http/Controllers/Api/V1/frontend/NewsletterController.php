@@ -62,7 +62,19 @@ class NewsletterController extends Controller
 
     public function verify(Request $request)
     {
-        $subscriber = $this->newsletterService->verify((string) $request->query('token'));
+        $token = trim((string) $request->query('token'));
+
+        if ($token === '') {
+            return sendResponse(false, 'Verification token is required', null, HttpStatus::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $existing = \App\Models\NewsletterSubscriber::query()
+            ->where('verification_token', $token)
+            ->first();
+
+        $alreadyVerified = $existing !== null && $existing->status === 'verified';
+
+        $subscriber = $this->newsletterService->verify($token);
 
         if (!$subscriber) {
             return sendResponse(false, 'Invalid verification token', null, HttpStatus::HTTP_NOT_FOUND);
@@ -70,6 +82,7 @@ class NewsletterController extends Controller
 
         return sendResponse(true, 'Newsletter subscription verified', [
             'email' => $subscriber->email,
+            'already_verified' => $alreadyVerified,
         ], HttpStatus::HTTP_OK);
     }
 

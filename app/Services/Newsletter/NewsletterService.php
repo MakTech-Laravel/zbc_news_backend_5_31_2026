@@ -4,7 +4,6 @@ namespace App\Services\Newsletter;
 
 use App\Enums\ArticleCategoryStatus;
 use App\Jobs\SendNewsletterCampaignJob;
-use App\Mail\NewsletterVerificationMail;
 use App\Models\ArticleCategory;
 use App\Models\NewsletterCampaign;
 use App\Models\NewsletterEvent;
@@ -14,6 +13,7 @@ use App\Services\UserNotificationService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -31,8 +31,23 @@ class NewsletterService
     public function subscribe(array $data, ?User $user = null): NewsletterSubscriber
     {
         $email = strtolower(trim((string) $data['email']));
-        $verificationToken = Str::random(64);
-        $unsubscribeToken = Str::random(64);
+        $existing = NewsletterSubscriber::query()->where('email', $email)->first();
+
+        if ($existing && $existing->status === 'verified') {
+            $existing->update([
+                'name' => $data['name'] ?? $existing->name,
+                'preferences' => $this->normalizePreferences($data['preferences'] ?? null) ?? $existing->preferences,
+            ]);
+
+            return $existing->fresh();
+        }
+
+        $verificationToken = ($existing && filled($existing->verification_token))
+            ? $existing->verification_token
+            : Str::random(64);
+        $unsubscribeToken = ($existing && filled($existing->unsubscribe_token))
+            ? $existing->unsubscribe_token
+            : Str::random(64);
 
         $subscriber = NewsletterSubscriber::query()->updateOrCreate(
             ['email' => $email],
@@ -53,15 +68,18 @@ class NewsletterService
 
         $from = $this->providerFactory->fromAddress();
         $siteName = $from['name'] ?: 'ZBC News';
-        $html = "<p>Thanks for subscribing to {$siteName}.</p>"
-            . "<p>Please verify your email by clicking the link below:</p>"
-            . "<p><a href=\"{$verifyUrl}\">Verify subscription</a></p>";
+        $subject = "Verify your {$siteName} newsletter subscription";
+        $html = view('emails.newsletter-verification', [
+            'subjectLine' => $subject,
+            'siteName' => $siteName,
+            'verifyUrl' => $verifyUrl,
+        ])->render();
 
         try {
             $this->providerFactory->make()->send([
                 'to' => $subscriber->email,
                 'to_name' => $subscriber->name,
-                'subject' => "Verify your {$siteName} newsletter subscription",
+                'subject' => $subject,
                 'html' => $html,
                 'from_email' => $from['email'],
                 'from_name' => $from['name'],
@@ -81,10 +99,14 @@ class NewsletterService
             return null;
         }
 
+        if ($subscriber->status === 'verified') {
+            return $subscriber;
+        }
+
         $subscriber->update([
             'status' => 'verified',
             'verified_at' => now(),
-            'verification_token' => null,
+            'unsubscribed_at' => null,
         ]);
 
         $subscriber = $subscriber->fresh();
@@ -172,11 +194,14 @@ class NewsletterService
             return null;
         }
 
+        if ($subscriber->status === 'verified') {
+            throw new \InvalidArgumentException('Verified subscribers cannot be modified.');
+        }
+
         $updates = ['status' => $status];
 
         if ($status === 'verified') {
             $updates['verified_at'] = now();
-            $updates['verification_token'] = null;
             $updates['unsubscribed_at'] = null;
         } elseif ($status === 'pending') {
             $updates['verified_at'] = null;
@@ -330,7 +355,9 @@ class NewsletterService
         $recipients = $this->recipientsQuery($campaign)->count();
 
         if ($recipients === 0) {
-            throw new \RuntimeException('No verified subscribers match this campaign audience.');
+            throw new \RuntimeException(
+                'No verified subscribers match this campaign audience. Verify pending subscribers or adjust the campaign audience categories.',
+            );
         }
 
         $campaign->update([
@@ -353,8 +380,20 @@ class NewsletterService
             ->where('status', 'scheduled')
             ->where('scheduled_at', '<=', now())
             ->each(function (NewsletterCampaign $campaign) use (&$count): void {
-                $this->dispatchCampaign($campaign);
-                $count++;
+                try {
+                    $this->dispatchCampaign($campaign);
+                    $count++;
+                } catch (\RuntimeException $exception) {
+                    Log::warning('Scheduled newsletter campaign could not be sent.', [
+                        'campaign_id' => $campaign->id,
+                        'message' => $exception->getMessage(),
+                    ]);
+
+                    $campaign->update([
+                        'status' => 'draft',
+                        'scheduled_at' => null,
+                    ]);
+                }
             });
 
         return $count;
