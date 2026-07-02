@@ -86,6 +86,7 @@ Route::post('/ads/track', [AdTrackingController::class, 'track'])
 
 Route::prefix('newsletter')->controller(NewsletterController::class)->group(function (): void {
     Route::post('/subscribe', 'subscribe')->middleware('request_limitter')->name('api.v1.newsletter.subscribe');
+    Route::get('/verify/preview', 'verifyPreview')->name('api.v1.newsletter.verify.preview');
     Route::get('/verify', 'verify')->name('api.v1.newsletter.verify');
     Route::get('/unsubscribe', 'unsubscribe')->name('api.v1.newsletter.unsubscribe');
     Route::get('/preferences', 'preferences')->name('api.v1.newsletter.preferences');

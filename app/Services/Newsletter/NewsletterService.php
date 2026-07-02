@@ -119,6 +119,25 @@ class NewsletterService
         return $subscriber;
     }
 
+    /**
+     * @return array{email: string, status: string}|null
+     */
+    public function previewVerification(string $token): ?array
+    {
+        $subscriber = NewsletterSubscriber::query()
+            ->where('verification_token', trim($token))
+            ->first();
+
+        if (!$subscriber) {
+            return null;
+        }
+
+        return [
+            'email' => $subscriber->email,
+            'status' => $subscriber->status,
+        ];
+    }
+
     public function unsubscribe(string $token): ?NewsletterSubscriber
     {
         $subscriber = NewsletterSubscriber::query()

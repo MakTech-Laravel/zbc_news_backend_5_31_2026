@@ -25,6 +25,49 @@ class NewsletterVerificationAndCampaignTest extends TestCase
         }
     }
 
+    public function test_verify_preview_returns_subscriber_status_without_verifying(): void
+    {
+        Event::fake();
+
+        $this->postJson('/api/v1/newsletter/subscribe', [
+            'email' => 'preview@example.com',
+        ])->assertCreated();
+
+        $token = (string) NewsletterSubscriber::query()
+            ->where('email', 'preview@example.com')
+            ->value('verification_token');
+
+        $this->getJson('/api/v1/newsletter/verify/preview?token='.$token)
+            ->assertOk()
+            ->assertJsonPath('data.email', 'preview@example.com')
+            ->assertJsonPath('data.status', 'pending');
+
+        $this->assertDatabaseHas('newsletter_subscribers', [
+            'email' => 'preview@example.com',
+            'status' => 'pending',
+        ]);
+    }
+
+    public function test_verify_preview_shows_verified_status_for_already_verified_subscriber(): void
+    {
+        Event::fake();
+
+        $this->postJson('/api/v1/newsletter/subscribe', [
+            'email' => 'preview-verified@example.com',
+        ])->assertCreated();
+
+        $token = (string) NewsletterSubscriber::query()
+            ->where('email', 'preview-verified@example.com')
+            ->value('verification_token');
+
+        $this->getJson('/api/v1/newsletter/verify?token='.$token)->assertOk();
+
+        $this->getJson('/api/v1/newsletter/verify/preview?token='.$token)
+            ->assertOk()
+            ->assertJsonPath('data.email', 'preview-verified@example.com')
+            ->assertJsonPath('data.status', 'verified');
+    }
+
     public function test_verify_is_idempotent_and_keeps_verification_token(): void
     {
         Event::fake();

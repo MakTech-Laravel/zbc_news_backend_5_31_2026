@@ -60,6 +60,23 @@ class NewsletterController extends Controller
         );
     }
 
+    public function verifyPreview(Request $request)
+    {
+        $token = trim((string) $request->query('token'));
+
+        if ($token === '') {
+            return sendResponse(false, 'Verification token is required', null, HttpStatus::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $preview = $this->newsletterService->previewVerification($token);
+
+        if (!$preview) {
+            return sendResponse(false, 'Invalid verification token', null, HttpStatus::HTTP_NOT_FOUND);
+        }
+
+        return sendResponse(true, 'Verification link is valid', $preview, HttpStatus::HTTP_OK);
+    }
+
     public function verify(Request $request)
     {
         $token = trim((string) $request->query('token'));
