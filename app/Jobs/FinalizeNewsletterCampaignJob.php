@@ -4,14 +4,14 @@ namespace App\Jobs;
 
 use App\Models\NewsletterCampaign;
 use App\Services\Newsletter\NewsletterService;
+use App\Services\UserNotificationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Bus;
 
-class SendNewsletterCampaignJob implements ShouldQueue
+class FinalizeNewsletterCampaignJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -19,23 +19,18 @@ class SendNewsletterCampaignJob implements ShouldQueue
         public int $campaignId,
     ) {}
 
-    public function handle(NewsletterService $newsletterService): void
-    {
+    public function handle(
+        NewsletterService $newsletterService,
+        UserNotificationService $notificationService,
+    ): void {
         $campaign = NewsletterCampaign::query()->find($this->campaignId);
 
         if (!$campaign || $campaign->status !== 'sending') {
             return;
         }
 
-        $recipientIds = $newsletterService->resolveCampaignRecipientIds($campaign);
+        $newsletterService->markCampaignSent($campaign);
 
-        $jobs = array_map(
-            fn (int|string $subscriberId) => new SendNewsletterEmailJob($campaign->id, (int) $subscriberId),
-            $recipientIds,
-        );
-
-        $jobs[] = new FinalizeNewsletterCampaignJob($campaign->id);
-
-        Bus::chain($jobs)->dispatch();
+        $notificationService->dispatchNewsletterCampaignNotifications($campaign->fresh());
     }
 }

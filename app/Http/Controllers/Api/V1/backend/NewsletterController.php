@@ -68,6 +68,32 @@ class NewsletterController extends Controller
         );
     }
 
+    public function campaignEligibleCount(Request $request)
+    {
+        return sendResponse(
+            true,
+            'Eligible campaign recipients counted successfully',
+            $this->newsletterService->countEligibleRecipients($request->boolean('premium_only')),
+            HttpStatus::HTTP_OK,
+        );
+    }
+
+    public function showCampaignEligibleCount(int $id)
+    {
+        $campaign = $this->newsletterService->getCampaign($id);
+
+        if (!$campaign) {
+            return sendResponse(false, 'Campaign not found', null, HttpStatus::HTTP_NOT_FOUND);
+        }
+
+        return sendResponse(
+            true,
+            'Eligible campaign recipients counted successfully',
+            $this->newsletterService->countEligibleRecipientsForCampaign($campaign),
+            HttpStatus::HTTP_OK,
+        );
+    }
+
     public function showCampaign(int $id)
     {
         $campaign = $this->newsletterService->getCampaign($id);
@@ -230,7 +256,7 @@ class NewsletterController extends Controller
     {
         $rules = [
             'title' => [$requireAll ? 'required' : 'sometimes', 'string', 'max:255'],
-            'subject' => [$requireAll ? 'required' : 'sometimes', 'string', 'max:255'],
+            'subject' => ['nullable', 'string', 'max:255'],
             'preview_text' => ['nullable', 'string', 'max:255'],
             'content_html' => [$requireAll ? 'required' : 'sometimes', 'string'],
             'status' => ['nullable', 'in:draft,scheduled,sent,sending'],

@@ -2,6 +2,7 @@
 
 return [
   'batch_size' => (int) env('NEWSLETTER_BATCH_SIZE', 50),
+  'send_delay_ms' => (int) env('NEWSLETTER_SEND_DELAY_MS', 500),
 
   'providers' => [
     'smtp',
