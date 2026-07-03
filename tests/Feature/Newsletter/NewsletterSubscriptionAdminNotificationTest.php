@@ -57,6 +57,43 @@ class NewsletterSubscriptionAdminNotificationTest extends TestCase
         });
     }
 
+    public function test_admin_receives_email_when_someone_subscribes(): void
+    {
+        Event::fake([UserNotificationCreated::class]);
+
+        $admin = User::factory()->create(['email' => 'admin-notify@example.com']);
+        $admin->assignRole('admin');
+
+        $sent = [];
+        $provider = \Mockery::mock(\App\Contracts\Newsletter\EmailProviderInterface::class);
+        $provider->shouldReceive('send')->andReturnUsing(function (array $payload) use (&$sent): void {
+            $sent[] = $payload;
+        });
+
+        $this->mock(\App\Services\Newsletter\NewsletterEmailProviderFactory::class, function ($mock) use ($provider): void {
+            $mock->shouldReceive('make')->andReturn($provider);
+            $mock->shouldReceive('fromAddress')->andReturn([
+                'email' => 'newsletter@example.com',
+                'name' => 'ZBC News',
+            ]);
+        });
+
+        $this->postJson('/api/v1/newsletter/subscribe', [
+            'email' => 'subscriber@example.com',
+            'name' => 'News Reader',
+            'source' => 'sidebar',
+            'preferences' => ['categories' => ['business', 'technology']],
+        ])->assertCreated();
+
+        $adminEmails = collect($sent)
+            ->filter(fn (array $payload) => $payload['to'] === $admin->email)
+            ->values();
+
+        $this->assertCount(1, $adminEmails);
+        $this->assertStringContainsString('subscriber@example.com', $adminEmails[0]['subject']);
+        $this->assertStringContainsString('New newsletter subscription', $adminEmails[0]['html']);
+    }
+
     public function test_admin_receives_notification_when_subscription_is_verified(): void
     {
         Event::fake([UserNotificationCreated::class]);

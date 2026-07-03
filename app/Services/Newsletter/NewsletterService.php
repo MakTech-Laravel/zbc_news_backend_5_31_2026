@@ -3,7 +3,9 @@
 namespace App\Services\Newsletter;
 
 use App\Enums\ArticleCategoryStatus;
+use App\Jobs\SendNewsletterAdminSubscriptionEmailJob;
 use App\Jobs\SendNewsletterCampaignJob;
+use App\Jobs\SendNewsletterVerificationEmailJob;
 use App\Models\ArticleCategory;
 use App\Models\NewsletterCampaign;
 use App\Models\NewsletterEvent;
@@ -54,11 +56,24 @@ class NewsletterService
             $this->subscriberPayload($data, $user, $verificationToken, $unsubscribeToken),
         );
 
-        $this->sendVerificationEmail($subscriber);
+        $this->queueVerificationEmail($subscriber);
 
         $this->userNotificationService->dispatchNewsletterSubscriptionAdminNotifications($subscriber);
+        $this->queueAdminSubscriptionNotificationEmail($subscriber);
 
         return $subscriber;
+    }
+
+    public function queueVerificationEmail(NewsletterSubscriber $subscriber): void
+    {
+        SendNewsletterVerificationEmailJob::dispatch($subscriber->id);
+    }
+
+    public function queueAdminSubscriptionNotificationEmail(
+        NewsletterSubscriber $subscriber,
+        bool $verified = false,
+    ): void {
+        SendNewsletterAdminSubscriptionEmailJob::dispatch($subscriber->id, $verified);
     }
 
     public function sendVerificationEmail(NewsletterSubscriber $subscriber): void
@@ -84,8 +99,14 @@ class NewsletterService
                 'from_email' => $from['email'],
                 'from_name' => $from['name'],
             ]);
-        } catch (\Throwable) {
-            // Keep subscription even if mail transport is unavailable locally.
+        } catch (\Throwable $exception) {
+            Log::warning('Newsletter verification email could not be sent.', [
+                'subscriber_id' => $subscriber->id,
+                'email' => $subscriber->email,
+                'message' => $exception->getMessage(),
+            ]);
+
+            throw $exception;
         }
     }
 
@@ -115,8 +136,58 @@ class NewsletterService
             $subscriber,
             verified: true,
         );
+        $this->queueAdminSubscriptionNotificationEmail($subscriber, verified: true);
 
         return $subscriber;
+    }
+
+    public function sendAdminSubscriptionNotificationEmail(
+        NewsletterSubscriber $subscriber,
+        bool $verified = false,
+    ): void {
+        $admins = User::query()
+            ->role(['admin', 'super_admin'])
+            ->get(['id', 'email', 'name']);
+
+        if ($admins->isEmpty()) {
+            return;
+        }
+
+        $from = $this->providerFactory->fromAddress();
+        $siteName = $from['name'] ?: 'ZBC News';
+        $adminUrl = rtrim((string) config('app.frontend_url', config('app.url')), '/')
+            . '/admin/newsletters';
+        $categories = $this->formatSubscriberCategories($subscriber);
+
+        $subject = $verified
+            ? "Newsletter subscription verified — {$subscriber->email}"
+            : "New newsletter subscription — {$subscriber->email}";
+
+        $html = view('emails.newsletter-admin-subscription', [
+            'subjectLine' => $subject,
+            'siteName' => $siteName,
+            'subscriber' => $subscriber,
+            'verified' => $verified,
+            'categories' => $categories,
+            'adminUrl' => $adminUrl,
+        ])->render();
+
+        $provider = $this->providerFactory->make();
+
+        foreach ($admins as $admin) {
+            try {
+                $provider->send([
+                    'to' => $admin->email,
+                    'to_name' => $admin->name,
+                    'subject' => $subject,
+                    'html' => $html,
+                    'from_email' => $from['email'],
+                    'from_name' => $from['name'],
+                ]);
+            } catch (\Throwable) {
+                // Keep subscription flow running if admin mail transport fails.
+            }
+        }
     }
 
     /**
@@ -214,7 +285,13 @@ class NewsletterService
         }
 
         if ($subscriber->status === 'verified') {
-            throw new \InvalidArgumentException('Verified subscribers cannot be modified.');
+            if ($status === 'verified') {
+                return $subscriber;
+            }
+
+            if ($status === 'pending') {
+                throw new \InvalidArgumentException('Verified subscribers cannot be set back to pending.');
+            }
         }
 
         $updates = ['status' => $status];
@@ -257,7 +334,7 @@ class NewsletterService
             $subscriber = $subscriber->fresh();
         }
 
-        $this->sendVerificationEmail($subscriber);
+        $this->queueVerificationEmail($subscriber);
 
         return $subscriber;
     }
@@ -695,6 +772,17 @@ class NewsletterService
         }
 
         return $payload;
+    }
+
+    private function formatSubscriberCategories(NewsletterSubscriber $subscriber): string
+    {
+        $categories = $subscriber->preferences['categories'] ?? null;
+
+        if (!is_array($categories) || count($categories) === 0) {
+            return 'All categories';
+        }
+
+        return implode(', ', array_map('strval', $categories));
     }
 
     private function hasColumn(string $table, string $column): bool
