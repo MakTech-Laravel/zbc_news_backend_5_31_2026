@@ -154,4 +154,55 @@ class ArticleController extends Controller
             HttpStatus::HTTP_OK,
         );
     }
+
+    public function archive(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'year' => 'nullable|integer|min:1970|max:'.(now()->year + 1),
+            'month' => 'nullable|integer|min:1|max:12',
+            'category' => 'nullable|string',
+            'author' => 'nullable|integer|exists:users,id',
+            'page' => 'nullable|integer|min:1',
+            'per_page' => 'nullable|integer|min:1|max:100',
+        ]);
+
+        $filters = [
+            'year' => isset($validated['year']) ? (int) $validated['year'] : null,
+            'month' => isset($validated['month']) ? (int) $validated['month'] : null,
+            'category' => $validated['category'] ?? null,
+            'author' => isset($validated['author']) ? (int) $validated['author'] : null,
+        ];
+
+        $perPage = isset($validated['per_page']) ? (int) $validated['per_page'] : null;
+        $page = (int) ($validated['page'] ?? 1);
+        $result = $this->articleService->getArchiveArticles($filters, $perPage, $page);
+
+        return sendResponse(
+            true,
+            'Archive articles retrieved successfully',
+            [
+                'articles' => ArticleResource::collection($result['items']),
+                'meta' => $result['meta'],
+                'filters' => $result['filters'],
+            ],
+            HttpStatus::HTTP_OK,
+        );
+    }
+
+    public function archiveFilters(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'year' => 'nullable|integer|min:1970|max:'.(now()->year + 1),
+        ]);
+
+        $year = isset($validated['year']) ? (int) $validated['year'] : null;
+        $options = $this->articleService->getArchiveFilterOptions($year);
+
+        return sendResponse(
+            true,
+            'Archive filter options retrieved successfully',
+            $options,
+            HttpStatus::HTTP_OK,
+        );
+    }
 }
