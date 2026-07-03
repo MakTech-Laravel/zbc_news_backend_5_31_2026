@@ -27,6 +27,7 @@ class NewsletterService
     public function __construct(
         private readonly NewsletterEmailProviderFactory $providerFactory,
         private readonly NewsletterTrackingService $trackingService,
+        private readonly NewsletterContentFormatter $contentFormatter,
         private readonly UserNotificationService $userNotificationService,
     ) {}
 
@@ -448,18 +449,18 @@ class NewsletterService
             throw new \RuntimeException('Campaign cannot be sent in its current state.');
         }
 
-        $recipients = $this->recipientsQuery($campaign)->count();
+        $recipientCount = count($this->resolveCampaignRecipientIds($campaign));
 
-        if ($recipients === 0) {
+        if ($recipientCount === 0) {
             throw new \RuntimeException(
-                'No verified subscribers match this campaign audience. Verify pending subscribers or adjust the campaign audience categories.',
+                'No eligible recipients for this campaign. Users may be unsubscribed or the audience is empty.',
             );
         }
 
         $campaign->update([
             'status' => 'sending',
             'scheduled_at' => $campaign->scheduled_at ?? now(),
-            'subscriber_count' => $recipients,
+            'subscriber_count' => $recipientCount,
             'failed_count' => 0,
         ]);
 
@@ -497,41 +498,203 @@ class NewsletterService
 
     public function recipientsQuery(NewsletterCampaign $campaign): Builder
     {
-        $query = NewsletterSubscriber::query()
-            ->where('status', 'verified');
-
         if ($campaign->premium_only) {
-            $query->where('is_premium', true);
+            return NewsletterSubscriber::query()
+                ->where('status', 'verified');
         }
 
-        $segments = is_array($campaign->segments) ? $campaign->segments : [];
-        $categorySlugs = $segments['category_slugs'] ?? $segments['categories'] ?? null;
+        return NewsletterSubscriber::query()
+            ->whereIn('status', ['pending', 'verified']);
+    }
 
-        if (is_array($categorySlugs) && count($categorySlugs) > 0) {
-            $query->where(function (Builder $inner) use ($categorySlugs): void {
-                foreach ($categorySlugs as $slug) {
-                    $inner->orWhereJsonContains('preferences->categories', $slug);
+    /**
+     * @return array{count: int, breakdown: array{subscribers: int, users: int}}
+     */
+    public function countEligibleRecipients(bool $premiumOnly): array
+    {
+        if ($premiumOnly) {
+            $subscribers = NewsletterSubscriber::query()
+                ->where('status', 'verified')
+                ->count();
+
+            return [
+                'count' => $subscribers,
+                'breakdown' => [
+                    'subscribers' => $subscribers,
+                    'users' => 0,
+                ],
+            ];
+        }
+
+        $subscribers = NewsletterSubscriber::query()
+            ->whereIn('status', ['pending', 'verified'])
+            ->count();
+
+        $unsubscribedEmails = NewsletterSubscriber::query()
+            ->where('status', 'unsubscribed')
+            ->pluck('email')
+            ->map(fn (string $email) => strtolower(trim($email)))
+            ->all();
+
+        $users = User::query()
+            ->role('user')
+            ->get(['id', 'email']);
+
+        $eligibleUsers = $users->filter(function (User $user) use ($unsubscribedEmails): bool {
+            $email = strtolower(trim((string) $user->email));
+
+            return $email !== '' && !in_array($email, $unsubscribedEmails, true);
+        })->count();
+
+        return [
+            'count' => $subscribers + $eligibleUsers,
+            'breakdown' => [
+                'subscribers' => $subscribers,
+                'users' => $eligibleUsers,
+            ],
+        ];
+    }
+
+    /**
+     * @return array{count: int, breakdown: array{subscribers: int, users: int}}
+     */
+    public function countEligibleRecipientsForCampaign(NewsletterCampaign $campaign): array
+    {
+        return $this->countEligibleRecipients((bool) $campaign->premium_only);
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function resolveCampaignRecipientIds(NewsletterCampaign $campaign): array
+    {
+        if ($campaign->premium_only) {
+            return $this->recipientsQuery($campaign)
+                ->orderBy('id')
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+        }
+
+        $recipientIds = $this->recipientsQuery($campaign)
+            ->orderBy('id')
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $unsubscribedEmails = NewsletterSubscriber::query()
+            ->where('status', 'unsubscribed')
+            ->pluck('email')
+            ->map(fn (string $email) => strtolower(trim($email)))
+            ->all();
+
+        User::query()
+            ->role('user')
+            ->orderBy('id')
+            ->get()
+            ->each(function (User $user) use (&$recipientIds, $unsubscribedEmails): void {
+                $email = strtolower(trim((string) $user->email));
+
+                if ($email === '' || in_array($email, $unsubscribedEmails, true)) {
+                    return;
                 }
+
+                $subscriber = $this->ensureSubscriberForUser($user, preservePendingStatus: true);
+
+                if ($subscriber->status === 'unsubscribed') {
+                    return;
+                }
+
+                $recipientIds[] = (int) $subscriber->id;
             });
-        }
 
-        $audienceTags = $segments['audience_tags'] ?? null;
-        if (is_array($audienceTags) && count($audienceTags) > 0) {
-            foreach ($audienceTags as $tag) {
-                $query->whereJsonContains('audience_tags', $tag);
+        return $recipientIds;
+    }
+
+    public function ensureSubscriberForUser(User $user, bool $preservePendingStatus = false): NewsletterSubscriber
+    {
+        $email = strtolower(trim((string) $user->email));
+
+        $subscriber = NewsletterSubscriber::query()->where('email', $email)->first();
+
+        if ($subscriber) {
+            if ($subscriber->status === 'unsubscribed') {
+                return $subscriber;
             }
+
+            $updates = [];
+
+            if ($this->hasColumn('newsletter_subscribers', 'user_id') && $subscriber->user_id !== $user->id) {
+                $updates['user_id'] = $user->id;
+            }
+
+            if (!$preservePendingStatus && $subscriber->status !== 'verified' && $subscriber->status !== 'unsubscribed') {
+                $updates['status'] = 'verified';
+                $updates['verified_at'] = now();
+                $updates['unsubscribed_at'] = null;
+            }
+
+            if (empty($subscriber->unsubscribe_token)) {
+                $updates['unsubscribe_token'] = Str::random(64);
+            }
+
+            if ($updates !== []) {
+                $subscriber->update($updates);
+            }
+
+            return $subscriber->fresh();
         }
 
-        return $query;
+        $payload = [
+            'email' => $email,
+            'name' => $user->name,
+            'status' => 'verified',
+            'verified_at' => now(),
+            'verification_token' => Str::random(64),
+            'unsubscribe_token' => Str::random(64),
+            'unsubscribed_at' => null,
+        ];
+
+        if ($this->hasColumn('newsletter_subscribers', 'user_id')) {
+            $payload['user_id'] = $user->id;
+        }
+
+        if ($this->hasColumn('newsletter_subscribers', 'source')) {
+            $payload['source'] = 'account';
+        }
+
+        if ($this->hasColumn('newsletter_subscribers', 'is_premium')) {
+            $payload['is_premium'] = $user->hasRole('premium') || $user->hasRole('member');
+        }
+
+        return NewsletterSubscriber::query()->create($payload);
     }
 
     public function buildEmailHtml(NewsletterCampaign $campaign, NewsletterSubscriber $subscriber): string
     {
-        $html = $this->trackingService->wrapHtmlLinks($campaign->content_html, $campaign->id, $subscriber->id);
-        $html = $this->trackingService->injectTrackingPixel($html, $campaign->id, $subscriber->id);
-        $html = $this->trackingService->appendUnsubscribeFooter($html, $subscriber);
+        $from = $this->providerFactory->fromAddress();
+        $siteName = $from['name'] ?: 'ZBC News';
+        $frontendUrl = rtrim((string) config('app.frontend_url', config('app.url')), '/');
 
-        return $html;
+        $prepared = $this->contentFormatter->prepareBody((string) ($campaign->content_html ?? ''));
+        $content = $this->trackingService->wrapHtmlLinks(
+            $prepared['html'],
+            $campaign->id,
+            $subscriber->id,
+        );
+
+        $html = view('emails.newsletter-campaign', [
+            'subjectLine' => $campaign->subject,
+            'siteName' => $siteName,
+            'title' => $campaign->title,
+            'previewText' => $campaign->preview_text,
+            'content' => $content,
+            'subscriberName' => $subscriber->name,
+            'preferencesUrl' => $frontendUrl . '/newsletter/preferences?token=' . $subscriber->unsubscribe_token,
+            'unsubscribeUrl' => $frontendUrl . '/newsletter/unsubscribe?token=' . $subscriber->unsubscribe_token,
+        ])->render();
+
+        return $this->trackingService->injectTrackingPixel($html, $campaign->id, $subscriber->id);
     }
 
     public function sendCampaignEmail(NewsletterCampaign $campaign, NewsletterSubscriber $subscriber): void
@@ -714,7 +877,7 @@ class NewsletterService
 
         $payload = [
             'title' => $data['title'],
-            'subject' => $data['subject'],
+            'subject' => filled($data['subject'] ?? null) ? $data['subject'] : $data['title'],
             'content_html' => $data['content_html'],
             'status' => $data['status'] ?? 'draft',
             'scheduled_at' => $data['scheduled_at'] ?? null,

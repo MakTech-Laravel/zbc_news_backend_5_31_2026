@@ -274,6 +274,8 @@ Route::prefix('newsletter')->controller(NewsletterController::class)->group(func
     Route::post('/subscribers/resend-verification/{id}', 'resendSubscriberVerification')->name('api.v1.newsletter.subscribers.resend-verification');
     Route::delete('/subscribers/{id}', 'deleteSubscriber')->name('api.v1.newsletter.subscribers.delete');
     Route::get('/campaigns', 'campaigns')->name('api.v1.newsletter.campaigns');
+    Route::get('/campaigns/eligible-count', 'campaignEligibleCount')->name('api.v1.newsletter.campaigns.eligible-count');
+    Route::get('/campaigns/{id}/eligible-count', 'showCampaignEligibleCount')->name('api.v1.newsletter.campaigns.show-eligible-count');
     Route::get('/campaigns/{id}', 'showCampaign')->name('api.v1.newsletter.campaigns.show');
     Route::post('/campaigns/store', 'storeCampaign')->name('api.v1.newsletter.campaigns.store');
     Route::post('/campaigns/update/{id}', 'updateCampaign')->name('api.v1.newsletter.campaigns.update');

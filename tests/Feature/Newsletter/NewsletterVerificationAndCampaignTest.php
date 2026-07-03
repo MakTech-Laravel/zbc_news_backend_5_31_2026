@@ -185,7 +185,7 @@ class NewsletterVerificationAndCampaignTest extends TestCase
         ]);
     }
 
-    public function test_send_campaign_without_verified_recipients_returns_user_friendly_error(): void
+    public function test_send_campaign_without_eligible_recipients_returns_user_friendly_error(): void
     {
         $admin = User::factory()->create();
         $admin->assignRole('admin');
@@ -196,14 +196,14 @@ class NewsletterVerificationAndCampaignTest extends TestCase
             'subject' => 'This week at ZBC',
             'content_html' => '<p>Hello</p>',
             'status' => 'draft',
-            'segments' => ['category_slugs' => ['sports']],
+            'premium_only' => true,
         ]);
 
         $this->postJson("/api/v1/admin/newsletter/campaigns/send/{$campaign->id}")
             ->assertUnprocessable()
             ->assertJsonPath(
                 'message',
-                'No verified subscribers match this campaign audience. Verify pending subscribers or adjust the campaign audience categories.',
+                'No eligible recipients for this campaign. Users may be unsubscribed or the audience is empty.',
             );
     }
 
