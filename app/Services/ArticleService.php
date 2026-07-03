@@ -8,6 +8,7 @@ use App\Jobs\DispatchArticlePublishedNotifications;
 use App\Models\Article;
 use App\Models\ArticleCategory;
 use App\Models\Tag;
+use App\Models\User;
 use App\Support\BreakingTag;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
@@ -347,6 +348,153 @@ class ArticleService
                 'total' => $paginator->total(),
             ],
         ];
+    }
+
+    /**
+     * @param  array{year?: int|null, month?: int|null, category?: string|null, author?: int|null}  $filters
+     */
+    public function getArchiveArticles(array $filters, ?int $perPage = null, int $page = 1): array
+    {
+        $perPage = $perPage ?? $this->siteSettingsService->getPostsPerPage();
+        $query = $this->buildArchiveQuery($filters);
+
+        $paginator = $query->paginate($perPage, ['*'], 'page', max(1, $page));
+
+        return [
+            'items' => $paginator->getCollection(),
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
+            'filters' => [
+                'year' => $filters['year'] ?? null,
+                'month' => $filters['month'] ?? null,
+                'category' => $filters['category'] ?? null,
+                'author' => $filters['author'] ?? null,
+            ],
+        ];
+    }
+
+    public function getArchiveFilterOptions(?int $year = null): array
+    {
+        $baseQuery = fn () => $this->article
+            ->where('status', ArticleStatus::PUBLISHED->value)
+            ->whereNotNull('published_at');
+
+        $yearExpression = $this->publishedAtYearExpression();
+        $monthExpression = $this->publishedAtMonthExpression();
+
+        $years = (clone $baseQuery())
+            ->selectRaw("{$yearExpression} as year, COUNT(*) as count")
+            ->groupBy('year')
+            ->orderByDesc('year')
+            ->get()
+            ->map(fn ($row) => [
+                'year' => (int) $row->year,
+                'count' => (int) $row->count,
+            ])
+            ->values()
+            ->all();
+
+        $months = [];
+        if ($year !== null) {
+            $months = (clone $baseQuery())
+                ->whereYear('published_at', $year)
+                ->selectRaw("{$monthExpression} as month, COUNT(*) as count")
+                ->groupBy('month')
+                ->orderBy('month')
+                ->get()
+                ->map(fn ($row) => [
+                    'month' => (int) $row->month,
+                    'count' => (int) $row->count,
+                ])
+                ->values()
+                ->all();
+        }
+
+        $categories = ArticleCategory::query()
+            ->whereHas('articles', fn ($query) => $query
+                ->where('status', ArticleStatus::PUBLISHED->value)
+                ->whereNotNull('published_at'))
+            ->orderBy('title')
+            ->get(['id', 'title', 'slug'])
+            ->map(fn (ArticleCategory $category) => [
+                'id' => $category->id,
+                'title' => $category->title,
+                'slug' => $category->slug,
+            ])
+            ->values()
+            ->all();
+
+        $authors = User::query()
+            ->select('users.id', 'users.name')
+            ->whereHas('articles', fn ($query) => $query
+                ->where('status', ArticleStatus::PUBLISHED->value)
+                ->whereNotNull('published_at'))
+            ->orderBy('users.name')
+            ->get()
+            ->map(fn (User $user) => [
+                'id' => $user->id,
+                'name' => $user->name,
+            ])
+            ->values()
+            ->all();
+
+        return [
+            'years' => $years,
+            'months' => $months,
+            'categories' => $categories,
+            'authors' => $authors,
+        ];
+    }
+
+    /**
+     * @param  array{year?: int|null, month?: int|null, category?: string|null, author?: int|null}  $filters
+     */
+    private function buildArchiveQuery(array $filters)
+    {
+        $query = $this->articleQuery()
+            ->where('status', ArticleStatus::PUBLISHED->value)
+            ->whereNotNull('published_at');
+
+        if (! empty($filters['year'])) {
+            $query->whereYear('published_at', (int) $filters['year']);
+        }
+
+        if (! empty($filters['month'])) {
+            $query->whereMonth('published_at', (int) $filters['month']);
+        }
+
+        if (! empty($filters['category'])) {
+            $categorySlug = (string) $filters['category'];
+            $query->whereHas('category', fn ($categoryQuery) => $categoryQuery->where('slug', $categorySlug));
+        }
+
+        if (! empty($filters['author'])) {
+            $query->where('user_id', (int) $filters['author']);
+        }
+
+        return $query->latest('published_at');
+    }
+
+    private function publishedAtYearExpression(): string
+    {
+        return match (DB::connection()->getDriverName()) {
+            'sqlite' => "CAST(strftime('%Y', published_at) AS INTEGER)",
+            'pgsql' => 'EXTRACT(YEAR FROM published_at)::INTEGER',
+            default => 'YEAR(published_at)',
+        };
+    }
+
+    private function publishedAtMonthExpression(): string
+    {
+        return match (DB::connection()->getDriverName()) {
+            'sqlite' => "CAST(strftime('%m', published_at) AS INTEGER)",
+            'pgsql' => 'EXTRACT(MONTH FROM published_at)::INTEGER',
+            default => 'MONTH(published_at)',
+        };
     }
 
     public function getRelatedArticles(string $slug, ?int $limit = null): Collection
