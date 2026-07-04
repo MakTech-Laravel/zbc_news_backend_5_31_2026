@@ -564,7 +564,7 @@ class ArticleService
     {
         $base = Str::slug(! empty($data['slug']) ? $data['slug'] : $data['title']);
         $slug = $base;
-        $count = 1;
+        $count = 2;
 
         while (
             $this->article
@@ -575,7 +575,7 @@ class ArticleService
             $slug = "{$base}-{$count}";
             $count++;
         }
-
+        
         return $slug;
     }
 
