@@ -11,7 +11,16 @@ class UserInformation extends Model
         'profile_image',
         'region',
         'bio',
+        'public_title',
+        'social_links',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'social_links' => 'array',
+        ];
+    }
 
     public function user()
     {

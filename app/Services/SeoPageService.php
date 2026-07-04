@@ -49,6 +49,10 @@ class SeoPageService
             return $this->seoPage->where('page_key', 'news-details')->first();
         }
 
+        if (preg_match('#^/author/[^/]+$#', $normalized)) {
+            return $this->seoPage->where('page_key', 'author-profile')->first();
+        }
+
         if (preg_match('#^/[^/]+$#', $normalized)) {
             return $this->seoPage->where('page_key', 'category')->first();
         }

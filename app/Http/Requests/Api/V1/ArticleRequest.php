@@ -46,7 +46,7 @@ class ArticleRequest extends FormRequest
         $value = trim(str_replace('T', ' ', $value));
 
         if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/', $value)) {
-            return $value.':00';
+            return $value . ':00';
         }
 
         return $value;
@@ -61,7 +61,7 @@ class ArticleRequest extends FormRequest
     {
         $articleId = null;
         $isUpdate  = $this->route('slug') !== null;
-    
+
         if ($isUpdate) {
             $article   = Article::where('slug', $this->route('slug'))->first();
             $articleId = $article?->id;
@@ -77,11 +77,16 @@ class ArticleRequest extends FormRequest
 
         return [
             'title'                 => ['required', 'string', 'max:255'],
-            'slug'  => [
+            // 'slug'  => [
+            //     $isUpdate ? 'nullable' : 'required',
+            //     'string',
+            //     'max:255',
+            //     Rule::unique('articles', 'slug')->ignore($articleId),
+            // ],
+            'slug' => [
                 $isUpdate ? 'nullable' : 'required',
                 'string',
                 'max:255',
-                Rule::unique('articles', 'slug')->ignore($articleId),
             ],
             'meta_title'             => ['nullable', 'string', 'max:255'],
             'meta_description'      => ['nullable', 'string'],
@@ -95,7 +100,7 @@ class ArticleRequest extends FormRequest
             'open_graph_image'      => $openGraphImageRule,
             'article_category_id'   => ['required', 'integer', 'exists:article_categories,id'],
             'scheduled_publishing' => [
-                Rule::requiredIf(fn () => $this->input('status') === ArticleStatus::SCHEDULED->value),
+                Rule::requiredIf(fn() => $this->input('status') === ArticleStatus::SCHEDULED->value),
                 'nullable',
                 'date',
                 'after:now',

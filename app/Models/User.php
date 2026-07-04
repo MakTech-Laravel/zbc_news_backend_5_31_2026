@@ -13,7 +13,7 @@ use Laravel\Passport\HasApiTokens;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use App\Traits\HasMedia;
 use Spatie\Permission\Traits\HasRoles;
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['name', 'email', 'password', 'slug'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -29,6 +29,7 @@ class User extends Authenticatable
 
         'id',
         'name',
+        'slug',
         'email',
         'email_verified_at',
         'password',

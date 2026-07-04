@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\ArticleStatus;
+use App\Enums\ArticleVisibility;
 use App\Events\NewsPublished;
 use App\Jobs\DispatchArticlePublishedNotifications;
 use App\Models\Article;
@@ -49,6 +50,7 @@ class ArticleService
     public function getPublishedBySlug(string $slug): Article
     {
         return $this->articleQuery()
+            ->with(['user.userInformation'])
             ->where('slug', $slug)
             ->where('status', ArticleStatus::PUBLISHED->value)
             ->firstOrFail();
@@ -132,9 +134,9 @@ class ArticleService
         };
     }
 
-    public function create(array $data): Article
+    public function create(array $data, bool $isAutoSave = false): Article
     {
-        return DB::transaction(function () use ($data) {
+        return DB::transaction(function () use ($data, $isAutoSave) {
             $tags = $data['tags'] ?? [];
             unset($data['tags']);
 
@@ -172,11 +174,11 @@ class ArticleService
                     'ip_address' => request()->ip(),
                     'user_agent' => request()->userAgent(),
                 ])
-                ->log('Article created');
+                ->log($isAutoSave ? 'Article auto-saved' : 'Article created');
 
             $article = $article->load('tags');
 
-            if ($article->status === ArticleStatus::PUBLISHED) {
+            if (! $isAutoSave && $article->status === ArticleStatus::PUBLISHED) {
                 DispatchArticlePublishedNotifications::dispatch($article->id, 'published');
                 $this->broadcastPublishedArticle($article);
             }
@@ -185,13 +187,37 @@ class ArticleService
         });
     }
 
-    public function update(string $slug, array $data): Article
+    public function autoSave(?string $slug, array $data): Article
+    {
+        if (! $this->siteSettingsService->getOrDefault()->enable_auto_save) {
+            abort(403, 'Auto-save is disabled.');
+        }
+
+        $data = $this->prepareAutoSaveData($data);
+
+        if ($slug !== null) {
+            return $this->update($slug, $data, isAutoSave: true);
+        }
+
+        $data['status'] = ArticleStatus::DRAFT->value;
+        $data['article_category_id'] = $this->resolveAutoSaveCategoryId(
+            $data['article_category_id'] ?? null,
+        );
+
+        return $this->create($data, isAutoSave: true);
+    }
+
+    public function update(string $slug, array $data, bool $isAutoSave = false): Article
     {
         $article = $this->article
             ->where('slug', $slug)
             ->firstOrFail();
 
-        return DB::transaction(function () use ($article, $data) {
+        if ($isAutoSave) {
+            $data = $this->applyAutoSaveStatusGuard($article, $data);
+        }
+
+        return DB::transaction(function () use ($article, $data, $isAutoSave) {
             $tags = $data['tags'] ?? null;
             unset($data['tags']);
 
@@ -242,15 +268,17 @@ class ArticleService
                     'ip_address' => request()->ip(),
                     'user_agent' => request()->userAgent(),
                 ])
-                ->log('Article updated');
+                ->log($isAutoSave ? 'Article auto-saved' : 'Article updated');
 
             $article = $article->fresh()->load('tags');
 
-            if ($becamePublished) {
-                DispatchArticlePublishedNotifications::dispatch($article->id, 'published');
-                $this->broadcastPublishedArticle($article);
-            } elseif ($article->status === ArticleStatus::PUBLISHED && $contentChanged) {
-                DispatchArticlePublishedNotifications::dispatch($article->id, 'updated');
+            if (! $isAutoSave) {
+                if ($becamePublished) {
+                    DispatchArticlePublishedNotifications::dispatch($article->id, 'published');
+                    $this->broadcastPublishedArticle($article);
+                } elseif ($article->status === ArticleStatus::PUBLISHED && $contentChanged) {
+                    DispatchArticlePublishedNotifications::dispatch($article->id, 'updated');
+                }
             }
 
             return $article;
@@ -560,11 +588,75 @@ class ArticleService
             ->withReadingTime();
     }
 
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function prepareAutoSaveData(array $data): array
+    {
+        $title = trim((string) ($data['title'] ?? ''));
+        $data['title'] = $title !== '' ? $title : 'Untitled';
+
+        if (! array_key_exists('article_description', $data) || $data['article_description'] === null) {
+            $data['article_description'] = '';
+        }
+
+        if (! array_key_exists('visibility', $data) || $data['visibility'] === null) {
+            $data['visibility'] = ArticleVisibility::PUBLIC->value;
+        }
+
+        return $data;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function applyAutoSaveStatusGuard(Article $article, array $data): array
+    {
+        unset($data['status']);
+
+        $currentStatus = $article->status instanceof ArticleStatus
+            ? $article->status->value
+            : (string) $article->status;
+
+        $data['status'] = $currentStatus;
+
+        if ($currentStatus !== ArticleStatus::PUBLISHED->value) {
+            unset($data['published_at']);
+        }
+
+        if ($currentStatus !== ArticleStatus::SCHEDULED->value) {
+            unset($data['scheduled_publishing']);
+        }
+
+        return $data;
+    }
+
+    private function resolveAutoSaveCategoryId(?int $categoryId): int
+    {
+        if ($categoryId) {
+            return $categoryId;
+        }
+
+        $defaultCategoryId = $this->siteSettingsService->getOrDefault()->default_category_id;
+        if ($defaultCategoryId) {
+            return (int) $defaultCategoryId;
+        }
+
+        $firstCategoryId = ArticleCategory::query()->orderBy('id')->value('id');
+        if (! $firstCategoryId) {
+            abort(422, 'A category is required before the article can be auto-saved.');
+        }
+
+        return (int) $firstCategoryId;
+    }
+
     private function resolveSlug(array $data, ?int $excludeId = null): string
     {
         $base = Str::slug(! empty($data['slug']) ? $data['slug'] : $data['title']);
         $slug = $base;
-        $count = 1;
+        $count = 2;
 
         while (
             $this->article
@@ -679,8 +771,11 @@ class ArticleService
                     ->orWhere('excerpt', 'like', $like)
                     ->orWhere('sub_title', 'like', $like)
                     ->orWhere('article_description', 'like', $like)
+                    ->orWhere('meta_title', 'like', $like)
+                    ->orWhere('meta_description', 'like', $like)
                     ->orWhereHas('tags', fn ($tagQuery) => $tagQuery->where('tag', 'like', $like))
-                    ->orWhereHas('category', fn ($catQuery) => $catQuery->where('title', 'like', $like));
+                    ->orWhereHas('category', fn ($catQuery) => $catQuery->where('title', 'like', $like))
+                    ->orWhereHas('user', fn ($u) => $u->where('name', 'like', $like));
             })
             ->orderByDesc('published_at')
             ->limit(min(max($limit, 1), 30))
@@ -702,4 +797,5 @@ class ArticleService
             category: $article->category?->title ?? 'Uncategorized',
         ));
     }
+
 }
