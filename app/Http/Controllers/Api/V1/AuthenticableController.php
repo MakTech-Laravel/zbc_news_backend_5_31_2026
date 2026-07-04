@@ -35,6 +35,7 @@ class AuthenticableController extends Controller
             'name' => $request->resolvedName(),
             'email' => strtolower($request->string('email')->toString()),
             'password' => Hash::make($request->string('password')->toString()),
+            'slug' => User::generateUniqueSlug($request->resolvedName()),
             'email_verified_at' => now(),
         ]);
 
