@@ -771,8 +771,11 @@ class ArticleService
                     ->orWhere('excerpt', 'like', $like)
                     ->orWhere('sub_title', 'like', $like)
                     ->orWhere('article_description', 'like', $like)
+                    ->orWhere('meta_title', 'like', $like)
+                    ->orWhere('meta_description', 'like', $like)
                     ->orWhereHas('tags', fn ($tagQuery) => $tagQuery->where('tag', 'like', $like))
-                    ->orWhereHas('category', fn ($catQuery) => $catQuery->where('title', 'like', $like));
+                    ->orWhereHas('category', fn ($catQuery) => $catQuery->where('title', 'like', $like))
+                    ->orWhereHas('user', fn ($u) => $u->where('name', 'like', $like));
             })
             ->orderByDesc('published_at')
             ->limit(min(max($limit, 1), 30))
