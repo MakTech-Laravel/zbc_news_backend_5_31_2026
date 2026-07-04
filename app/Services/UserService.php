@@ -9,7 +9,6 @@ use App\Enums\ArticleStatus;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 use Spatie\Activitylog\Models\Activity;
 
 class UserService
@@ -217,25 +216,7 @@ class UserService
 
     public function resolveSlug(string $base, ?int $excludeUserId = null): string
     {
-        $slug = Str::slug($base);
-        if ($slug === '') {
-            $slug = 'author';
-        }
-
-        $candidate = $slug;
-        $count = 2;
-
-        while (
-            $this->user
-                ->where('slug', $candidate)
-                ->when($excludeUserId, fn ($query) => $query->where('id', '!=', $excludeUserId))
-                ->exists()
-        ) {
-            $candidate = "{$slug}-{$count}";
-            $count++;
-        }
-
-        return $candidate;
+        return User::generateUniqueSlug($base, $excludeUserId);
     }
 
     public function backfillMissingUserSlugs(): int
