@@ -47,6 +47,15 @@ class SeoPageSeeder extends Seeder
                 'meta_description' => 'Read full news articles and in-depth coverage on ZBC News.',
                 'meta_keywords'    => 'news, articles, stories',
             ],
+            [
+                'page_key'         => 'author-profile',
+                'name'             => 'Author profile (template)',
+                'url_path'         => '/author/:authorSlug',
+                'is_template'      => true,
+                'meta_title'       => '{author} — ZBC News',
+                'meta_description' => '{bio}',
+                'meta_keywords'    => '{author}, author, news, articles',
+            ],
         ];
 
         foreach ($templates as $row) {

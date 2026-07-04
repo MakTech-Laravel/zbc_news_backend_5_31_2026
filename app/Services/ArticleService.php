@@ -50,6 +50,7 @@ class ArticleService
     public function getPublishedBySlug(string $slug): Article
     {
         return $this->articleQuery()
+            ->with(['user.userInformation'])
             ->where('slug', $slug)
             ->where('status', ArticleStatus::PUBLISHED->value)
             ->firstOrFail();
@@ -793,4 +794,5 @@ class ArticleService
             category: $article->category?->title ?? 'Uncategorized',
         ));
     }
+
 }
