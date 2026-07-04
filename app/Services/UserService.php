@@ -238,6 +238,33 @@ class UserService
         return $candidate;
     }
 
+    public function backfillMissingUserSlugs(): int
+    {
+        $updated = 0;
+
+        $this->user->query()
+            ->where(function ($query): void {
+                $query->whereNull('slug')
+                    ->orWhere('slug', '');
+            })
+            ->orderBy('id')
+            ->chunkById(200, function ($users) use (&$updated): void {
+                foreach ($users as $user) {
+                    if (filled($user->slug)) {
+                        continue;
+                    }
+
+                    $user->forceFill([
+                        'slug' => $this->resolveSlug($user->name, $user->id),
+                    ])->saveQuietly();
+
+                    $updated++;
+                }
+            });
+
+        return $updated;
+    }
+
     /**
      * @param  array<string, mixed>  $data
      * @param  array<string, mixed>  $existing

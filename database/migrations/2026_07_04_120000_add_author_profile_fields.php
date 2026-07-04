@@ -1,13 +1,14 @@
 <?php
 
-use App\Models\User;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Str;
 
 return new class extends Migration
 {
+    /**
+     * Run the migrations.
+     */
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
@@ -18,25 +19,11 @@ return new class extends Migration
             $table->string('public_title')->nullable()->after('bio');
             $table->json('social_links')->nullable()->after('public_title');
         });
-
-        User::query()->orderBy('id')->each(function (User $user) {
-            if ($user->slug) {
-                return;
-            }
-
-            $base = Str::slug($user->name) ?: 'author';
-            $slug = $base;
-            $count = 2;
-
-            while (User::query()->where('slug', $slug)->where('id', '!=', $user->id)->exists()) {
-                $slug = "{$base}-{$count}";
-                $count++;
-            }
-
-            $user->forceFill(['slug' => $slug])->saveQuietly();
-        });
     }
 
+    /**
+     * Reverse the migrations.
+     */
     public function down(): void
     {
         Schema::table('user_information', function (Blueprint $table) {
