@@ -2,6 +2,7 @@
 
 use App\Enums\PermissionEnum;
 use App\Http\Controllers\Api\V1\backend\AdminCommentController;
+use App\Http\Controllers\Api\V1\backend\AdminContactInquiryController;
 use App\Http\Controllers\Api\V1\backend\AdminDashboardController;
 use App\Http\Controllers\Api\V1\backend\AdminSearchController;
 use App\Http\Controllers\Api\V1\backend\AdSlotController;
@@ -184,6 +185,31 @@ Route::controller(AnnouncementController::class)->prefix('announcements')->group
         ->middleware('permission:'.PermissionEnum::ANNOUNCEMENTS_PUBLISH->value);
     Route::delete('/delete/{id}', 'destroy')->name('api.v1.announcements.destroy')
         ->middleware('permission:'.PermissionEnum::ANNOUNCEMENTS_DELETE->value);
+});
+
+Route::controller(AdminContactInquiryController::class)->prefix('contact-inquiries')->group(function () {
+    Route::get('/', 'index')->name('api.v1.contact-inquiries.index')
+        ->middleware('permission:'.PermissionEnum::CONTACT_INQUIRIES_LIST->value);
+    Route::get('/export', 'export')->name('api.v1.contact-inquiries.export')
+        ->middleware('permission:'.PermissionEnum::CONTACT_INQUIRIES_EXPORT->value);
+    Route::post('/bulk', 'bulk')->name('api.v1.contact-inquiries.bulk')
+        ->middleware('permission:'.PermissionEnum::CONTACT_INQUIRIES_BULK->value);
+    Route::get('/show/{id}', 'show')->name('api.v1.contact-inquiries.show')
+        ->middleware('permission:'.PermissionEnum::CONTACT_INQUIRIES_SHOW->value);
+    Route::post('/{id}/mark-read', 'markRead')->name('api.v1.contact-inquiries.mark-read')
+        ->middleware('permission:'.PermissionEnum::CONTACT_INQUIRIES_UPDATE->value);
+    Route::post('/{id}/mark-unread', 'markUnread')->name('api.v1.contact-inquiries.mark-unread')
+        ->middleware('permission:'.PermissionEnum::CONTACT_INQUIRIES_UPDATE->value);
+    Route::post('/{id}/mark-replied', 'markReplied')->name('api.v1.contact-inquiries.mark-replied')
+        ->middleware('permission:'.PermissionEnum::CONTACT_INQUIRIES_UPDATE->value);
+    Route::post('/{id}/archive', 'archive')->name('api.v1.contact-inquiries.archive')
+        ->middleware('permission:'.PermissionEnum::CONTACT_INQUIRIES_UPDATE->value);
+    Route::post('/{id}/restore', 'restore')->name('api.v1.contact-inquiries.restore')
+        ->middleware('permission:'.PermissionEnum::CONTACT_INQUIRIES_UPDATE->value);
+    Route::post('/{id}/reply', 'reply')->name('api.v1.contact-inquiries.reply')
+        ->middleware('permission:'.PermissionEnum::CONTACT_INQUIRIES_REPLY->value);
+    Route::delete('/{id}', 'destroy')->name('api.v1.contact-inquiries.destroy')
+        ->middleware('permission:'.PermissionEnum::CONTACT_INQUIRIES_DELETE->value);
 });
 
 Route::controller(AdminCommentController::class)->prefix('comments')->group(function () {

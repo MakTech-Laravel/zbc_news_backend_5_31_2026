@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\frontend\ArticleController;
 use App\Http\Controllers\Api\V1\frontend\AuthorController;
 use App\Http\Controllers\Api\V1\frontend\CategoryController;
 use App\Http\Controllers\Api\V1\frontend\CommentController;
+use App\Http\Controllers\Api\V1\frontend\ContactController;
 use App\Http\Controllers\Api\V1\frontend\NavigationController;
 use App\Http\Controllers\Api\V1\frontend\NewsletterController;
 use App\Http\Controllers\Api\V1\frontend\PublicSiteSettingsController;
@@ -91,6 +92,10 @@ Route::get('/ads/slots', [AdSlotController::class, 'index'])->name('api.v1.ads.s
 Route::post('/ads/track', [AdTrackingController::class, 'track'])
     ->middleware('request_limitter')
     ->name('api.v1.ads.track');
+
+Route::post('/contact', [ContactController::class, 'store'])
+    ->middleware('request_limitter')
+    ->name('api.v1.contact.store');
 
 Route::prefix('newsletter')->controller(NewsletterController::class)->group(function (): void {
     Route::post('/subscribe', 'subscribe')->middleware('request_limitter')->name('api.v1.newsletter.subscribe');

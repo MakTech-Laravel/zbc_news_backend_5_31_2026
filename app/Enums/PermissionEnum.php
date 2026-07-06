@@ -96,4 +96,12 @@ enum PermissionEnum: string
     case ANNOUNCEMENTS_UPDATE = 'announcements.update';
     case ANNOUNCEMENTS_DELETE = 'announcements.delete';
     case ANNOUNCEMENTS_PUBLISH = 'announcements.publish';
+
+    case CONTACT_INQUIRIES_LIST = 'contact-inquiries.list';
+    case CONTACT_INQUIRIES_SHOW = 'contact-inquiries.show';
+    case CONTACT_INQUIRIES_UPDATE = 'contact-inquiries.update';
+    case CONTACT_INQUIRIES_DELETE = 'contact-inquiries.delete';
+    case CONTACT_INQUIRIES_REPLY = 'contact-inquiries.reply';
+    case CONTACT_INQUIRIES_EXPORT = 'contact-inquiries.export';
+    case CONTACT_INQUIRIES_BULK = 'contact-inquiries.bulk';
 }
