@@ -295,6 +295,23 @@ class SeoResolveTest extends TestCase
             ->assertJsonPath('data.robots', 'noindex,nofollow');
     }
 
+    public function test_og_image_override_on_static_row_drives_social_image(): void
+    {
+        SeoPage::query()->create([
+            'page_key' => 'contact',
+            'name' => 'Contact',
+            'url_path' => '/contact',
+            'is_template' => false,
+            'meta_title' => 'Contact — ZBC News',
+            'og_image' => 'https://cdn.example/contact-og.jpg',
+        ]);
+
+        $this->resolve('/contact')
+            ->assertOk()
+            ->assertJsonPath('data.og.image', 'https://cdn.example/contact-og.jpg')
+            ->assertJsonPath('data.twitter.image', 'https://cdn.example/contact-og.jpg');
+    }
+
     public function test_static_page_falls_back_to_site_defaults_when_template_and_settings_empty(): void
     {
         // No seeded row for /about, no site settings row -> default site name/tag.

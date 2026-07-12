@@ -23,6 +23,7 @@ class SeoPageUpdateRequest extends FormRequest
             'meta_keywords' => 'nullable|string|max:500',
             'canonical_url' => 'nullable|url|max:2048',
             'noindex' => 'sometimes|boolean',
+            'og_image' => 'nullable|string|max:2048',
         ];
     }
 }

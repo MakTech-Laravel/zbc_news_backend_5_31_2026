@@ -20,6 +20,7 @@ class SeoPageResource extends JsonResource
             'meta_keywords' => $this->meta_keywords,
             'canonical_url' => $this->canonical_url,
             'noindex' => (bool) $this->noindex,
+            'og_image' => $this->og_image,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

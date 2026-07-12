@@ -109,7 +109,9 @@ class SeoResolverService
         $description = $this->pick($article->meta_description, $this->interpolate($template?->meta_description, $repl), $settings->meta_description, $this->siteTag($settings));
         $keywords = $this->pick($article->meta_keywords, $this->interpolate($template?->meta_keywords, $repl), $settings->meta_keywords);
 
-        $image = MediaUrl::resolvePublic($article->open_graph_image ?: $article->featured_image);
+        $image = MediaUrl::resolvePublic($article->open_graph_image ?: $article->featured_image)
+            ?: MediaUrl::resolvePublic($template?->og_image)
+            ?: MediaUrl::resolvePublic($settings->site_logo);
         $published = $this->iso8601($article->published_at);
         $modified = $this->iso8601($article->updated_at);
         $canonical = $this->frontendUrl('/'.$article->slug);
@@ -154,7 +156,7 @@ class SeoResolverService
             'canonical' => $this->pick($exact?->canonical_url, $this->frontendUrl('/'.$category->slug)),
             'robots' => $this->robotsFor($govern),
             'og_type' => 'website',
-            'image' => MediaUrl::resolvePublic($settings->site_logo),
+            'image' => MediaUrl::resolvePublic($govern?->og_image) ?: MediaUrl::resolvePublic($settings->site_logo),
             'json_ld' => [],
         ], $settings);
     }
@@ -175,7 +177,9 @@ class SeoResolverService
         $description = $this->pick($this->interpolate($template?->meta_description, $repl), $bio, $settings->meta_description, $this->siteTag($settings));
         $keywords = $this->pick($this->interpolate($template?->meta_keywords, $repl), $settings->meta_keywords);
 
-        $image = MediaUrl::resolvePublic($author?->userInformation?->profile_image) ?: MediaUrl::resolvePublic($settings->site_logo);
+        $image = MediaUrl::resolvePublic($author?->userInformation?->profile_image)
+            ?: MediaUrl::resolvePublic($template?->og_image)
+            ?: MediaUrl::resolvePublic($settings->site_logo);
 
         return $this->assemble([
             'page_key' => 'author-profile',
@@ -213,7 +217,7 @@ class SeoResolverService
             'canonical' => $this->frontendUrl('/tag/'.$slug),
             'robots' => $this->robotsFor($template),
             'og_type' => 'website',
-            'image' => MediaUrl::resolvePublic($settings->site_logo),
+            'image' => MediaUrl::resolvePublic($template?->og_image) ?: MediaUrl::resolvePublic($settings->site_logo),
             'json_ld' => [],
         ], $settings);
     }
@@ -241,7 +245,7 @@ class SeoResolverService
             'canonical' => $this->pick($seoPage?->canonical_url, $this->frontendUrl($path)),
             'robots' => $this->robotsFor($seoPage),
             'og_type' => 'website',
-            'image' => MediaUrl::resolvePublic($settings->site_logo),
+            'image' => MediaUrl::resolvePublic($seoPage?->og_image) ?: MediaUrl::resolvePublic($settings->site_logo),
             'json_ld' => $path === '/' ? $this->homeJsonLd($settings) : [],
         ], $settings);
     }

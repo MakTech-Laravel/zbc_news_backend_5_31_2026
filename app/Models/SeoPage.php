@@ -16,6 +16,7 @@ class SeoPage extends Model
         'meta_keywords',
         'canonical_url',
         'noindex',
+        'og_image',
     ];
 
     protected $casts = [
