@@ -10,6 +10,7 @@ use App\Models\SeoPage;
 use App\Models\SiteSettings;
 use App\Models\User;
 use App\Models\UserInformation;
+use Database\Seeders\SeoPageSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
@@ -267,6 +268,29 @@ class SeoResolveTest extends TestCase
             ->assertJsonPath('data.matched_entity', 'static')
             ->assertJsonPath('data.title', 'ZBC News')
             ->assertJsonPath('data.description', 'Breaking news and analysis from around the world');
+    }
+
+    public function test_seeded_tag_template_interpolates_tag_token(): void
+    {
+        $this->seed(SeoPageSeeder::class);
+
+        $this->resolve('/tag/climate-change')
+            ->assertOk()
+            ->assertJsonPath('data.matched_entity', 'tag')
+            ->assertJsonPath('data.page_key', 'tag')
+            ->assertJsonPath('data.title', 'Climate Change — ZBC News')
+            ->assertJsonPath('data.canonical', 'https://news.example/tag/climate-change');
+    }
+
+    public function test_seeded_static_page_resolves_to_its_row(): void
+    {
+        $this->seed(SeoPageSeeder::class);
+
+        $this->resolve('/about')
+            ->assertOk()
+            ->assertJsonPath('data.matched_entity', 'static')
+            ->assertJsonPath('data.page_key', 'about')
+            ->assertJsonPath('data.title', 'About Us — ZBC News');
     }
 
     public function test_site_settings_meta_used_as_fallback_before_site_name(): void
