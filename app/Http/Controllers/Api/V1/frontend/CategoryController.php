@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api\V1\frontend;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Api\V1\Category;
 use App\Services\CategoryService;
-use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
 
 class CategoryController extends Controller
@@ -13,7 +13,6 @@ class CategoryController extends Controller
         private readonly CategoryService $categoryService
     ) {}
 
-
     public function index()
     {
         $categories = $this->categoryService->getAllCategories();
@@ -21,9 +20,8 @@ class CategoryController extends Controller
         return sendResponse(
             true,
             'Categories retrieved successfully',
-            $categories,
+            Category::collection($categories),
             HttpStatus::HTTP_OK,
         );
     }
-
 }

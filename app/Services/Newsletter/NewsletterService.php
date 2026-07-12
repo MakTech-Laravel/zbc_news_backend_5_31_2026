@@ -80,7 +80,7 @@ class NewsletterService
     public function sendVerificationEmail(NewsletterSubscriber $subscriber): void
     {
         $verifyUrl = rtrim((string) config('app.frontend_url', config('app.url')), '/')
-            . '/newsletter/verify?token=' . $subscriber->verification_token;
+            .'/newsletter/verify?token='.$subscriber->verification_token;
 
         $from = $this->providerFactory->fromAddress();
         $siteName = $from['name'] ?: 'ZBC News';
@@ -117,7 +117,7 @@ class NewsletterService
             ->where('verification_token', trim($token))
             ->first();
 
-        if (!$subscriber) {
+        if (! $subscriber) {
             return null;
         }
 
@@ -157,7 +157,7 @@ class NewsletterService
         $from = $this->providerFactory->fromAddress();
         $siteName = $from['name'] ?: 'ZBC News';
         $adminUrl = rtrim((string) config('app.frontend_url', config('app.url')), '/')
-            . '/admin/newsletters';
+            .'/admin/newsletters';
         $categories = $this->formatSubscriberCategories($subscriber);
 
         $subject = $verified
@@ -200,7 +200,7 @@ class NewsletterService
             ->where('verification_token', trim($token))
             ->first();
 
-        if (!$subscriber) {
+        if (! $subscriber) {
             return null;
         }
 
@@ -216,7 +216,7 @@ class NewsletterService
             ->where('unsubscribe_token', trim($token))
             ->first();
 
-        if (!$subscriber) {
+        if (! $subscriber) {
             return null;
         }
 
@@ -246,7 +246,7 @@ class NewsletterService
     {
         $subscriber = $this->getPreferencesByToken($token);
 
-        if (!$subscriber) {
+        if (! $subscriber) {
             return null;
         }
 
@@ -276,12 +276,12 @@ class NewsletterService
     public function updateSubscriberStatus(int $id, string $status): ?NewsletterSubscriber
     {
         $allowed = ['pending', 'verified', 'unsubscribed'];
-        if (!in_array($status, $allowed, true)) {
+        if (! in_array($status, $allowed, true)) {
             throw new \InvalidArgumentException('Invalid subscriber status.');
         }
 
         $subscriber = NewsletterSubscriber::query()->find($id);
-        if (!$subscriber) {
+        if (! $subscriber) {
             return null;
         }
 
@@ -326,7 +326,7 @@ class NewsletterService
     public function resendSubscriberVerification(int $id): ?NewsletterSubscriber
     {
         $subscriber = NewsletterSubscriber::query()->find($id);
-        if (!$subscriber || $subscriber->status !== 'pending') {
+        if (! $subscriber || $subscriber->status !== 'pending') {
             return null;
         }
 
@@ -340,7 +340,7 @@ class NewsletterService
         return $subscriber;
     }
 
-    public function isUserSubscribed(\App\Models\User $user): bool
+    public function isUserSubscribed(User $user): bool
     {
         $subscriber = NewsletterSubscriber::query()
             ->where('email', strtolower(trim($user->email)))
@@ -349,7 +349,7 @@ class NewsletterService
         return $subscriber !== null && $subscriber->status === 'verified';
     }
 
-    public function syncUserSubscription(\App\Models\User $user, bool $subscribed): NewsletterSubscriber
+    public function syncUserSubscription(User $user, bool $subscribed): NewsletterSubscriber
     {
         $email = strtolower(trim($user->email));
 
@@ -431,7 +431,7 @@ class NewsletterService
 
     public function scheduleCampaign(NewsletterCampaign $campaign, Carbon $scheduledAt): NewsletterCampaign
     {
-        if (!in_array($campaign->status, ['draft', 'scheduled'], true)) {
+        if (! in_array($campaign->status, ['draft', 'scheduled'], true)) {
             throw new \RuntimeException('Only draft campaigns can be scheduled.');
         }
 
@@ -445,7 +445,7 @@ class NewsletterService
 
     public function dispatchCampaign(NewsletterCampaign $campaign): NewsletterCampaign
     {
-        if (!in_array($campaign->status, ['draft', 'scheduled'], true)) {
+        if (! in_array($campaign->status, ['draft', 'scheduled'], true)) {
             throw new \RuntimeException('Campaign cannot be sent in its current state.');
         }
 
@@ -543,7 +543,7 @@ class NewsletterService
         $eligibleUsers = $users->filter(function (User $user) use ($unsubscribedEmails): bool {
             $email = strtolower(trim((string) $user->email));
 
-            return $email !== '' && !in_array($email, $unsubscribedEmails, true);
+            return $email !== '' && ! in_array($email, $unsubscribedEmails, true);
         })->count();
 
         return [
@@ -628,7 +628,7 @@ class NewsletterService
                 $updates['user_id'] = $user->id;
             }
 
-            if (!$preservePendingStatus && $subscriber->status !== 'verified' && $subscriber->status !== 'unsubscribed') {
+            if (! $preservePendingStatus && $subscriber->status !== 'verified' && $subscriber->status !== 'unsubscribed') {
                 $updates['status'] = 'verified';
                 $updates['verified_at'] = now();
                 $updates['unsubscribed_at'] = null;
@@ -690,8 +690,8 @@ class NewsletterService
             'previewText' => $campaign->preview_text,
             'content' => $content,
             'subscriberName' => $subscriber->name,
-            'preferencesUrl' => $frontendUrl . '/newsletter/preferences?token=' . $subscriber->unsubscribe_token,
-            'unsubscribeUrl' => $frontendUrl . '/newsletter/unsubscribe?token=' . $subscriber->unsubscribe_token,
+            'preferencesUrl' => $frontendUrl.'/newsletter/preferences?token='.$subscriber->unsubscribe_token,
+            'unsubscribeUrl' => $frontendUrl.'/newsletter/unsubscribe?token='.$subscriber->unsubscribe_token,
         ])->render();
 
         return $this->trackingService->injectTrackingPixel($html, $campaign->id, $subscriber->id);
@@ -724,14 +724,14 @@ class NewsletterService
 
     public function incrementFailed(NewsletterCampaign $campaign): void
     {
-        if (!$this->hasColumn('newsletter_campaigns', 'failed_count')) {
+        if (! $this->hasColumn('newsletter_campaigns', 'failed_count')) {
             return;
         }
 
         $campaign->increment('failed_count');
     }
 
-  /**
+    /**
      * @return array<string, mixed>
      */
     public function analytics(): array
@@ -830,7 +830,8 @@ class NewsletterService
     {
         return ArticleCategory::query()
             ->where('status', ArticleCategoryStatus::ACTIVE)
-            ->orderBy('title')
+            ->orderBy('sort_order')
+            ->orderBy('id')
             ->get(['id', 'title', 'slug'])
             ->map(fn (ArticleCategory $category) => [
                 'id' => $category->id,
@@ -842,7 +843,6 @@ class NewsletterService
     }
 
     /**
-     * @param  mixed  $preferences
      * @return array{categories: list<string>}|null
      */
     private function normalizePreferences(mixed $preferences): ?array
@@ -941,7 +941,7 @@ class NewsletterService
     {
         $categories = $subscriber->preferences['categories'] ?? null;
 
-        if (!is_array($categories) || count($categories) === 0) {
+        if (! is_array($categories) || count($categories) === 0) {
             return 'All categories';
         }
 
@@ -952,7 +952,7 @@ class NewsletterService
     {
         $key = "{$table}.{$column}";
 
-        if (!array_key_exists($key, self::$columnCache)) {
+        if (! array_key_exists($key, self::$columnCache)) {
             self::$columnCache[$key] = Schema::hasColumn($table, $column);
         }
 

@@ -2,10 +2,9 @@
 
 namespace Database\Seeders;
 
-use App\Models\ArticleCategory;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
 use App\Enums\ArticleCategoryStatus;
+use App\Models\ArticleCategory;
+use Illuminate\Database\Seeder;
 
 class ArticleCategorySeeder extends Seeder
 {
@@ -20,6 +19,7 @@ class ArticleCategorySeeder extends Seeder
                 'title' => 'General',
                 'slug' => 'general',
                 'status' => ArticleCategoryStatus::ACTIVE->value,
+                'sort_order' => 1,
                 'created_at' => now(),
             ],
             [
@@ -27,6 +27,7 @@ class ArticleCategorySeeder extends Seeder
                 'title' => 'Technology',
                 'slug' => 'technology',
                 'status' => ArticleCategoryStatus::ACTIVE->value,
+                'sort_order' => 2,
                 'created_at' => now(),
             ],
             [
@@ -34,6 +35,7 @@ class ArticleCategorySeeder extends Seeder
                 'title' => 'Business',
                 'slug' => 'business',
                 'status' => ArticleCategoryStatus::ACTIVE->value,
+                'sort_order' => 3,
                 'created_at' => now(),
             ],
             [
@@ -41,6 +43,7 @@ class ArticleCategorySeeder extends Seeder
                 'title' => 'Health',
                 'slug' => 'health',
                 'status' => ArticleCategoryStatus::ACTIVE->value,
+                'sort_order' => 4,
                 'created_at' => now(),
             ],
             [
@@ -48,6 +51,7 @@ class ArticleCategorySeeder extends Seeder
                 'title' => 'Science',
                 'slug' => 'science',
                 'status' => ArticleCategoryStatus::ACTIVE->value,
+                'sort_order' => 5,
                 'created_at' => now(),
             ],
         ]);

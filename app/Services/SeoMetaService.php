@@ -61,7 +61,7 @@ class SeoMetaService
         $slug = trim((string) ($data['slug'] ?? ''));
 
         if (empty(trim((string) ($data['meta_title'] ?? ''))) && $title !== '') {
-            $data['meta_title'] = $this->truncate("{$title} News — {$siteName}", 255);
+            $data['meta_title'] = $this->truncate("{$title} News", 255);
         }
 
         if (empty(trim((string) ($data['meta_description'] ?? ''))) && $title !== '') {
@@ -90,16 +90,16 @@ class SeoMetaService
             : $article->category()->value('title');
 
         return [
-            'meta_title'       => $article->meta_title,
+            'meta_title' => $article->meta_title,
             'meta_description' => $article->meta_description,
-            'meta_keywords'    => $article->meta_keywords,
-            'resolved'         => $this->applyArticleMeta([
-                'title'                => $article->title,
-                'excerpt'              => $article->excerpt,
-                'article_description'  => $article->article_description,
-                'meta_title'           => $article->meta_title,
-                'meta_description'     => $article->meta_description,
-                'meta_keywords'        => $article->meta_keywords,
+            'meta_keywords' => $article->meta_keywords,
+            'resolved' => $this->applyArticleMeta([
+                'title' => $article->title,
+                'excerpt' => $article->excerpt,
+                'article_description' => $article->article_description,
+                'meta_title' => $article->meta_title,
+                'meta_description' => $article->meta_description,
+                'meta_keywords' => $article->meta_keywords,
             ], $tags, $categoryTitle),
         ];
     }
@@ -107,15 +107,15 @@ class SeoMetaService
     public function resolveCategoryMeta(ArticleCategory $category): array
     {
         return [
-            'meta_title'       => $category->meta_title,
+            'meta_title' => $category->meta_title,
             'meta_description' => $category->meta_description,
-            'meta_keywords'    => $category->meta_keywords,
-            'resolved'         => $this->applyCategoryMeta([
-                'title'              => $category->title,
-                'slug'               => $category->slug,
-                'meta_title'         => $category->meta_title,
-                'meta_description'   => $category->meta_description,
-                'meta_keywords'      => $category->meta_keywords,
+            'meta_keywords' => $category->meta_keywords,
+            'resolved' => $this->applyCategoryMeta([
+                'title' => $category->title,
+                'slug' => $category->slug,
+                'meta_title' => $category->meta_title,
+                'meta_description' => $category->meta_description,
+                'meta_keywords' => $category->meta_keywords,
             ]),
         ];
     }
@@ -132,6 +132,6 @@ class SeoMetaService
             return $value;
         }
 
-        return rtrim(mb_substr($value, 0, $max - 1)) . '…';
+        return rtrim(mb_substr($value, 0, $max - 1)).'…';
     }
 }

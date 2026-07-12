@@ -37,6 +37,10 @@ Route::controller(CategoryController::class)->prefix('categories')->group(functi
         ->middleware('permission:'.PermissionEnum::CATEGORIES_SHOW->value);
     Route::post('/update/{slug}', 'update')->name('api.v1.categories.update')
         ->middleware('permission:'.PermissionEnum::CATEGORIES_UPDATE->value);
+    Route::post('/reorder', 'reorder')->name('api.v1.categories.reorder')
+        ->middleware('permission:'.PermissionEnum::CATEGORIES_UPDATE->value);
+    Route::post('/move/{slug}', 'move')->name('api.v1.categories.move')
+        ->middleware('permission:'.PermissionEnum::CATEGORIES_UPDATE->value);
     Route::delete('/delete/{slug}', 'destroy')->name('api.v1.categories.destroy')
         ->middleware('permission:'.PermissionEnum::CATEGORIES_DELETE->value);
     Route::post('/restore/{slug}', 'restore')->name('api.v1.categories.restore')
