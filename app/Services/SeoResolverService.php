@@ -274,7 +274,7 @@ class SeoResolverService
             'matched_entity' => $r['matched_entity'],
             'title' => $r['title'],
             'description' => $r['description'],
-            'keywords' => $r['keywords'],
+            'keywords' => $this->cleanKeywords($r['keywords']),
             'canonical' => $r['canonical'],
             'robots' => $r['robots'] ?? 'index,follow',
             'og' => $og,
@@ -317,6 +317,7 @@ class SeoResolverService
         if ($article->category?->title) {
             $data['articleSection'] = $article->category->title;
         }
+        $keywords = $this->cleanKeywords($keywords);
         if ($keywords !== '') {
             $data['keywords'] = $keywords;
         }
@@ -479,6 +480,20 @@ class SeoResolverService
     private function humanize(string $slug): string
     {
         return ucwords(trim(str_replace('-', ' ', $slug)));
+    }
+
+    /**
+     * Normalize a comma-separated keyword list: trim each term and drop empties,
+     * so an empty {token} interpolation cannot leave a dangling separator.
+     */
+    private function cleanKeywords(string $value): string
+    {
+        $parts = array_filter(
+            array_map('trim', explode(',', $value)),
+            fn (string $part) => $part !== '',
+        );
+
+        return implode(', ', $parts);
     }
 
     private function siteName(SiteSettings $settings): string

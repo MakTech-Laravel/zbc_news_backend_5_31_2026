@@ -270,6 +270,24 @@ class SeoResolveTest extends TestCase
             ->assertJsonPath('data.description', 'Breaking news and analysis from around the world');
     }
 
+    public function test_article_keywords_have_no_dangling_separator_when_tags_empty(): void
+    {
+        $author = $this->makeAuthor('Kw Writer', 'kw-writer');
+        // No raw meta_keywords and no tags -> template "{tags}, news" must not yield ", news".
+        $this->makeArticle([
+            'title' => 'Keywordless Article',
+            'slug' => 'keywordless-article',
+            'user_id' => $author->id,
+            'article_category_id' => $this->makeCategory('KwCat', 'kw-cat')->id,
+        ]);
+
+        $response = $this->resolve('/keywordless-article');
+
+        $keywords = (string) $response->json('data.keywords');
+        $this->assertSame('news', $keywords);
+        $this->assertStringStartsNotWith(',', $keywords);
+    }
+
     public function test_seeded_tag_template_interpolates_tag_token(): void
     {
         $this->seed(SeoPageSeeder::class);
