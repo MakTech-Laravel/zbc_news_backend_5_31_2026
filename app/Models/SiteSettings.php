@@ -10,6 +10,7 @@ class SiteSettings extends Model
         'site_name',
         'site_tag',
         'site_logo',
+        'favicon',
         'timezone',
         'language',
         'meta_title',
@@ -43,16 +44,16 @@ class SiteSettings extends Model
     ];
 
     protected $casts = [
-        'default_category_id'       => 'integer',
-        'posts_per_page'            => 'integer',
-        'allow_comments'            => 'boolean',
+        'default_category_id' => 'integer',
+        'posts_per_page' => 'integer',
+        'allow_comments' => 'boolean',
         'authenticate_comment_only' => 'boolean',
-        'auto_approve_known_users'  => 'boolean',
-        'related_article'           => 'integer',
-        'enable_auto_save'          => 'boolean',
-        'require_featured_image'    => 'boolean',
-        'enable_ai_writing'         => 'boolean',
-        'enable_comments'           => 'boolean',
+        'auto_approve_known_users' => 'boolean',
+        'related_article' => 'integer',
+        'enable_auto_save' => 'boolean',
+        'require_featured_image' => 'boolean',
+        'enable_ai_writing' => 'boolean',
+        'enable_comments' => 'boolean',
     ];
 
     public function defaultCategory()

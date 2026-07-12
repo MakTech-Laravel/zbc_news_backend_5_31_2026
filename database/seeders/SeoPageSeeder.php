@@ -56,6 +56,15 @@ class SeoPageSeeder extends Seeder
                 'meta_description' => '{bio}',
                 'meta_keywords' => '{author}, author, news, articles',
             ],
+            [
+                'page_key' => 'newsletter',
+                'name' => 'Newsletter',
+                'url_path' => '/newsletter',
+                'is_template' => false,
+                'meta_title' => 'Newsletter',
+                'meta_description' => 'Subscribe to the ZBC News daily newsletter for top headlines and category updates tailored to your interests.',
+                'meta_keywords' => 'newsletter, subscribe, daily news, email',
+            ],
         ];
 
         foreach ($templates as $row) {

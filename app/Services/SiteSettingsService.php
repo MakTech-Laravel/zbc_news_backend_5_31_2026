@@ -36,20 +36,20 @@ class SiteSettingsService
     public function getOrDefault(): SiteSettings
     {
         return $this->getAll() ?? new SiteSettings([
-            'site_name'                 => 'ZBC News',
-            'site_tag'                  => 'Breaking news and analysis from around the world',
-            'timezone'                  => 'America/New_York',
-            'language'                  => 'en',
-            'posts_per_page'            => 10,
-            'allow_comments'            => true,
+            'site_name' => 'ZBC News',
+            'site_tag' => 'Breaking news and analysis from around the world',
+            'timezone' => 'America/New_York',
+            'language' => 'en',
+            'posts_per_page' => 10,
+            'allow_comments' => true,
             'authenticate_comment_only' => false,
-            'auto_approve_known_users'  => false,
-            'related_article'           => 3,
-            'enable_comments'           => true,
-            'default_post_format'       => 'Standard',
-            'enable_auto_save'          => true,
-            'require_featured_image'    => false,
-            'enable_ai_writing'         => false,
+            'auto_approve_known_users' => false,
+            'related_article' => 3,
+            'enable_comments' => true,
+            'default_post_format' => 'Standard',
+            'enable_auto_save' => true,
+            'require_featured_image' => false,
+            'enable_ai_writing' => false,
         ]);
     }
 
@@ -80,6 +80,15 @@ class SiteSettingsService
 
             if ($this->storedImageService->isDifferent($settings->site_logo, $incomingLogo)) {
                 $this->storedImageService->delete($settings->site_logo);
+            }
+        }
+
+        if ($settings && array_key_exists('favicon', $data)) {
+            $incomingFavicon = is_string($data['favicon']) ? trim($data['favicon']) : null;
+            $incomingFavicon = $incomingFavicon !== '' ? $incomingFavicon : null;
+
+            if ($this->storedImageService->isDifferent($settings->favicon, $incomingFavicon)) {
+                $this->storedImageService->delete($settings->favicon);
             }
         }
 
