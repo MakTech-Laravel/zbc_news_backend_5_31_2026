@@ -135,4 +135,18 @@ return [
 
     'frontend_url' => env('FRONTEND_URL', 'http://localhost:5173'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Default Open Graph Image
+    |--------------------------------------------------------------------------
+    |
+    | Absolute URL used as the social share image when a page has no more
+    | specific image (no per-page og_image, no article/author image, and no
+    | site_settings.site_logo). Leave null to omit og:image / twitter:image
+    | and emit a plain "summary" Twitter card for image-less pages.
+    |
+    */
+
+    'og_default_image' => env('OG_DEFAULT_IMAGE'),
+
 ];

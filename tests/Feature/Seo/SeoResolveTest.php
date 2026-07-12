@@ -295,6 +295,28 @@ class SeoResolveTest extends TestCase
             ->assertJsonPath('data.robots', 'noindex,nofollow');
     }
 
+    public function test_omits_og_image_and_uses_summary_card_when_no_image_available(): void
+    {
+        // No site_settings row (default has null site_logo) and no configured default.
+        config(['app.og_default_image' => null]);
+
+        $this->resolve('/')
+            ->assertOk()
+            ->assertJsonMissingPath('data.og.image')
+            ->assertJsonMissingPath('data.twitter.image')
+            ->assertJsonPath('data.twitter.card', 'summary');
+    }
+
+    public function test_config_default_og_image_used_when_no_site_logo(): void
+    {
+        config(['app.og_default_image' => 'https://cdn.example/default-og.png']);
+
+        $this->resolve('/')
+            ->assertOk()
+            ->assertJsonPath('data.og.image', 'https://cdn.example/default-og.png')
+            ->assertJsonPath('data.twitter.card', 'summary_large_image');
+    }
+
     public function test_og_image_override_on_static_row_drives_social_image(): void
     {
         SeoPage::query()->create([

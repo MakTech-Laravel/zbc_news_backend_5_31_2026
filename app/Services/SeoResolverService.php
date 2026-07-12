@@ -111,7 +111,7 @@ class SeoResolverService
 
         $image = MediaUrl::resolvePublic($article->open_graph_image ?: $article->featured_image)
             ?: MediaUrl::resolvePublic($template?->og_image)
-            ?: MediaUrl::resolvePublic($settings->site_logo);
+            ?: $this->siteDefaultImage($settings);
         $published = $this->iso8601($article->published_at);
         $modified = $this->iso8601($article->updated_at);
         $canonical = $this->frontendUrl('/'.$article->slug);
@@ -156,7 +156,7 @@ class SeoResolverService
             'canonical' => $this->pick($exact?->canonical_url, $this->frontendUrl('/'.$category->slug)),
             'robots' => $this->robotsFor($govern),
             'og_type' => 'website',
-            'image' => MediaUrl::resolvePublic($govern?->og_image) ?: MediaUrl::resolvePublic($settings->site_logo),
+            'image' => MediaUrl::resolvePublic($govern?->og_image) ?: $this->siteDefaultImage($settings),
             'json_ld' => [],
         ], $settings);
     }
@@ -179,7 +179,7 @@ class SeoResolverService
 
         $image = MediaUrl::resolvePublic($author?->userInformation?->profile_image)
             ?: MediaUrl::resolvePublic($template?->og_image)
-            ?: MediaUrl::resolvePublic($settings->site_logo);
+            ?: $this->siteDefaultImage($settings);
 
         return $this->assemble([
             'page_key' => 'author-profile',
@@ -217,7 +217,7 @@ class SeoResolverService
             'canonical' => $this->frontendUrl('/tag/'.$slug),
             'robots' => $this->robotsFor($template),
             'og_type' => 'website',
-            'image' => MediaUrl::resolvePublic($template?->og_image) ?: MediaUrl::resolvePublic($settings->site_logo),
+            'image' => MediaUrl::resolvePublic($template?->og_image) ?: $this->siteDefaultImage($settings),
             'json_ld' => [],
         ], $settings);
     }
@@ -245,7 +245,7 @@ class SeoResolverService
             'canonical' => $this->pick($seoPage?->canonical_url, $this->frontendUrl($path)),
             'robots' => $this->robotsFor($seoPage),
             'og_type' => 'website',
-            'image' => MediaUrl::resolvePublic($seoPage?->og_image) ?: MediaUrl::resolvePublic($settings->site_logo),
+            'image' => MediaUrl::resolvePublic($seoPage?->og_image) ?: $this->siteDefaultImage($settings),
             'json_ld' => $path === '/' ? $this->homeJsonLd($settings) : [],
         ], $settings);
     }
@@ -442,6 +442,17 @@ class SeoResolverService
     private function robotsFor(?SeoPage $row): string
     {
         return $row && $row->noindex ? 'noindex,nofollow' : 'index,follow';
+    }
+
+    /**
+     * Deepest social-image fallback: site logo, then a configured default OG
+     * asset, then null (image-less pages omit og:image and use a summary card).
+     */
+    private function siteDefaultImage(SiteSettings $settings): ?string
+    {
+        return MediaUrl::resolvePublic($settings->site_logo)
+            ?: MediaUrl::resolvePublic((string) config('app.og_default_image'))
+            ?: null;
     }
 
     /**
