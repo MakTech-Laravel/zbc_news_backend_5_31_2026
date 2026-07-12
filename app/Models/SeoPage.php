@@ -14,9 +14,12 @@ class SeoPage extends Model
         'meta_title',
         'meta_description',
         'meta_keywords',
+        'canonical_url',
+        'noindex',
     ];
 
     protected $casts = [
         'is_template' => 'boolean',
+        'noindex' => 'boolean',
     ];
 }

@@ -121,6 +121,7 @@ class SeoResolverService
             'description' => $description,
             'keywords' => $keywords,
             'canonical' => $canonical,
+            'robots' => $this->robotsFor($template),
             'og_type' => 'article',
             'image' => $image,
             'published_time' => $published,
@@ -135,6 +136,9 @@ class SeoResolverService
     private function buildForCategory(ArticleCategory $category, SiteSettings $settings): array
     {
         $template = $this->templateByKey('category');
+        // A per-category non-template row (e.g. /business) can override canonical/noindex.
+        $exact = SeoPage::where('url_path', '/'.$category->slug)->where('is_template', false)->first();
+        $govern = $exact ?? $template;
         $repl = ['category' => (string) ($category->title ?? '')];
 
         $title = $this->pick($category->meta_title, $this->interpolate($template?->meta_title, $repl), $settings->meta_title, $this->siteName($settings));
@@ -147,7 +151,8 @@ class SeoResolverService
             'title' => $title,
             'description' => $description,
             'keywords' => $keywords,
-            'canonical' => $this->frontendUrl('/'.$category->slug),
+            'canonical' => $this->pick($exact?->canonical_url, $this->frontendUrl('/'.$category->slug)),
+            'robots' => $this->robotsFor($govern),
             'og_type' => 'website',
             'image' => MediaUrl::resolvePublic($settings->site_logo),
             'json_ld' => [],
@@ -179,6 +184,7 @@ class SeoResolverService
             'description' => $description,
             'keywords' => $keywords,
             'canonical' => $this->frontendUrl('/author/'.$slug),
+            'robots' => $this->robotsFor($template),
             'og_type' => 'profile',
             'image' => $image,
             'json_ld' => [],
@@ -205,6 +211,7 @@ class SeoResolverService
             'description' => $description,
             'keywords' => $keywords,
             'canonical' => $this->frontendUrl('/tag/'.$slug),
+            'robots' => $this->robotsFor($template),
             'og_type' => 'website',
             'image' => MediaUrl::resolvePublic($settings->site_logo),
             'json_ld' => [],
@@ -231,7 +238,8 @@ class SeoResolverService
             'title' => $title,
             'description' => $description,
             'keywords' => $keywords,
-            'canonical' => $this->frontendUrl($path),
+            'canonical' => $this->pick($seoPage?->canonical_url, $this->frontendUrl($path)),
+            'robots' => $this->robotsFor($seoPage),
             'og_type' => 'website',
             'image' => MediaUrl::resolvePublic($settings->site_logo),
             'json_ld' => $path === '/' ? $this->homeJsonLd($settings) : [],
@@ -425,6 +433,11 @@ class SeoResolverService
     private function templateByKey(string $key): ?SeoPage
     {
         return SeoPage::where('page_key', $key)->first();
+    }
+
+    private function robotsFor(?SeoPage $row): string
+    {
+        return $row && $row->noindex ? 'noindex,nofollow' : 'index,follow';
     }
 
     /**

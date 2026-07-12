@@ -260,6 +260,41 @@ class SeoResolveTest extends TestCase
         $this->assertArrayNotHasKey('datePublished', $jsonLd);
     }
 
+    public function test_noindex_template_sets_robots_noindex(): void
+    {
+        SeoPage::query()->where('page_key', 'article-detail')->update(['noindex' => true]);
+
+        $author = $this->makeAuthor('Noindex Writer', 'noindex-writer');
+        $this->makeArticle([
+            'title' => 'Hidden Article',
+            'slug' => 'hidden-article',
+            'user_id' => $author->id,
+            'article_category_id' => $this->makeCategory('NoIdx', 'no-idx')->id,
+        ]);
+
+        $this->resolve('/hidden-article')
+            ->assertOk()
+            ->assertJsonPath('data.robots', 'noindex,nofollow');
+    }
+
+    public function test_canonical_url_override_on_static_row_is_respected(): void
+    {
+        SeoPage::query()->create([
+            'page_key' => 'about',
+            'name' => 'About',
+            'url_path' => '/about',
+            'is_template' => false,
+            'meta_title' => 'About — ZBC News',
+            'canonical_url' => 'https://news.example/about-us',
+            'noindex' => true,
+        ]);
+
+        $this->resolve('/about')
+            ->assertOk()
+            ->assertJsonPath('data.canonical', 'https://news.example/about-us')
+            ->assertJsonPath('data.robots', 'noindex,nofollow');
+    }
+
     public function test_static_page_falls_back_to_site_defaults_when_template_and_settings_empty(): void
     {
         // No seeded row for /about, no site settings row -> default site name/tag.
