@@ -534,7 +534,11 @@ class SeoResolverService
         return trim((string) $settings->site_tag) ?: 'Breaking news and analysis from around the world';
     }
 
-    private function frontendUrl(string $path): string
+    /**
+     * Build an absolute public URL on the configured frontend origin.
+     * Public so the sitemap builder reuses the single frontend-base definition.
+     */
+    public function frontendUrl(string $path): string
     {
         $base = rtrim((string) config('app.frontend_url'), '/');
         if ($path === '' || $path === '/') {
