@@ -62,6 +62,56 @@ class SitemapService
         Cache::forget(self::CACHE_NEWS);
     }
 
+    /**
+     * Flush and rebuild both sitemap caches. Single source of truth shared by the
+     * `sitemap:refresh` command and the admin refresh endpoint so they can't drift.
+     */
+    public function refresh(): void
+    {
+        $this->flushCache();
+        $this->generalXml();
+        $this->newsXml();
+    }
+
+    /**
+     * robots.txt body. Disallow list mirrors the non-public frontend routes
+     * (authRoutes, ProtectedRoute-gated /user & /admin, client-only utility
+     * routes); Sitemap URLs use the public frontend origin. Shared by the public
+     * route and the admin download so they return byte-identical output.
+     */
+    public function robotsTxt(): string
+    {
+        $base = rtrim((string) config('app.frontend_url'), '/');
+
+        $disallow = [
+            '/admin/',
+            '/user/',
+            '/login',
+            '/login/',
+            '/register',
+            '/forget-password',
+            '/otp-verification',
+            '/reset-password',
+            '/unauthorized',
+            '/dashboard',
+            '/ws-test',
+            '/demo/',
+            '/newsletter/verify',
+            '/newsletter/unsubscribe',
+            '/newsletter/preferences',
+        ];
+
+        $lines = ['User-agent: *', 'Allow: /'];
+        foreach ($disallow as $path) {
+            $lines[] = 'Disallow: '.$path;
+        }
+        $lines[] = '';
+        $lines[] = 'Sitemap: '.$base.'/sitemap.xml';
+        $lines[] = 'Sitemap: '.$base.'/news-sitemap.xml';
+
+        return implode("\n", $lines)."\n";
+    }
+
     private function buildGeneral(): Sitemap
     {
         $byKey = $this->seoPagesByKey();
