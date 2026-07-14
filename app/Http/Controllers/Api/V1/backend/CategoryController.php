@@ -42,7 +42,16 @@ class CategoryController extends Controller
             'meta_keywords' => 'nullable|string|max:500',
         ]);
 
-        $category = $this->categoryService->create($validated);
+        try {
+            $category = $this->categoryService->create($validated);
+        } catch (InvalidArgumentException $e) {
+            return sendResponse(
+                false,
+                $e->getMessage(),
+                null,
+                HttpStatus::HTTP_UNPROCESSABLE_ENTITY,
+            );
+        }
 
         return sendResponse(
             true,
@@ -85,13 +94,22 @@ class CategoryController extends Controller
             'meta_keywords' => ['nullable', 'string', 'max:500'],
         ]);
 
-        if (array_key_exists('sort_order', $validated) && $validated['sort_order'] !== null) {
-            $this->categoryService->moveToPosition($category, (int) $validated['sort_order']);
-            unset($validated['sort_order']);
-            $category->refresh();
-        }
+        try {
+            if (array_key_exists('sort_order', $validated) && $validated['sort_order'] !== null) {
+                $this->categoryService->moveToPosition($category, (int) $validated['sort_order']);
+                unset($validated['sort_order']);
+                $category->refresh();
+            }
 
-        $updated = $this->categoryService->update($category, $validated);
+            $updated = $this->categoryService->update($category, $validated);
+        } catch (InvalidArgumentException $e) {
+            return sendResponse(
+                false,
+                $e->getMessage(),
+                null,
+                HttpStatus::HTTP_UNPROCESSABLE_ENTITY,
+            );
+        }
 
         return sendResponse(
             true,
@@ -106,10 +124,15 @@ class CategoryController extends Controller
         $validated = $request->validate([
             'ids' => ['required', 'array', 'min:1'],
             'ids.*' => ['integer', 'distinct', 'exists:article_categories,id'],
+            'parent_id' => ['nullable', 'integer', 'exists:article_categories,id'],
         ]);
 
+        $parentId = array_key_exists('parent_id', $validated) && $validated['parent_id'] !== null
+            ? (int) $validated['parent_id']
+            : null;
+
         try {
-            $this->categoryService->reorder($validated['ids']);
+            $this->categoryService->reorder($validated['ids'], $parentId);
         } catch (InvalidArgumentException $e) {
             return sendResponse(
                 false,
