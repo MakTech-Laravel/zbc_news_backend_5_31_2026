@@ -21,7 +21,13 @@ class CategoryReorderTest extends TestCase
     {
         parent::setUp();
 
-        foreach (['categories.list', 'categories.create', 'categories.update'] as $name) {
+        foreach ([
+            'categories.list',
+            'categories.create',
+            'categories.update',
+            'categories.reorder',
+            'categories.delete',
+        ] as $name) {
             Permission::query()->firstOrCreate(
                 ['name' => $name, 'guard_name' => 'api'],
                 ['group_name' => 'Categories'],
@@ -31,11 +37,23 @@ class CategoryReorderTest extends TestCase
         $role = Role::query()->firstOrCreate(
             ['name' => 'editor', 'guard_name' => 'api'],
         );
-        $role->givePermissionTo(['categories.list', 'categories.create', 'categories.update']);
+        $role->givePermissionTo([
+            'categories.list',
+            'categories.create',
+            'categories.update',
+            'categories.reorder',
+            'categories.delete',
+        ]);
 
         $this->admin = User::factory()->create();
         $this->admin->assignRole('editor');
-        $this->admin->givePermissionTo(['categories.list', 'categories.create', 'categories.update']);
+        $this->admin->givePermissionTo([
+            'categories.list',
+            'categories.create',
+            'categories.update',
+            'categories.reorder',
+            'categories.delete',
+        ]);
 
         Passport::actingAs($this->admin);
     }
@@ -98,6 +116,7 @@ class CategoryReorderTest extends TestCase
 
         $response = $this->postJson('/api/v1/admin/categories/reorder', [
             'ids' => [$c->id, $a->id, $b->id],
+            'parent_id' => null,
         ]);
 
         $response
@@ -215,5 +234,149 @@ class CategoryReorderTest extends TestCase
         $this->getJson('/api/v1/categories')
             ->assertOk()
             ->assertJsonPath('data.0.is_featured', true);
+    }
+
+    public function test_public_tree_nests_children_under_parent(): void
+    {
+        $parent = ArticleCategory::query()->create([
+            'title' => 'Technology',
+            'slug' => 'technology',
+            'status' => ArticleCategoryStatus::ACTIVE,
+            'sort_order' => 1,
+            'is_featured' => true,
+        ]);
+        $childB = ArticleCategory::query()->create([
+            'title' => 'Apps',
+            'slug' => 'apps',
+            'status' => ArticleCategoryStatus::ACTIVE,
+            'parent_id' => $parent->id,
+            'sort_order' => 2,
+        ]);
+        $childA = ArticleCategory::query()->create([
+            'title' => 'Gadgets',
+            'slug' => 'gadgets',
+            'status' => ArticleCategoryStatus::ACTIVE,
+            'parent_id' => $parent->id,
+            'sort_order' => 1,
+        ]);
+
+        $this->getJson('/api/v1/categories')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $parent->id)
+            ->assertJsonPath('data.0.children.0.id', $childA->id)
+            ->assertJsonPath('data.0.children.1.id', $childB->id);
+
+        $this->getJson('/api/v1/admin/categories')
+            ->assertOk()
+            ->assertJsonCount(3, 'data');
+    }
+
+    public function test_sibling_reorder_under_parent(): void
+    {
+        $parent = ArticleCategory::query()->create([
+            'title' => 'Parent',
+            'slug' => 'parent',
+            'status' => ArticleCategoryStatus::ACTIVE,
+            'sort_order' => 1,
+        ]);
+        $a = ArticleCategory::query()->create([
+            'title' => 'Child A',
+            'slug' => 'child-a',
+            'status' => ArticleCategoryStatus::ACTIVE,
+            'parent_id' => $parent->id,
+            'sort_order' => 1,
+        ]);
+        $b = ArticleCategory::query()->create([
+            'title' => 'Child B',
+            'slug' => 'child-b',
+            'status' => ArticleCategoryStatus::ACTIVE,
+            'parent_id' => $parent->id,
+            'sort_order' => 2,
+        ]);
+
+        $this->postJson('/api/v1/admin/categories/reorder', [
+            'parent_id' => $parent->id,
+            'ids' => [$b->id, $a->id],
+        ])
+            ->assertOk();
+
+        $this->assertDatabaseHas('article_categories', ['id' => $b->id, 'sort_order' => 1]);
+        $this->assertDatabaseHas('article_categories', ['id' => $a->id, 'sort_order' => 2]);
+        $this->assertDatabaseHas('article_categories', ['id' => $parent->id, 'sort_order' => 1]);
+    }
+
+    public function test_child_cannot_be_featured_and_grandchild_rejected(): void
+    {
+        $parent = ArticleCategory::query()->create([
+            'title' => 'Parent',
+            'slug' => 'parent',
+            'status' => ArticleCategoryStatus::ACTIVE,
+            'sort_order' => 1,
+        ]);
+        $child = ArticleCategory::query()->create([
+            'title' => 'Child',
+            'slug' => 'child',
+            'status' => ArticleCategoryStatus::ACTIVE,
+            'parent_id' => $parent->id,
+            'sort_order' => 1,
+        ]);
+
+        $this->postJson('/api/v1/admin/categories/store', [
+            'title' => 'Featured Child',
+            'slug' => 'featured-child',
+            'status' => ArticleCategoryStatus::ACTIVE->value,
+            'parent_id' => $parent->id,
+            'is_featured' => true,
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.is_featured', false)
+            ->assertJsonPath('data.parent_id', $parent->id);
+
+        $this->postJson('/api/v1/admin/categories/store', [
+            'title' => 'Grandchild',
+            'slug' => 'grandchild',
+            'status' => ArticleCategoryStatus::ACTIVE->value,
+            'parent_id' => $child->id,
+        ])->assertUnprocessable();
+    }
+
+    public function test_cannot_delete_parent_with_children(): void
+    {
+        $parent = ArticleCategory::query()->create([
+            'title' => 'Parent',
+            'slug' => 'parent',
+            'status' => ArticleCategoryStatus::ACTIVE,
+            'sort_order' => 1,
+        ]);
+        ArticleCategory::query()->create([
+            'title' => 'Child',
+            'slug' => 'child',
+            'status' => ArticleCategoryStatus::ACTIVE,
+            'parent_id' => $parent->id,
+            'sort_order' => 1,
+        ]);
+
+        $this->deleteJson('/api/v1/admin/categories/delete/'.$parent->slug)
+            ->assertUnprocessable();
+    }
+
+    public function test_child_sort_order_is_scoped_to_parent(): void
+    {
+        $parent = ArticleCategory::query()->create([
+            'title' => 'Parent',
+            'slug' => 'parent',
+            'status' => ArticleCategoryStatus::ACTIVE,
+            'sort_order' => 5,
+        ]);
+
+        $this->postJson('/api/v1/admin/categories/store', [
+            'title' => 'First Child',
+            'slug' => 'first-child',
+            'status' => ArticleCategoryStatus::ACTIVE->value,
+            'parent_id' => $parent->id,
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.sort_order', 1);
     }
 }

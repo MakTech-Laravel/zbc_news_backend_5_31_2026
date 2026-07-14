@@ -8,6 +8,7 @@ enum PermissionEnum: string
     case CATEGORIES_CREATE = 'categories.create';
     case CATEGORIES_SHOW = 'categories.show';
     case CATEGORIES_UPDATE = 'categories.update';
+    case CATEGORIES_REORDER = 'categories.reorder';
     case CATEGORIES_DELETE = 'categories.delete';
     case CATEGORIES_RESTORE = 'categories.restore';
     case CATEGORIES_FORCE_DELETE = 'categories.force-delete';

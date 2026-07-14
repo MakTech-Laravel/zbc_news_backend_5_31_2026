@@ -3,6 +3,7 @@ categories.list,api,Categories
 categories.create,api,Categories
 categories.show,api,Categories
 categories.update,api,Categories
+categories.reorder,api,Categories
 categories.delete,api,Categories
 categories.restore,api,Categories
 categories.force-delete,api,Categories

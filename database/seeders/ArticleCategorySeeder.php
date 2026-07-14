@@ -9,51 +9,99 @@ use Illuminate\Database\Seeder;
 class ArticleCategorySeeder extends Seeder
 {
     /**
-     * Run the database seeds.
+     * Parent categories with sample subcategories for nav / admin testing.
+     *
+     * @return array<int, array{title: string, slug: string, sort_order: int, is_featured?: bool, children: list<array{title: string, slug: string}>}>
      */
-    public function run(): void
+    private function tree(): array
     {
-        ArticleCategory::insert([
+        return [
             [
-                'id' => 1,
                 'title' => 'General',
                 'slug' => 'general',
-                'status' => ArticleCategoryStatus::ACTIVE->value,
                 'sort_order' => 1,
-                'created_at' => now(),
+                'is_featured' => true,
+                'children' => [
+                    ['title' => 'Local News', 'slug' => 'local-news'],
+                    ['title' => 'National', 'slug' => 'national'],
+                    ['title' => 'Opinion', 'slug' => 'opinion'],
+                ],
             ],
             [
-                'id' => 2,
                 'title' => 'Technology',
                 'slug' => 'technology',
-                'status' => ArticleCategoryStatus::ACTIVE->value,
                 'sort_order' => 2,
-                'created_at' => now(),
+                'is_featured' => true,
+                'children' => [
+                    ['title' => 'Gadgets', 'slug' => 'gadgets'],
+                    ['title' => 'Apps & Software', 'slug' => 'apps-software'],
+                    ['title' => 'AI & Innovation', 'slug' => 'ai-innovation'],
+                ],
             ],
             [
-                'id' => 3,
                 'title' => 'Business',
                 'slug' => 'business',
-                'status' => ArticleCategoryStatus::ACTIVE->value,
                 'sort_order' => 3,
-                'created_at' => now(),
+                'is_featured' => true,
+                'children' => [
+                    ['title' => 'Markets', 'slug' => 'markets'],
+                    ['title' => 'Startups', 'slug' => 'startups'],
+                    ['title' => 'Economy', 'slug' => 'economy'],
+                ],
             ],
             [
-                'id' => 4,
                 'title' => 'Health',
                 'slug' => 'health',
-                'status' => ArticleCategoryStatus::ACTIVE->value,
                 'sort_order' => 4,
-                'created_at' => now(),
+                'is_featured' => false,
+                'children' => [
+                    ['title' => 'Wellness', 'slug' => 'wellness'],
+                    ['title' => 'Medical Research', 'slug' => 'medical-research'],
+                    ['title' => 'Public Health', 'slug' => 'public-health'],
+                ],
             ],
             [
-                'id' => 5,
                 'title' => 'Science',
                 'slug' => 'science',
-                'status' => ArticleCategoryStatus::ACTIVE->value,
                 'sort_order' => 5,
-                'created_at' => now(),
+                'is_featured' => false,
+                'children' => [
+                    ['title' => 'Space', 'slug' => 'space'],
+                    ['title' => 'Environment', 'slug' => 'environment'],
+                    ['title' => 'Climate', 'slug' => 'climate'],
+                ],
             ],
-        ]);
+        ];
+    }
+
+    public function run(): void
+    {
+        foreach ($this->tree() as $parentData) {
+            $parent = ArticleCategory::query()->updateOrCreate(
+                ['slug' => $parentData['slug']],
+                [
+                    'title' => $parentData['title'],
+                    'status' => ArticleCategoryStatus::ACTIVE,
+                    'parent_id' => null,
+                    'sort_order' => $parentData['sort_order'],
+                    'is_featured' => (bool) ($parentData['is_featured'] ?? false),
+                ],
+            );
+
+            foreach ($parentData['children'] as $index => $childData) {
+                ArticleCategory::query()->updateOrCreate(
+                    ['slug' => $childData['slug']],
+                    [
+                        'title' => $childData['title'],
+                        'status' => ArticleCategoryStatus::ACTIVE,
+                        'parent_id' => $parent->id,
+                        'sort_order' => $index + 1,
+                        'is_featured' => false,
+                    ],
+                );
+            }
+        }
+
+        $this->command?->info('Article categories and subcategories seeded successfully');
     }
 }
