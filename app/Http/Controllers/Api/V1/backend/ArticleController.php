@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\backend;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\ArticleAutoSaveRequest;
 use App\Http\Requests\Api\V1\ArticleRequest;
 use App\Http\Resources\Api\V1\ArticleResource;
 use App\Services\ArticleService;
@@ -65,6 +66,27 @@ class ArticleController extends Controller
             'Article updated successfully',
             new ArticleResource($updated),
             HttpStatus::HTTP_OK,
+        );
+    }
+
+    public function autoSave(ArticleAutoSaveRequest $request, ?string $slug = null)
+    {
+        $data = $request->validated();
+
+        $article = $this->articleService->autoSave($slug, $data);
+
+        $payload = [
+            'success' => true,
+            'id' => $article->id,
+            'slug' => $article->slug,
+            'updated_at' => $article->updated_at?->toIso8601String(),
+        ];
+
+        return sendResponse(
+            true,
+            'Article auto-saved successfully',
+            $payload,
+            $slug === null ? HttpStatus::HTTP_CREATED : HttpStatus::HTTP_OK,
         );
     }
 

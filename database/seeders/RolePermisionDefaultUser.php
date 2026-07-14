@@ -40,8 +40,15 @@ class RolePermisionDefaultUser extends Seeder
                 [
                     'name' => $data['name'],
                     'password' => Hash::make($data['email']),
+                    'slug' => User::generateUniqueSlug($data['name']),
                 ]
             );
+
+            if (! filled($user->slug)) {
+                $user->forceFill([
+                    'slug' => User::generateUniqueSlug($user->name, $user->id),
+                ])->saveQuietly();
+            }
 
             if (! $user->hasRole($data['role'])) {
                 $user->assignRole($data['role']);

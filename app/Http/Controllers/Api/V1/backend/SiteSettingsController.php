@@ -34,6 +34,10 @@ class SiteSettingsController extends Controller
             $data['site_logo'] = trim($data['site_logo']) ?: null;
         }
 
+        if (array_key_exists('favicon', $data) && is_string($data['favicon'])) {
+            $data['favicon'] = trim($data['favicon']) ?: null;
+        }
+
         $siteSettings = $this->siteSettingsService->createOrUpdate($data);
 
         $isNew = $siteSettings->wasRecentlyCreated;

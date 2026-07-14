@@ -43,10 +43,15 @@ class ArticleResource extends JsonResource
             }),
 
             'user' => $this->whenLoaded('user', function () {
+                $info = $this->user?->userInformation;
+
                 return [
                     'id' => $this->user?->id,
                     'name' => $this->user?->name,
-                    'email' => $this->user?->email,
+                    'slug' => $this->user?->slug,
+                    'bio' => $info?->bio,
+                    'public_title' => $info?->public_title,
+                    'profile_image' => MediaUrl::resolvePublic($info?->profile_image),
                 ];
             }),
 

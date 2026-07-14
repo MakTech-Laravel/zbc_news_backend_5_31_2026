@@ -7,8 +7,10 @@ use App\Http\Controllers\Api\V1\backend\TagController;
 use App\Http\Controllers\Api\V1\frontend\AdSlotController;
 use App\Http\Controllers\Api\V1\frontend\AdTrackingController;
 use App\Http\Controllers\Api\V1\frontend\ArticleController;
+use App\Http\Controllers\Api\V1\frontend\AuthorController;
 use App\Http\Controllers\Api\V1\frontend\CategoryController;
 use App\Http\Controllers\Api\V1\frontend\CommentController;
+use App\Http\Controllers\Api\V1\frontend\ContactController;
 use App\Http\Controllers\Api\V1\frontend\NavigationController;
 use App\Http\Controllers\Api\V1\frontend\NewsletterController;
 use App\Http\Controllers\Api\V1\frontend\PublicSiteSettingsController;
@@ -53,6 +55,11 @@ Route::controller(ArticleController::class)->prefix('articles')->group(function 
     Route::get('/most-read', 'mostRead')->name('api.v1.articles.most-read');
     Route::get('/grid', 'gridArticles')->name('api.v1.articles.grid');
     Route::get('/search', [SearchController::class, 'search'])->name('api.v1.articles.search');
+    Route::get('/author/{slug}', [AuthorController::class, 'show'])->name('api.v1.articles.author-profile');
+});
+
+Route::controller(AuthorController::class)->prefix('authors')->group(function () {
+    Route::get('/{slug}', 'show')->name('api.v1.authors.show');
 });
 
 Route::controller(CommentController::class)->middleware('optional_api_auth')->group(function () {
@@ -85,6 +92,10 @@ Route::get('/ads/slots', [AdSlotController::class, 'index'])->name('api.v1.ads.s
 Route::post('/ads/track', [AdTrackingController::class, 'track'])
     ->middleware('request_limitter')
     ->name('api.v1.ads.track');
+
+Route::post('/contact', [ContactController::class, 'store'])
+    ->middleware('request_limitter')
+    ->name('api.v1.contact.store');
 
 Route::prefix('newsletter')->controller(NewsletterController::class)->group(function (): void {
     Route::post('/subscribe', 'subscribe')->middleware('request_limitter')->name('api.v1.newsletter.subscribe');

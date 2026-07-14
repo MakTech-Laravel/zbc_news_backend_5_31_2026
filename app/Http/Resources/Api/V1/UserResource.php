@@ -18,6 +18,7 @@ class UserResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'slug' => $this->slug,
             'email' => $this->email,
             'email_verified_at' => $this->email_verified_at,
             'created_at' => $this->created_at,
@@ -28,6 +29,8 @@ class UserResource extends JsonResource
                 'profile_image' => MediaUrl::resolvePublic($this->userInformation->profile_image),
                 'bio'           => $this->userInformation->bio,
                 'region'        => $this->userInformation->region,
+                'public_title'  => $this->userInformation->public_title,
+                'social_links'  => $this->userInformation->social_links ?? [],
             ]),
         ];
     }

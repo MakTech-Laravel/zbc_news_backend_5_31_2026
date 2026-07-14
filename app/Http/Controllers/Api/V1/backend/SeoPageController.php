@@ -4,15 +4,18 @@ namespace App\Http\Controllers\Api\V1\backend;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\SeoPageUpdateRequest;
+use App\Http\Resources\Api\V1\ResolvedSeoResource;
 use App\Http\Resources\Api\V1\SeoPageResource;
 use App\Services\SeoPageService;
+use App\Services\SeoResolverService;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
 
 class SeoPageController extends Controller
 {
     public function __construct(
-        private readonly SeoPageService $seoPageService
+        private readonly SeoPageService $seoPageService,
+        private readonly SeoResolverService $seoResolverService,
     ) {}
 
     public function index()
@@ -54,21 +57,12 @@ class SeoPageController extends Controller
     public function resolve(Request $request)
     {
         $path = (string) $request->query('path', '/');
-        $page = $this->seoPageService->resolveForPath($path);
-
-        if (!$page) {
-            return sendResponse(
-                false,
-                'SEO page not found',
-                null,
-                HttpStatus::HTTP_NOT_FOUND,
-            );
-        }
+        $resolved = $this->seoResolverService->resolve($path);
 
         return sendResponse(
             true,
-            'SEO page resolved successfully',
-            new SeoPageResource($page),
+            'SEO resolved successfully',
+            new ResolvedSeoResource($resolved),
             HttpStatus::HTTP_OK,
         );
     }

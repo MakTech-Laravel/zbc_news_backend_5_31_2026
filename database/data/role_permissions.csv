@@ -211,3 +211,17 @@ moderator,comments.list
 moderator,comments.approve
 moderator,comments.reject
 moderator,comments.delete
+moderator,contact-inquiries.list
+moderator,contact-inquiries.show
+moderator,contact-inquiries.update
+moderator,contact-inquiries.delete
+moderator,contact-inquiries.reply
+moderator,contact-inquiries.export
+moderator,contact-inquiries.bulk
+editor,contact-inquiries.list
+editor,contact-inquiries.show
+editor,contact-inquiries.update
+editor,contact-inquiries.delete
+editor,contact-inquiries.reply
+editor,contact-inquiries.export
+editor,contact-inquiries.bulk

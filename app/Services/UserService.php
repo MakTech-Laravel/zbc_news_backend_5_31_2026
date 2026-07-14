@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Article;
 use App\Models\User;
 use App\Models\UserInformation;
+use App\Enums\ArticleStatus;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Hash;
@@ -21,6 +22,7 @@ class UserService
         private readonly UserInformation $userInformation,
         private readonly NotificationPreferenceService $notificationPreferenceService,
         private readonly StoredImageService $storedImageService,
+        private readonly SiteSettingsService $siteSettingsService,
     ) {}
 
     public function getAllUsers()
@@ -39,6 +41,7 @@ class UserService
             'name' => $data['name'],
             'email' => $data['email'],
             'password' => $data['password'],
+            'slug' => $this->resolveSlug($data['slug'] ?? $data['name']),
         ]);
 
         if (isset($data['role'])) {
@@ -60,6 +63,8 @@ class UserService
             'profile_image' => $profileImage,
             'bio'    => $data['bio'] ?? null,
             'region' => $data['region'] ?? null,
+            'public_title' => $data['public_title'] ?? null,
+            'social_links' => $this->normalizeSocialLinks($data),
         ]);
 
         return $user->load('userInformation');
@@ -76,6 +81,16 @@ class UserService
         }
 
         $user->update(Arr::only($data, ['name', 'email', 'password']));
+
+        if (array_key_exists('slug', $data)) {
+            $user->update([
+                'slug' => $this->resolveSlug($data['slug'] ?: $data['name'] ?? $user->name, $user->id),
+            ]);
+        } elseif (! $user->slug) {
+            $user->update([
+                'slug' => $this->resolveSlug($user->name, $user->id),
+            ]);
+        }
 
         if (isset($data['role'])) {
             $user->syncRoles([$data['role']]);
@@ -99,12 +114,16 @@ class UserService
             }
         }
 
+        $socialLinks = $this->normalizeSocialLinks($data, $user->userInformation?->social_links ?? []);
+
         UserInformation::updateOrCreate(
             ['user_id' => $user->id],
             [
                 'profile_image' => $profileImage ?? $user->userInformation?->profile_image,
-                'bio'           => $data['bio']    ?? $user->userInformation?->bio,
-                'region'        => $data['region'] ?? $user->userInformation?->region,
+                'bio'           => array_key_exists('bio', $data) ? $data['bio'] : $user->userInformation?->bio,
+                'region'        => array_key_exists('region', $data) ? $data['region'] : $user->userInformation?->region,
+                'public_title'  => array_key_exists('public_title', $data) ? $data['public_title'] : $user->userInformation?->public_title,
+                'social_links'  => $socialLinks,
             ]
         );
 
@@ -157,5 +176,114 @@ class UserService
                     'created_at' => $activity->created_at,
                 ];
             });
+    }
+
+    /**
+     * @return array{user: User, published_count: int, items: \Illuminate\Support\Collection, meta: array<string, int>}
+     */
+    public function getPublicAuthorBySlug(string $slug, ?int $perPage = null, int $page = 1): array
+    {
+        $user = $this->user
+            ->where('slug', $slug)
+            ->with('userInformation')
+            ->firstOrFail();
+
+        $publishedQuery = $this->article
+            ->where('user_id', $user->id)
+            ->where('status', ArticleStatus::PUBLISHED->value)
+            ->whereNotNull('published_at');
+
+        $publishedCount = (clone $publishedQuery)->count();
+
+        $perPage = $perPage ?? $this->siteSettingsService->getPostsPerPage();
+        $paginator = (clone $publishedQuery)
+            ->with(['tags', 'category', 'user'])
+            ->latest('published_at')
+            ->paginate($perPage, ['*'], 'page', max(1, $page));
+
+        return [
+            'user' => $user,
+            'published_count' => $publishedCount,
+            'items' => $paginator->getCollection(),
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
+        ];
+    }
+
+    public function resolveSlug(string $base, ?int $excludeUserId = null): string
+    {
+        return User::generateUniqueSlug($base, $excludeUserId);
+    }
+
+    public function backfillMissingUserSlugs(): int
+    {
+        $updated = 0;
+
+        $this->user->query()
+            ->where(function ($query): void {
+                $query->whereNull('slug')
+                    ->orWhere('slug', '');
+            })
+            ->orderBy('id')
+            ->chunkById(200, function ($users) use (&$updated): void {
+                foreach ($users as $user) {
+                    if (filled($user->slug)) {
+                        continue;
+                    }
+
+                    $user->forceFill([
+                        'slug' => $this->resolveSlug($user->name, $user->id),
+                    ])->saveQuietly();
+
+                    $updated++;
+                }
+            });
+
+        return $updated;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $existing
+     * @return array<string, string>|null
+     */
+    private function normalizeSocialLinks(array $data, array $existing = []): ?array
+    {
+        $keys = ['facebook', 'twitter', 'linkedin', 'instagram', 'youtube', 'website'];
+        $links = $existing;
+
+        if (isset($data['social_links']) && is_array($data['social_links'])) {
+            foreach ($data['social_links'] as $key => $value) {
+                if (! is_string($key) || ! in_array($key, $keys, true)) {
+                    continue;
+                }
+
+                $trimmed = is_string($value) ? trim($value) : '';
+                if ($trimmed === '') {
+                    unset($links[$key]);
+                } else {
+                    $links[$key] = $trimmed;
+                }
+            }
+        }
+
+        foreach ($keys as $key) {
+            if (! array_key_exists($key, $data)) {
+                continue;
+            }
+
+            $trimmed = is_string($data[$key]) ? trim($data[$key]) : '';
+            if ($trimmed === '') {
+                unset($links[$key]);
+            } else {
+                $links[$key] = $trimmed;
+            }
+        }
+
+        return $links === [] ? null : $links;
     }
 }
