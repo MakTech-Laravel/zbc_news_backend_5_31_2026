@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\V1\backend\PermissionController;
 use App\Http\Controllers\Api\V1\backend\RoleController;
 use App\Http\Controllers\Api\V1\backend\SaveArticleController;
 use App\Http\Controllers\Api\V1\backend\SeoPageController;
+use App\Http\Controllers\Api\V1\backend\SeoSitemapAdminController;
 use App\Http\Controllers\Api\V1\backend\SiteSettingsController;
 use App\Http\Controllers\Api\V1\backend\TagController;
 use App\Http\Controllers\Api\V1\backend\UserController;
@@ -139,6 +140,17 @@ Route::controller(SeoPageController::class)->prefix('seo-pages')->group(function
         ->middleware('permission:'.PermissionEnum::SITE_SETTINGS_LIST->value);
     Route::post('/update/{pageKey}', 'update')->name('api.v1.seo-pages.update')
         ->middleware('permission:'.PermissionEnum::SITE_SETTINGS_UPDATE->value);
+});
+
+// Admin convenience controls for the public sitemap/robots endpoints (manual
+// refresh + inspection download). Not a replacement for the live URLs.
+Route::controller(SeoSitemapAdminController::class)->prefix('seo')->group(function () {
+    Route::post('/sitemap/refresh', 'refresh')->name('api.v1.seo.sitemap.refresh')
+        ->middleware('permission:'.PermissionEnum::SITE_SETTINGS_UPDATE->value);
+    Route::get('/sitemap/download', 'downloadSitemap')->name('api.v1.seo.sitemap.download')
+        ->middleware('permission:'.PermissionEnum::SITE_SETTINGS_LIST->value);
+    Route::get('/robots/download', 'downloadRobots')->name('api.v1.seo.robots.download')
+        ->middleware('permission:'.PermissionEnum::SITE_SETTINGS_LIST->value);
 });
 
 Route::controller(MembershipPlanController::class)->prefix('plans')->group(function () {

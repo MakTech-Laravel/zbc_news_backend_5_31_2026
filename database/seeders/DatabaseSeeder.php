@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
             SeoPageSeeder::class,
             NavigationLinkSeeder::class,
             AdSlotSeeder::class,
+            EntitySeoMetaSeeder::class,
         ]);
        
     }
