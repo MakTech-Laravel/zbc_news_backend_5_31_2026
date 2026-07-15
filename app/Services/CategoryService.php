@@ -5,14 +5,41 @@ namespace App\Services;
 use App\Models\ArticleCategory;
 use App\Models\SeoPage;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 class CategoryService
 {
+    /**
+     * Cache key for the public category payload, served by the frontend CategoryController.
+     *
+     * The cache deliberately wraps the *public controller's* read rather than
+     * getAllCategories() itself: that method is also called by three admin endpoints, which
+     * must always see live data — an admin editing categories cannot be served their own
+     * stale list.
+     */
+    public const CACHE_PUBLIC = 'categories:public';
+
+    /** 1 hour — categories are admin-edited and change rarely; every write path flushes below. */
+    public const TTL_PUBLIC = 3600;
+
     public function __construct(
         private readonly SeoMetaService $seoMetaService,
     ) {}
+
+    /**
+     * Invalidate the cached public category payload.
+     *
+     * Every write path in this service calls this — including reorder() and moveToPosition(),
+     * which change only sort_order. The cached payload is ordered by sort_order, so those two
+     * change it just as much as a create or a delete does, despite not touching any row's
+     * visible content. That is exactly why they are the easiest flushes to forget.
+     */
+    public function flushCache(): void
+    {
+        Cache::forget(self::CACHE_PUBLIC);
+    }
 
     public function getAllCategories(): Collection
     {
@@ -32,6 +59,7 @@ class CategoryService
 
         $category = ArticleCategory::create($data);
         $this->syncSeoPage($category);
+        $this->flushCache();
 
         return $category;
     }
@@ -47,6 +75,7 @@ class CategoryService
         $category->update($data);
         $category->refresh();
         $this->syncSeoPage($category);
+        $this->flushCache();
 
         return $category;
     }
@@ -71,6 +100,8 @@ class CategoryService
                     ->update(['sort_order' => $index + 1]);
             }
         });
+
+        $this->flushCache();
     }
 
     public function moveToPosition(ArticleCategory $category, int $position): void
@@ -100,6 +131,11 @@ class CategoryService
         array_splice($ids, $targetIndex, 0, [(int) $category->id]);
 
         $this->reorder($ids);
+
+        // Flushed by reorder() above, but flushed here too rather than depending on that
+        // delegation: it is an implementation detail, and this method is one of the two
+        // easiest places to lose invalidation if the call is ever inlined or replaced.
+        $this->flushCache();
     }
 
     public function delete(string $slug): void
@@ -111,6 +147,7 @@ class CategoryService
         }
 
         $category->delete();
+        $this->flushCache();
     }
 
     public function restore(string $slug): ArticleCategory
@@ -120,6 +157,7 @@ class CategoryService
             ->firstOrFail();
 
         $category->restore();
+        $this->flushCache();
 
         return $category;
     }
@@ -131,6 +169,7 @@ class CategoryService
             ->firstOrFail();
 
         $category->forceDelete();
+        $this->flushCache();
     }
 
     private function syncSeoPage(ArticleCategory $category): void

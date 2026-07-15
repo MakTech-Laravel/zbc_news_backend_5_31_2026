@@ -12,6 +12,7 @@ class AdSlotController extends Controller
     public function index()
     {
         $slots = AdSlot::query()->orderBy('slot_key')->get();
+
         return sendResponse(true, 'Ad slots retrieved successfully', $slots, HttpStatus::HTTP_OK);
     }
 
@@ -31,6 +32,8 @@ class AdSlotController extends Controller
         ]);
 
         $slot = AdSlot::query()->create($validated);
+        AdSlot::flushPublicCache();
+
         return sendResponse(true, 'Ad slot created successfully', $slot, HttpStatus::HTTP_CREATED);
     }
 
@@ -51,7 +54,8 @@ class AdSlotController extends Controller
         ]);
 
         $slot->update($validated);
+        AdSlot::flushPublicCache();
+
         return sendResponse(true, 'Ad slot updated successfully', $slot, HttpStatus::HTTP_OK);
     }
 }
-
