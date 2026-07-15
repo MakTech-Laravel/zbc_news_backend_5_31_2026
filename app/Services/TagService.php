@@ -73,17 +73,25 @@ class TagService
      * cause of change. Flushing on every article write instead would invalidate a
      * site-wide aggregate constantly, for data that is decorative ranking rather than
      * correctness-critical. A short TTL bounds the staleness at a cost users can't see.
+     *
+     * Plain rows are cached and rehydrated rather than caching the models themselves: cache
+     * stores serialize their payloads, and models do not survive that round trip here (they
+     * return as __PHP_Incomplete_Class). Callers still receive a Tag collection, including the
+     * articles_count aggregate, so the method's contract is unchanged.
      */
     public function getTrendingTags(int $limit = 10)
     {
-        return Cache::remember(
+        $rows = Cache::remember(
             self::CACHE_TRENDING.':'.$limit,
             self::TTL_TRENDING,
             fn () => $this->tag
                 ->withCount('articles')
                 ->orderBy('articles_count', 'desc')
                 ->limit($limit)
-                ->get(),
+                ->get()
+                ->toArray(),
         );
+
+        return $this->tag->hydrate($rows);
     }
 }

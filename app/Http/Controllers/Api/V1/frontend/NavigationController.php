@@ -9,6 +9,11 @@ use Symfony\Component\HttpFoundation\Response as HttpStatus;
 
 class NavigationController extends Controller
 {
+    /**
+     * The cached value is a plain array, never the Eloquent collection: cache stores serialize
+     * their payloads and models do not survive that round trip here, returning as
+     * __PHP_Incomplete_Class. The JSON response is identical either way.
+     */
     public function quickLinks()
     {
         $links = Cache::remember(
@@ -18,7 +23,8 @@ class NavigationController extends Controller
                 ->where('location', NavigationLink::LOCATION_QUICK_LINKS)
                 ->where('is_active', true)
                 ->orderBy('sort_order')
-                ->get(['id', 'label', 'url', 'icon', 'sort_order']),
+                ->get(['id', 'label', 'url', 'icon', 'sort_order'])
+                ->toArray(),
         );
 
         return sendResponse(

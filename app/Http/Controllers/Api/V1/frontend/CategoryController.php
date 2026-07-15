@@ -14,18 +14,25 @@ class CategoryController extends Controller
         private readonly CategoryService $categoryService
     ) {}
 
+    /**
+     * The cached value is the resolved resource payload (a plain array), never the Eloquent
+     * collection: cache stores serialize their payloads, and models do not survive that round
+     * trip here — they come back as __PHP_Incomplete_Class and blow up. Caching the array also
+     * skips the per-category SEO resolution the resource performs on every warm hit.
+     */
     public function index()
     {
         $categories = Cache::remember(
             CategoryService::CACHE_PUBLIC,
             CategoryService::TTL_PUBLIC,
-            fn () => $this->categoryService->getAllCategories(),
+            fn () => Category::collection($this->categoryService->getAllCategories())
+                ->resolve(),
         );
 
         return sendResponse(
             true,
             'Categories retrieved successfully',
-            Category::collection($categories),
+            $categories,
             HttpStatus::HTTP_OK,
         );
     }

@@ -406,8 +406,89 @@ Hashed assets are immutable-cached; the HTML document is **not** cached — the 
 the one that would have been broken by "fixing" it. Two of the project owner's four asks
 (compression, browser caching at the app layer) close out here as already-correct, with evidence.
 
+## Post-implementation defect: cached Eloquent models broke all four endpoints
+
+Found after Phase 2 "completed", by running the app — not by the test suite. All four cached
+endpoints returned **500** on their second (warm) request:
+
+```
+The script tried to call a method on an incomplete object. Please ensure that the class
+definition "Illuminate\Database\Eloquent\Collection" ... was loaded before unserialize()
+```
+
+### Root cause
+
+Cache stores serialize their payloads. **Eloquent models do not survive that round trip in this
+environment** — they return as `__PHP_Incomplete_Class`, and anything that touches them
+(`Category::collection()`, `->keyBy()`, resource rendering) fatals.
+
+The stored bytes show why:
+
+```
+O:39:"Illuminate\Database\Eloquent\Collection":2:{s:8:"\*\items";...
+                                                       ^^^^^^^^
+```
+
+PHP's serialize format marks protected properties with real NUL bytes (`\0*\0`). They come back
+**backslash-escaped as text**, so `unserialize()` cannot resolve the class. This is a property of
+the environment's storage round trip, not of the cached endpoints — any object payload is
+affected. Plain arrays, having no class to resolve, round-trip cleanly.
+
+### Why the tests missed it — the important part
+
+`phpunit.xml` sets `CACHE_STORE=array`. The array driver holds live objects in memory and
+**never serializes**, so it cannot reproduce this class of bug. The local `.env` and the VM both
+use `CACHE_STORE=database`, which does. 126 tests passed against four endpoints that were broken
+in every real environment.
+
+The controls run during Phase 2 were sound but tested the wrong axis: they proved the caches
+*hit* and *bust* correctly, never that a cached payload survives storage.
+
+The codebase already knew this and the plan misread it. `SitemapService` was cited as the pattern
+to mirror — but what it caches is `->render()` output, **a string**. `SiteSettingsService` caches
+a model and guards every read with `$cached instanceof SiteSettings`, forgetting the key when the
+check fails. Both are working around exactly this. The constants were copied; the actual lesson —
+**cache plain data, not models** — was not.
+
+### Fix
+
+Every cached payload is now plain data:
+
+| Endpoint | Cached value |
+| --- | --- |
+| `categories` | `Category::collection(...)->resolve()` — resolved resource array (also skips per-category SEO resolution on warm hits) |
+| `navigation/quick-links` | `->get([...])->toArray()` |
+| `ads/slots` | `->keyBy('slot_key')->toArray()` — `keyBy` before `toArray` preserves the keyed-object JSON shape |
+| `trending-tags` | `->get()->toArray()`, rehydrated via `$this->tag->hydrate($rows)` so the method's return contract is unchanged |
+
+Verified over real HTTP against `CACHE_STORE=database` (the driver that failed), each endpoint
+hit twice:
+
+```
+categories               cold=200  warm(cached)=200   payload IDENTICAL
+trending-tags            cold=200  warm(cached)=200   payload IDENTICAL
+navigation/quick-links   cold=200  warm(cached)=200   payload IDENTICAL
+ads/slots                cold=200  warm(cached)=200   payload IDENTICAL
+```
+
+Empty and populated `ads/slots` payloads were checked for shape parity against the original
+collection (`[]` and `{"home_top":{...}}` respectively) — `toArray()` after `keyBy()` is a safe
+substitution.
+
+### Regression guard
+
+`tests/Feature/Cache/SerializedCachePayloadTest.php` forces the **file** store (serializes
+identically to database/redis, needs neither) and hits each endpoint twice. Confirmed to catch
+the original bug: reintroducing it fails with
+`__PHP_Incomplete_Class_Name => Illuminate\Database\Eloquent\Collection` — the production error,
+in CI.
+
+`phpunit.xml` is deliberately left on `array` for the rest of the suite (speed); these six tests
+are the only ones that need the serialization boundary, and they opt in per-test.
+
 ## Final state
 
-- Backend: `php artisan test --compact` → **126 tests, 126 passed, 471 assertions** (from 106).
+- Backend: `php artisan test --compact` → **132 tests, 132 passed, 489 assertions** (from 106).
 - `vendor/bin/pint --dirty` → **passed**.
 - Frontend: no changes; `perf-caching` branch is identical to `ssr-cleanup-sitemap`.
+- `php artisan cache:clear` run — the poisoned rows written before the fix are gone.

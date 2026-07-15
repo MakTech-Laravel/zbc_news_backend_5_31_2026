@@ -9,6 +9,12 @@ use Symfony\Component\HttpFoundation\Response as HttpStatus;
 
 class AdSlotController extends Controller
 {
+    /**
+     * The cached value is a plain array keyed by slot_key, never the Eloquent collection:
+     * cache stores serialize their payloads and models do not survive that round trip here,
+     * returning as __PHP_Incomplete_Class. keyBy() runs before toArray() so the response keeps
+     * its keyed-object shape.
+     */
     public function index()
     {
         $slots = Cache::remember(
@@ -26,7 +32,8 @@ class AdSlotController extends Controller
                     'manual_click_url',
                     'manual_html',
                 ])
-                ->keyBy('slot_key'),
+                ->keyBy('slot_key')
+                ->toArray(),
         );
 
         return sendResponse(
