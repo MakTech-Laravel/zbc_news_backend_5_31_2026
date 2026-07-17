@@ -13,9 +13,7 @@ class RefreshSitemapCache extends Command
 
     public function handle(SitemapService $sitemap): int
     {
-        $sitemap->flushCache();
-        $sitemap->generalXml();
-        $sitemap->newsXml();
+        $sitemap->refresh();
 
         $this->info('Sitemap caches refreshed.');
 
