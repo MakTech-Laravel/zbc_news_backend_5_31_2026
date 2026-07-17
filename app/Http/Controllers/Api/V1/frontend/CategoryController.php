@@ -15,18 +15,30 @@ class CategoryController extends Controller
     ) {}
 
     /**
-     * The cached value is the resolved resource payload (a plain array), never the Eloquent
-     * collection: cache stores serialize their payloads, and models do not survive that round
-     * trip here — they come back as __PHP_Incomplete_Class and blow up. Caching the array also
-     * skips the per-category SEO resolution the resource performs on every warm hit.
+     * The cached value is the resource payload round-tripped through JSON, which is what makes
+     * it cache-safe.
+     *
+     * resolve() alone is not enough: it resolves only the top level, so nested values stay as
+     * live objects — `children` comes back an Eloquent Collection (map() on an Eloquent
+     * collection returns one), and `status` a backed enum. Those serialize into the cache but
+     * unserialize in a fresh worker as __PHP_Incomplete_Class, and the endpoint then serves
+     * `{"__PHP_Incomplete_Class_Name": ...}` in place of every category's children — a 200
+     * response carrying corrupt data rather than a visible failure.
+     *
+     * Encoding and decoding forces every nested object (collections, enums, Carbon dates)
+     * through its JSON representation, which is exactly what the response returns anyway, so
+     * the cached value is identical to the uncached one and contains no class references at
+     * all. Caching it also skips the per-category SEO resolution on warm hits.
      */
     public function index()
     {
         $categories = Cache::remember(
             CategoryService::CACHE_PUBLIC,
             CategoryService::TTL_PUBLIC,
-            fn () => Category::collection($this->categoryService->getAllCategories())
-                ->resolve(),
+            fn () => json_decode(
+                Category::collection($this->categoryService->getAllCategories())->toJson(),
+                true,
+            ),
         );
 
         return sendResponse(
