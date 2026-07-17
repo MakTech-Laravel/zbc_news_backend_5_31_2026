@@ -3,9 +3,14 @@
 namespace App\Services;
 
 use App\Models\Tag;
+use Illuminate\Support\Facades\Cache;
 
 class TagService
 {
+    private const CACHE_TRENDING = 'tags:trending';
+
+    private const TTL_TRENDING = 600;      // 10 minutes — counts shift with article writes, not tag writes.
+
     /**
      * Create a new class instance.
      */
@@ -30,6 +35,7 @@ class TagService
     {
         $tag = $this->getTagById($id);
         $tag->update($data);
+
         return $tag;
     }
 
@@ -59,12 +65,33 @@ class TagService
         $tag->forceDelete();
     }
 
+    /**
+     * Trending tags, cached on a short TTL rather than invalidated on write.
+     *
+     * The ranking is driven by article writes (publishing shifts the counts), not by tag
+     * writes, so hooking the tag write paths would look correct while missing every real
+     * cause of change. Flushing on every article write instead would invalidate a
+     * site-wide aggregate constantly, for data that is decorative ranking rather than
+     * correctness-critical. A short TTL bounds the staleness at a cost users can't see.
+     *
+     * Plain rows are cached and rehydrated rather than caching the models themselves: cache
+     * stores serialize their payloads, and models do not survive that round trip here (they
+     * return as __PHP_Incomplete_Class). Callers still receive a Tag collection, including the
+     * articles_count aggregate, so the method's contract is unchanged.
+     */
     public function getTrendingTags(int $limit = 10)
     {
-        return $this->tag
-            ->withCount('articles')
-            ->orderBy('articles_count', 'desc')
-            ->limit($limit)
-            ->get();
+        $rows = Cache::remember(
+            self::CACHE_TRENDING.':'.$limit,
+            self::TTL_TRENDING,
+            fn () => $this->tag
+                ->withCount('articles')
+                ->orderBy('articles_count', 'desc')
+                ->limit($limit)
+                ->get()
+                ->toArray(),
+        );
+
+        return $this->tag->hydrate($rows);
     }
 }

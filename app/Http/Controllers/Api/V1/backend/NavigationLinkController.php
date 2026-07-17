@@ -33,6 +33,8 @@ class NavigationLinkController extends Controller
         ]);
 
         $item = NavigationLink::query()->create($validated);
+        NavigationLink::flushPublicCache();
+
         return sendResponse(true, 'Navigation link created successfully', $item, HttpStatus::HTTP_CREATED);
     }
 
@@ -50,6 +52,8 @@ class NavigationLinkController extends Controller
         ]);
 
         $item->update($validated);
+        NavigationLink::flushPublicCache();
+
         return sendResponse(true, 'Navigation link updated successfully', $item, HttpStatus::HTTP_OK);
     }
 
@@ -57,8 +61,8 @@ class NavigationLinkController extends Controller
     {
         $item = NavigationLink::query()->findOrFail($id);
         $item->delete();
+        NavigationLink::flushPublicCache();
 
         return sendResponse(true, 'Navigation link deleted successfully', null, HttpStatus::HTTP_OK);
     }
 }
-
