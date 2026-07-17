@@ -47,13 +47,24 @@ class SerializedCachePayloadTest extends TestCase
 
     /**
      * Each endpoint is hit twice: the second request is served from the warm, serialized cache
-     * and is the one that used to fail. The payloads must be identical — a cache that changes
-     * the response shape is as broken as one that throws.
+     * and is the one that used to fail.
+     *
+     * Comparing cold to warm is necessary but NOT sufficient, and an earlier version of this
+     * helper stopped there and passed while categories was serving corrupt data: a payload
+     * carrying an unserializable object degrades the *same way* on both requests, so the two
+     * match perfectly and both are wrong. The __PHP_Incomplete_Class assertion is what actually
+     * catches it — that marker is what a failed unserialize leaves behind in a live response.
      */
     private function assertEndpointSurvivesSerializedCache(string $uri): void
     {
         $cold = $this->getJson($uri)->assertOk();
         $warm = $this->getJson($uri)->assertOk();
+
+        $this->assertStringNotContainsString(
+            '__PHP_Incomplete_Class',
+            $warm->getContent(),
+            "{$uri} served an unserializable object from the cache — the response is a 200 carrying corrupt data.",
+        );
 
         $this->assertSame(
             $cold->json(),
@@ -62,16 +73,64 @@ class SerializedCachePayloadTest extends TestCase
         );
     }
 
+    /**
+     * A child category is essential here, not incidental. The Category resource builds
+     * `children` with whenLoaded(...map(...)), and map() on an Eloquent collection returns an
+     * Eloquent collection — the object that breaks the cache. With no child rows, children is
+     * empty, that branch never runs, and this test passes against genuinely broken code.
+     */
     public function test_categories_survives_a_serializing_cache_store(): void
     {
-        ArticleCategory::query()->create([
+        $politics = ArticleCategory::query()->create([
             'title' => 'Politics',
             'slug' => 'politics',
             'status' => ArticleCategoryStatus::ACTIVE->value,
             'sort_order' => 1,
         ]);
 
+        ArticleCategory::query()->create([
+            'title' => 'Elections',
+            'slug' => 'elections',
+            'status' => ArticleCategoryStatus::ACTIVE->value,
+            'sort_order' => 1,
+            'parent_id' => $politics->id,
+        ]);
+
         $this->assertEndpointSurvivesSerializedCache('/api/v1/categories');
+    }
+
+    /**
+     * The nested children payload must survive the cache as real data, not as the marker a
+     * failed unserialize leaves behind. This is the exact corruption seen in production: a 200
+     * response where every category's children was
+     * {"__PHP_Incomplete_Class_Name":"Illuminate\\Database\\Eloquent\\Collection"}.
+     */
+    public function test_categories_children_survive_the_cache_as_real_data(): void
+    {
+        $politics = ArticleCategory::query()->create([
+            'title' => 'Politics',
+            'slug' => 'politics',
+            'status' => ArticleCategoryStatus::ACTIVE->value,
+            'sort_order' => 1,
+        ]);
+
+        ArticleCategory::query()->create([
+            'title' => 'Elections',
+            'slug' => 'elections',
+            'status' => ArticleCategoryStatus::ACTIVE->value,
+            'sort_order' => 1,
+            'parent_id' => $politics->id,
+        ]);
+
+        $this->getJson('/api/v1/categories')->assertOk();
+
+        $warm = $this->getJson('/api/v1/categories')->assertOk();
+
+        $parent = collect($warm->json('data'))->firstWhere('slug', 'politics');
+
+        $this->assertIsArray($parent['children'], 'children must decode as a plain array, not an object marker.');
+        $this->assertSame('Elections', $parent['children'][0]['title'] ?? null);
+        $this->assertSame('active', $parent['children'][0]['status'] ?? null, 'The child status enum must serialize to its string value.');
     }
 
     public function test_trending_tags_survives_a_serializing_cache_store(): void
