@@ -38,6 +38,19 @@ class SiteSettingsController extends Controller
             $data['favicon'] = trim($data['favicon']) ?: null;
         }
 
+        foreach (
+            [
+                'google_adsense_client',
+                'google_adsense_banner_slot',
+                'google_adsense_sidebar_slot',
+                'google_adsense_square_slot',
+            ] as $field
+        ) {
+            if (array_key_exists($field, $data) && is_string($data[$field])) {
+                $data[$field] = trim($data[$field]) ?: null;
+            }
+        }
+
         $siteSettings = $this->siteSettingsService->createOrUpdate($data);
 
         $isNew = $siteSettings->wasRecentlyCreated;

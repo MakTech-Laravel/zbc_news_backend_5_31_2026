@@ -31,6 +31,12 @@ class AdSlotController extends Controller
             'manual_html' => ['nullable', 'string'],
         ]);
 
+        foreach (['google_ad_client', 'google_ad_slot', 'manual_click_url'] as $field) {
+            if (array_key_exists($field, $validated) && is_string($validated[$field])) {
+                $validated[$field] = trim($validated[$field]);
+            }
+        }
+
         $slot = AdSlot::query()->create($validated);
         AdSlot::flushPublicCache();
 
@@ -52,6 +58,12 @@ class AdSlotController extends Controller
             'manual_click_url' => ['nullable', 'string', 'max:500'],
             'manual_html' => ['nullable', 'string'],
         ]);
+
+        foreach (['google_ad_client', 'google_ad_slot', 'manual_click_url'] as $field) {
+            if (array_key_exists($field, $validated) && is_string($validated[$field])) {
+                $validated[$field] = trim($validated[$field]);
+            }
+        }
 
         $slot->update($validated);
         AdSlot::flushPublicCache();
