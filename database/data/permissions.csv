@@ -85,3 +85,13 @@ contact-inquiries.delete,api,Contact Inquiries
 contact-inquiries.reply,api,Contact Inquiries
 contact-inquiries.export,api,Contact Inquiries
 contact-inquiries.bulk,api,Contact Inquiries
+menus.list,api,Menus
+menus.create,api,Menus
+menus.show,api,Menus
+menus.update,api,Menus
+menus.delete,api,Menus
+menus.restore,api,Menus
+menus.force-delete,api,Menus
+menus.reorder,api,Menus
+menus.manage-locations,api,Menus
+menus.manage-items,api,Menus

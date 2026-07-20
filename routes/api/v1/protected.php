@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\backend\ArticleTrackingController;
 use App\Http\Controllers\Api\V1\backend\CategoryController;
 use App\Http\Controllers\Api\V1\backend\MediaController;
 use App\Http\Controllers\Api\V1\backend\MembershipPlanController;
+use App\Http\Controllers\Api\V1\backend\MenuController;
 use App\Http\Controllers\Api\V1\backend\MonetizationController;
 use App\Http\Controllers\Api\V1\backend\NavigationLinkController;
 use App\Http\Controllers\Api\V1\backend\NewsletterController;
@@ -293,6 +294,54 @@ Route::controller(NavigationLinkController::class)->prefix('navigation-links')->
     Route::post('/store', 'store')->name('api.v1.navigation-links.store');
     Route::post('/update/{id}', 'update')->name('api.v1.navigation-links.update');
     Route::delete('/delete/{id}', 'destroy')->name('api.v1.navigation-links.destroy');
+});
+
+Route::controller(MenuController::class)->prefix('menus')->group(function () {
+    Route::get('/item-types', 'itemTypes')->name('api.v1.menus.item-types')
+        ->middleware('permission:'.PermissionEnum::MENUS_LIST->value);
+
+    Route::get('/locations', 'locationsIndex')->name('api.v1.menus.locations.index')
+        ->middleware('permission:'.PermissionEnum::MENUS_LIST->value.'|'.PermissionEnum::MENUS_MANAGE_LOCATIONS->value);
+    Route::post('/locations/store', 'locationsStore')->name('api.v1.menus.locations.store')
+        ->middleware('permission:'.PermissionEnum::MENUS_MANAGE_LOCATIONS->value);
+    Route::post('/locations/update/{id}', 'locationsUpdate')->name('api.v1.menus.locations.update')
+        ->middleware('permission:'.PermissionEnum::MENUS_MANAGE_LOCATIONS->value);
+    Route::delete('/locations/delete/{id}', 'locationsDestroy')->name('api.v1.menus.locations.destroy')
+        ->middleware('permission:'.PermissionEnum::MENUS_MANAGE_LOCATIONS->value);
+
+    Route::get('/', 'index')->name('api.v1.menus.index')
+        ->middleware('permission:'.PermissionEnum::MENUS_LIST->value);
+    Route::post('/store', 'store')->name('api.v1.menus.store')
+        ->middleware('permission:'.PermissionEnum::MENUS_CREATE->value);
+    Route::get('/show/{id}', 'show')->name('api.v1.menus.show')
+        ->middleware('permission:'.PermissionEnum::MENUS_SHOW->value);
+    Route::get('/slug/{slug}', 'showBySlug')->name('api.v1.menus.show-by-slug')
+        ->middleware('permission:'.PermissionEnum::MENUS_SHOW->value);
+    Route::get('/tree/{id}', 'tree')->name('api.v1.menus.tree')
+        ->middleware('permission:'.PermissionEnum::MENUS_SHOW->value);
+    Route::post('/update/{id}', 'update')->name('api.v1.menus.update')
+        ->middleware('permission:'.PermissionEnum::MENUS_UPDATE->value);
+    Route::delete('/delete/{id}', 'destroy')->name('api.v1.menus.destroy')
+        ->middleware('permission:'.PermissionEnum::MENUS_DELETE->value);
+    Route::post('/restore/{id}', 'restore')->name('api.v1.menus.restore')
+        ->middleware('permission:'.PermissionEnum::MENUS_RESTORE->value);
+    Route::delete('/force/{id}', 'forceDelete')->name('api.v1.menus.forceDelete')
+        ->middleware('permission:'.PermissionEnum::MENUS_FORCE_DELETE->value);
+
+    Route::post('/{menuId}/items/store', 'storeItem')->name('api.v1.menus.items.store')
+        ->middleware('permission:'.PermissionEnum::MENUS_MANAGE_ITEMS->value.'|'.PermissionEnum::MENUS_UPDATE->value);
+    Route::post('/items/update/{itemId}', 'updateItem')->name('api.v1.menus.items.update')
+        ->middleware('permission:'.PermissionEnum::MENUS_MANAGE_ITEMS->value.'|'.PermissionEnum::MENUS_UPDATE->value);
+    Route::delete('/items/delete/{itemId}', 'destroyItem')->name('api.v1.menus.items.destroy')
+        ->middleware('permission:'.PermissionEnum::MENUS_MANAGE_ITEMS->value.'|'.PermissionEnum::MENUS_DELETE->value);
+    Route::post('/items/restore/{itemId}', 'restoreItem')->name('api.v1.menus.items.restore')
+        ->middleware('permission:'.PermissionEnum::MENUS_RESTORE->value);
+    Route::delete('/items/force/{itemId}', 'forceDeleteItem')->name('api.v1.menus.items.forceDelete')
+        ->middleware('permission:'.PermissionEnum::MENUS_FORCE_DELETE->value);
+    Route::post('/{menuId}/items/reorder', 'reorderItems')->name('api.v1.menus.items.reorder')
+        ->middleware('permission:'.PermissionEnum::MENUS_REORDER->value.'|'.PermissionEnum::MENUS_UPDATE->value);
+    Route::post('/{menuId}/items/sync-tree', 'syncTree')->name('api.v1.menus.items.sync-tree')
+        ->middleware('permission:'.PermissionEnum::MENUS_REORDER->value.'|'.PermissionEnum::MENUS_UPDATE->value);
 });
 
 Route::controller(AdSlotController::class)->prefix('ad-slots')->group(function () {

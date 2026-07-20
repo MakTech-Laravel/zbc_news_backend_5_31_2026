@@ -23,6 +23,8 @@ class DatabaseSeeder extends Seeder
             SiteSettingsSeeder::class,
             SeoPageSeeder::class,
             NavigationLinkSeeder::class,
+            MenuLocationSeeder::class,
+            MenuDemoSeeder::class,
             AdSlotSeeder::class,
             EntitySeoMetaSeeder::class,
         ]);
