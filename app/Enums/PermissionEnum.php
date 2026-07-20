@@ -105,4 +105,15 @@ enum PermissionEnum: string
     case CONTACT_INQUIRIES_REPLY = 'contact-inquiries.reply';
     case CONTACT_INQUIRIES_EXPORT = 'contact-inquiries.export';
     case CONTACT_INQUIRIES_BULK = 'contact-inquiries.bulk';
+
+    case MENUS_LIST = 'menus.list';
+    case MENUS_CREATE = 'menus.create';
+    case MENUS_SHOW = 'menus.show';
+    case MENUS_UPDATE = 'menus.update';
+    case MENUS_DELETE = 'menus.delete';
+    case MENUS_RESTORE = 'menus.restore';
+    case MENUS_FORCE_DELETE = 'menus.force-delete';
+    case MENUS_REORDER = 'menus.reorder';
+    case MENUS_MANAGE_LOCATIONS = 'menus.manage-locations';
+    case MENUS_MANAGE_ITEMS = 'menus.manage-items';
 }

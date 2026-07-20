@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\frontend\AuthorController;
 use App\Http\Controllers\Api\V1\frontend\CategoryController;
 use App\Http\Controllers\Api\V1\frontend\CommentController;
 use App\Http\Controllers\Api\V1\frontend\ContactController;
+use App\Http\Controllers\Api\V1\frontend\MenuController;
 use App\Http\Controllers\Api\V1\frontend\NavigationController;
 use App\Http\Controllers\Api\V1\frontend\NewsletterController;
 use App\Http\Controllers\Api\V1\frontend\PublicSiteSettingsController;
@@ -88,6 +89,8 @@ Route::controller(SearchController::class)->prefix('search')->middleware('option
 });
 
 Route::get('/navigation/quick-links', [NavigationController::class, 'quickLinks'])->name('api.v1.navigation.quick-links');
+Route::get('/menus/location/{location}', [MenuController::class, 'byLocation'])->name('api.v1.menus.by-location');
+Route::get('/menus/slug/{slug}', [MenuController::class, 'bySlug'])->name('api.v1.menus.by-slug');
 Route::get('/ads/slots', [AdSlotController::class, 'index'])->name('api.v1.ads.slots');
 Route::post('/ads/track', [AdTrackingController::class, 'track'])
     ->middleware('request_limitter')
