@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Models\Media;
 use App\Services\SeoMetaService;
 use App\Support\MediaUrl;
 use Illuminate\Http\Request;
@@ -27,6 +28,7 @@ class ArticleResource extends JsonResource
             'visibility' => $this->visibility?->value ?? $this->visibility,
             'featured_image' => MediaUrl::resolvePublic($this->featured_image),
             'open_graph_image' => MediaUrl::resolvePublic($this->open_graph_image),
+            'featured_media' => $this->resolveFeaturedMediaPayload(),
 
             'scheduled_publishing' => $this->scheduled_publishing?->toIso8601String(),
             'published_at' => $this->published_at?->toIso8601String(),
@@ -76,5 +78,53 @@ class ArticleResource extends JsonResource
                 },
             ),
         ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function resolveFeaturedMediaPayload(): ?array
+    {
+        /** @var Media|null $featured */
+        $featured = $this->resource->featuredMedia();
+        /** @var Media|null $poster */
+        $poster = $this->resource->posterMedia();
+
+        if ($featured) {
+            $type = match ($featured->media_type) {
+                'video' => 'video',
+                'audio' => 'audio',
+                default => 'image',
+            };
+
+            $posterUrl = $poster?->url
+                ?? $featured->thumbnail_url
+                ?? ($type === 'image' ? $featured->url : null)
+                ?? $this->featured_image;
+
+            return [
+                'uuid' => $featured->uuid,
+                'type' => $type,
+                'url' => MediaUrl::resolvePublic($featured->url),
+                'thumbnail_url' => MediaUrl::resolvePublic($featured->thumbnail_url),
+                'poster_url' => MediaUrl::resolvePublic($posterUrl),
+                'poster_uuid' => $poster?->uuid,
+                'mime_type' => $featured->mime_type,
+            ];
+        }
+
+        if ($this->featured_image) {
+            return [
+                'uuid' => null,
+                'type' => 'image',
+                'url' => MediaUrl::resolvePublic($this->featured_image),
+                'thumbnail_url' => MediaUrl::resolvePublic($this->featured_image),
+                'poster_url' => MediaUrl::resolvePublic($this->featured_image),
+                'poster_uuid' => null,
+                'mime_type' => null,
+            ];
+        }
+
+        return null;
     }
 }

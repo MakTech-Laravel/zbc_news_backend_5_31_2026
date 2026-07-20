@@ -97,6 +97,11 @@ class Media extends Model
         return $this->media_type === 'video';
     }
 
+    public function isAudio(): bool
+    {
+        return $this->media_type === 'audio';
+    }
+
     public function isDocument(): bool
     {
         return $this->media_type === 'document';
