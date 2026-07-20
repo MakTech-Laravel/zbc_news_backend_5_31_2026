@@ -28,9 +28,42 @@ class ArticleCategorySeeder extends Seeder
                 ],
             ],
             [
+                'title' => 'Breaking News',
+                'slug' => 'breaking-news',
+                'sort_order' => 2,
+                'is_featured' => true,
+                'children' => [
+                    ['title' => 'Latest Updates', 'slug' => 'latest-updates'],
+                    ['title' => 'Live Coverage', 'slug' => 'live-coverage'],
+                    ['title' => 'Top Stories', 'slug' => 'top-stories'],
+                ],
+            ],
+            [
+                'title' => 'World',
+                'slug' => 'world',
+                'sort_order' => 3,
+                'is_featured' => true,
+                'children' => [
+                    ['title' => 'Asia', 'slug' => 'asia'],
+                    ['title' => 'Europe', 'slug' => 'europe'],
+                    ['title' => 'Americas', 'slug' => 'americas'],
+                ],
+            ],
+            [
+                'title' => 'Politics',
+                'slug' => 'politics',
+                'sort_order' => 4,
+                'is_featured' => true,
+                'children' => [
+                    ['title' => 'Government', 'slug' => 'government'],
+                    ['title' => 'Elections', 'slug' => 'elections'],
+                    ['title' => 'Policy', 'slug' => 'policy'],
+                ],
+            ],
+            [
                 'title' => 'Technology',
                 'slug' => 'technology',
-                'sort_order' => 2,
+                'sort_order' => 5,
                 'is_featured' => true,
                 'children' => [
                     ['title' => 'Gadgets', 'slug' => 'gadgets'],
@@ -41,7 +74,7 @@ class ArticleCategorySeeder extends Seeder
             [
                 'title' => 'Business',
                 'slug' => 'business',
-                'sort_order' => 3,
+                'sort_order' => 6,
                 'is_featured' => true,
                 'children' => [
                     ['title' => 'Markets', 'slug' => 'markets'],
@@ -52,7 +85,7 @@ class ArticleCategorySeeder extends Seeder
             [
                 'title' => 'Health',
                 'slug' => 'health',
-                'sort_order' => 4,
+                'sort_order' => 7,
                 'is_featured' => false,
                 'children' => [
                     ['title' => 'Wellness', 'slug' => 'wellness'],
@@ -63,12 +96,45 @@ class ArticleCategorySeeder extends Seeder
             [
                 'title' => 'Science',
                 'slug' => 'science',
-                'sort_order' => 5,
+                'sort_order' => 8,
                 'is_featured' => false,
                 'children' => [
                     ['title' => 'Space', 'slug' => 'space'],
                     ['title' => 'Environment', 'slug' => 'environment'],
                     ['title' => 'Climate', 'slug' => 'climate'],
+                ],
+            ],
+            [
+                'title' => 'Sports',
+                'slug' => 'sports',
+                'sort_order' => 9,
+                'is_featured' => true,
+                'children' => [
+                    ['title' => 'Football', 'slug' => 'football'],
+                    ['title' => 'Cricket', 'slug' => 'cricket'],
+                    ['title' => 'Tennis', 'slug' => 'tennis'],
+                ],
+            ],
+            [
+                'title' => 'Entertainment',
+                'slug' => 'entertainment',
+                'sort_order' => 10,
+                'is_featured' => true,
+                'children' => [
+                    ['title' => 'Movies', 'slug' => 'movies'],
+                    ['title' => 'TV Shows', 'slug' => 'tv-shows'],
+                    ['title' => 'Celebrity', 'slug' => 'celebrity'],
+                ],
+            ],
+            [
+                'title' => 'Video',
+                'slug' => 'video',
+                'sort_order' => 11,
+                'is_featured' => false,
+                'children' => [
+                    ['title' => 'Interviews', 'slug' => 'interviews'],
+                    ['title' => 'Documentaries', 'slug' => 'documentaries'],
+                    ['title' => 'Live Streams', 'slug' => 'live-streams'],
                 ],
             ],
         ];
