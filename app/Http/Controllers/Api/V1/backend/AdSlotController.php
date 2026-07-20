@@ -28,12 +28,15 @@ class AdSlotController extends Controller
             'google_ad_slot' => ['nullable', 'string', 'max:100'],
             'manual_image_url' => ['nullable', 'string', 'max:500'],
             'manual_click_url' => ['nullable', 'string', 'max:500'],
-            'manual_html' => ['nullable', 'string'],
+            'manual_html' => ['nullable', 'string', 'max:50000'],
         ]);
 
-        foreach (['google_ad_client', 'google_ad_slot', 'manual_click_url'] as $field) {
+        foreach (['google_ad_client', 'google_ad_slot', 'manual_click_url', 'manual_html', 'manual_image_url'] as $field) {
             if (array_key_exists($field, $validated) && is_string($validated[$field])) {
                 $validated[$field] = trim($validated[$field]);
+                if ($validated[$field] === '') {
+                    $validated[$field] = null;
+                }
             }
         }
 
@@ -56,12 +59,15 @@ class AdSlotController extends Controller
             'google_ad_slot' => ['nullable', 'string', 'max:100'],
             'manual_image_url' => ['nullable', 'string', 'max:2048'],
             'manual_click_url' => ['nullable', 'string', 'max:500'],
-            'manual_html' => ['nullable', 'string'],
+            'manual_html' => ['nullable', 'string', 'max:50000'],
         ]);
 
-        foreach (['google_ad_client', 'google_ad_slot', 'manual_click_url'] as $field) {
+        foreach (['google_ad_client', 'google_ad_slot', 'manual_click_url', 'manual_html', 'manual_image_url'] as $field) {
             if (array_key_exists($field, $validated) && is_string($validated[$field])) {
                 $validated[$field] = trim($validated[$field]);
+                if ($validated[$field] === '') {
+                    $validated[$field] = null;
+                }
             }
         }
 

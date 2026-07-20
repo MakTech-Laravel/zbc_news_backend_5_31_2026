@@ -129,6 +129,58 @@ class AdSenseCredentialsFlowTest extends TestCase
         $this->assertNotEmpty($slots['left_sidebar_primary']['google_ad_slot']);
     }
 
+    public function test_manual_html_is_saved_and_exposed_publicly(): void
+    {
+        $slot = AdSlot::query()->create([
+            'slot_key' => 'home_banner_top',
+            'name' => 'Home Banner Top',
+            'provider' => 'manual',
+            'is_active' => false,
+        ]);
+
+        $html = '<iframe src="https://example.test/ad" width="728" height="90"></iframe>';
+
+        $this->postJson("/api/v1/admin/ad-slots/update/{$slot->id}", [
+            'provider' => 'manual',
+            'is_active' => true,
+            'manual_html' => "  {$html}  ",
+            'manual_image_url' => '',
+        ])->assertOk();
+
+        $slot->refresh();
+        $this->assertSame($html, $slot->manual_html);
+
+        $this->getJson('/api/v1/ads/slots')
+            ->assertOk()
+            ->assertJsonPath('data.home_banner_top.manual_html', $html)
+            ->assertJsonPath('data.home_banner_top.provider', 'manual');
+    }
+
+    public function test_clearing_manual_html_removes_it_from_public_payload(): void
+    {
+        $slot = AdSlot::query()->create([
+            'slot_key' => 'home_banner_middle',
+            'name' => 'Home Banner Middle',
+            'provider' => 'manual',
+            'is_active' => true,
+            'manual_html' => '<iframe src="https://example.test/old"></iframe>',
+        ]);
+
+        $this->postJson("/api/v1/admin/ad-slots/update/{$slot->id}", [
+            'provider' => 'manual',
+            'is_active' => true,
+            'manual_html' => '',
+            'manual_image_url' => '',
+        ])->assertOk();
+
+        $slot->refresh();
+        $this->assertNull($slot->manual_html);
+
+        $this->getJson('/api/v1/ads/slots')
+            ->assertOk()
+            ->assertJsonPath('data.home_banner_middle.manual_html', null);
+    }
+
     public function test_inactive_or_incomplete_google_slot_is_not_served_as_live_ad(): void
     {
         AdSlot::query()->create([
