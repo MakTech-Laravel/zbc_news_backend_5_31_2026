@@ -19,9 +19,14 @@ class MenuDemoSeeder extends Seeder
         /** @var MenuService $menus */
         $menus = app(MenuService::class);
 
-        // Clear previous demo menus (keep custom ones the admin may have created
-        // if they are not these known demo slugs).
-        $demoSlugs = ['primary-navigation', 'mobile-navigation', 'footer-links'];
+        // Clear previous default menus (leave custom admin-created menus intact).
+        $demoSlugs = [
+            'primary-menu',
+            'primary-navigation',
+            'mobile-navigation',
+            'sidebarmenu',
+            'footer-links',
+        ];
         foreach ($demoSlugs as $slug) {
             $existing = Menu::withTrashed()->where('slug', $slug)->first();
             if ($existing) {
@@ -31,14 +36,24 @@ class MenuDemoSeeder extends Seeder
             }
         }
 
+        // 1) Primary Menu (unassigned, empty) — keep as an initial starter menu.
+        $primaryMenu = $menus->createMenu([
+            'name' => 'Primary Menu',
+            'slug' => 'primary-menu',
+            'description' => 'Starter primary menu (unassigned by default)',
+            'status' => MenuStatus::ACTIVE->value,
+            'location_keys' => [],
+        ]);
+
         $roots = ArticleCategory::query()
             ->whereNull('parent_id')
             ->orderBy('sort_order')
             ->orderBy('id')
-            ->limit(6)
+            ->limit(8)
             ->get();
 
-        // ── Primary Navigation ─────────────────────────────────────────────
+        // 2) Primary Navigation (assigned to header_primary + mega_menu)
+        // Keep this consistent with screenshot defaults.
         $primary = $menus->createMenu([
             'name' => 'Primary Navigation',
             'slug' => 'primary-navigation',
@@ -47,32 +62,30 @@ class MenuDemoSeeder extends Seeder
             'location_keys' => ['header_primary', 'mega_menu'],
         ]);
 
-        foreach ($roots->take(4) as $index => $category) {
+        $primaryDefaults = [
+            ['label' => 'Home', 'url' => '/'],
+            ['label' => 'Breaking News', 'url' => '/breaking-news'],
+            ['label' => 'World', 'url' => '/world'],
+            ['label' => 'Politics', 'url' => '/politics'],
+            ['label' => 'Business', 'url' => '/business'],
+            ['label' => 'Technology', 'url' => '/technology'],
+            ['label' => 'Health', 'url' => '/health'],
+            ['label' => 'Sports', 'url' => '/sports'],
+            ['label' => 'Entertainment', 'url' => '/entertainment'],
+            ['label' => 'Opinion', 'url' => '/opinion'],
+            ['label' => 'Video', 'url' => '/video'],
+        ];
+        foreach ($primaryDefaults as $index => $item) {
             $menus->createItem($primary, [
-                'type' => MenuItemType::CATEGORY->value,
-                'category_id' => $category->id,
-                'include_children' => true,
+                'type' => MenuItemType::CUSTOM->value,
+                'label' => $item['label'],
+                'url' => $item['url'],
+                'target' => MenuItemTarget::SELF->value,
                 'sort_order' => $index + 1,
             ]);
         }
 
-        $menus->createItem($primary, [
-            'type' => MenuItemType::CUSTOM->value,
-            'label' => 'About ZBC',
-            'url' => '/about',
-            'target' => MenuItemTarget::SELF->value,
-            'sort_order' => 5,
-        ]);
-
-        $menus->createItem($primary, [
-            'type' => MenuItemType::CUSTOM->value,
-            'label' => 'Contact',
-            'url' => '/contact',
-            'target' => MenuItemTarget::SELF->value,
-            'sort_order' => 6,
-        ]);
-
-        // ── Mobile Navigation ──────────────────────────────────────────────
+        // 3) Mobile Navigation (assigned to header_mobile, with dropdown-capable items).
         $mobile = $menus->createMenu([
             'name' => 'Mobile Navigation',
             'slug' => 'mobile-navigation',
@@ -99,13 +112,32 @@ class MenuDemoSeeder extends Seeder
             'sort_order' => 0,
         ]);
 
-        // ── Footer Links ───────────────────────────────────────────────────
+        // 4) SidebarMenu (assigned to sidebar).
+        // Standard location, defaulted without dropdown children.
+        $sidebarMenu = $menus->createMenu([
+            'name' => 'SidebarMenu',
+            'slug' => 'sidebarmenu',
+            'description' => 'Default sidebar menu',
+            'status' => MenuStatus::ACTIVE->value,
+            'location_keys' => ['sidebar'],
+        ]);
+
+        // Keep one simple starter entry.
+        $menus->createItem($sidebarMenu, [
+            'type' => MenuItemType::CUSTOM->value,
+            'label' => 'Latest News',
+            'url' => '/',
+            'target' => MenuItemTarget::SELF->value,
+            'sort_order' => 1,
+        ]);
+
+        // 5) Footer Links (assigned to footer).
         $footer = $menus->createMenu([
             'name' => 'Footer Links',
             'slug' => 'footer-links',
             'description' => 'Footer column links',
             'status' => MenuStatus::ACTIVE->value,
-            'location_keys' => ['footer', 'header_top_bar'],
+            'location_keys' => ['footer'],
         ]);
 
         foreach (
@@ -114,6 +146,7 @@ class MenuDemoSeeder extends Seeder
                 ['label' => 'Terms of Use', 'url' => '/terms'],
                 ['label' => 'Advertise', 'url' => '/advertise'],
                 ['label' => 'Careers', 'url' => '/careers', 'target' => MenuItemTarget::BLANK->value],
+                ['label' => 'Contact', 'url' => '/contact'],
             ] as $index => $link
         ) {
             $menus->createItem($footer, [
@@ -125,34 +158,33 @@ class MenuDemoSeeder extends Seeder
             ]);
         }
 
-        if ($roots->isNotEmpty()) {
-            $menus->createItem($footer, [
-                'type' => MenuItemType::CATEGORY->value,
-                'category_id' => $roots->first()->id,
-                'include_children' => false,
-                'sort_order' => 10,
-            ]);
-        }
-
-        // Sidebar gets primary as a fallback sample assignment via location update
-        MenuLocation::query()->where('key', 'sidebar')->update(['menu_id' => $primary->id]);
-        MenuLocation::query()->where('key', 'header_dropdown')->update(['menu_id' => $mobile->id]);
-
         Menu::flushPublicCache();
 
-        $this->command?->info('Demo menus created and assigned to locations.');
+        $this->command?->info('Default menus created and assigned to default locations.');
+        $rows = [];
+        foreach ([$primaryMenu, $primary, $mobile, $sidebarMenu, $footer] as $menu) {
+            $fresh = Menu::with(['locations', 'items'])->find($menu->id);
+            if (! $fresh) {
+                $rows[] = [
+                    $menu->name,
+                    $menu->slug,
+                    '',
+                    0,
+                ];
+                continue;
+            }
+
+            $rows[] = [
+                $fresh->name,
+                $fresh->slug,
+                $fresh->locations->pluck('key')->join(', '),
+                $fresh->items()->count(),
+            ];
+        }
+
         $this->command?->table(
             ['Menu', 'Slug', 'Locations', 'Items'],
-            collect([$primary, $mobile, $footer])->map(function (Menu $menu) {
-                $fresh = Menu::with(['locations', 'items'])->find($menu->id);
-
-                return [
-                    $fresh->name,
-                    $fresh->slug,
-                    $fresh->locations->pluck('key')->join(', '),
-                    $fresh->items->count(),
-                ];
-            })->all()
+            $rows
         );
     }
 }

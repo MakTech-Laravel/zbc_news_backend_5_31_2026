@@ -26,39 +26,25 @@ class MenuLocationSeeder extends Seeder
                 'sort_order' => 2,
             ],
             [
-                'key' => 'header_top_bar',
-                'name' => 'Top Bar',
-                'description' => 'Utility links above the main header',
-                'render_style' => MenuRenderStyle::STANDARD->value,
-                'sort_order' => 3,
-            ],
-            [
-                'key' => 'header_dropdown',
-                'name' => 'Header Dropdown',
-                'description' => 'Secondary header dropdown menu',
-                'render_style' => MenuRenderStyle::DROPDOWN->value,
-                'sort_order' => 4,
-            ],
-            [
                 'key' => 'mega_menu',
                 'name' => 'Mega Menu',
                 'description' => 'Wide multi-column mega menu',
                 'render_style' => MenuRenderStyle::MEGA->value,
-                'sort_order' => 5,
+                'sort_order' => 3,
             ],
             [
                 'key' => 'sidebar',
                 'name' => 'Sidebar Menu',
                 'description' => 'Sidebar navigation block',
                 'render_style' => MenuRenderStyle::STANDARD->value,
-                'sort_order' => 6,
+                'sort_order' => 4,
             ],
             [
                 'key' => 'footer',
                 'name' => 'Footer Menu',
                 'description' => 'Primary footer link columns',
                 'render_style' => MenuRenderStyle::FOOTER->value,
-                'sort_order' => 7,
+                'sort_order' => 5,
             ],
         ];
 
@@ -74,5 +60,13 @@ class MenuLocationSeeder extends Seeder
                 ]
             );
         }
+
+        // Keep only the five default locations active/visible by default.
+        MenuLocation::query()
+            ->whereNotIn('key', array_column($locations, 'key'))
+            ->update([
+                'is_active' => false,
+                'menu_id' => null,
+            ]);
     }
 }
