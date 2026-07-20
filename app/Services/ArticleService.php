@@ -25,6 +25,7 @@ class ArticleService
         private readonly SiteSettingsService $siteSettingsService,
         private readonly SeoMetaService $seoMetaService,
         private readonly StoredImageService $storedImageService,
+        private readonly MediaService $mediaService,
     ) {}
 
     public function getAllArticles()
@@ -70,7 +71,8 @@ class ArticleService
             ->where('articles.status', ArticleStatus::PUBLISHED->value)
             ->groupBy('articles.id')
             ->orderByDesc('read_count')
-            ->with(['tags', 'category', 'user'])
+            ->with(['tags', 'category', 'user', 'media' => fn ($q) => $q->where('status', 'ready')
+                ->whereIn('collection', ['featured', 'poster'])])
             ->withSum('histroy', 'time_spent')
             ->limit($limit)
             ->get();
@@ -153,7 +155,12 @@ class ArticleService
             $data['open_graph_image'] = $this->resolveImage($data, 'open_graph_image', 'articles/og-images');
             $data['user_id'] = auth()->user()->id;
 
+            $featuredMediaUuid = $this->pullMediaUuid($data, 'featured_media_uuid');
+            $posterMediaUuid = $this->pullMediaUuid($data, 'poster_media_uuid');
+
             $article = $this->article->create($data);
+
+            $this->syncArticleFeaturedMedia($article, $featuredMediaUuid, $posterMediaUuid, $data);
 
             if (! empty($tags)) {
                 $tagIds = $this->resolveTags($tags);
@@ -176,14 +183,24 @@ class ArticleService
                 ])
                 ->log($isAutoSave ? 'Article auto-saved' : 'Article created');
 
-            $article = $article->load('tags');
+            $article = $article->load([
+                'tags',
+                'media' => fn ($q) => $q->where('status', 'ready')
+                    ->whereIn('collection', ['featured', 'poster']),
+            ]);
 
             if (! $isAutoSave && $article->status === ArticleStatus::PUBLISHED) {
                 DispatchArticlePublishedNotifications::dispatch($article->id, 'published');
                 $this->broadcastPublishedArticle($article);
             }
 
-            return $article;
+            return $article->fresh([
+                'tags',
+                'category',
+                'user',
+                'media' => fn ($q) => $q->where('status', 'ready')
+                    ->whereIn('collection', ['featured', 'poster']),
+            ]);
         });
     }
 
@@ -236,6 +253,9 @@ class ArticleService
             $data['featured_image'] = $this->resolveImage($data, 'featured_image', 'articles/featured-images', $article);
             $data['open_graph_image'] = $this->resolveImage($data, 'open_graph_image', 'articles/og-images', $article);
 
+            $featuredMediaUuid = $this->pullMediaUuid($data, 'featured_media_uuid');
+            $posterMediaUuid = $this->pullMediaUuid($data, 'poster_media_uuid');
+
             $old = $article->only([
                 'title',
                 'slug',
@@ -248,6 +268,8 @@ class ArticleService
             $previousStatus = $article->status;
 
             $article->update($data);
+
+            $this->syncArticleFeaturedMedia($article, $featuredMediaUuid, $posterMediaUuid, $data);
 
             $contentChanged = $article->wasChanged(['title', 'article_description', 'excerpt', 'sub_title']);
             $becamePublished = $previousStatus !== ArticleStatus::PUBLISHED
@@ -270,7 +292,13 @@ class ArticleService
                 ])
                 ->log($isAutoSave ? 'Article auto-saved' : 'Article updated');
 
-            $article = $article->fresh()->load('tags');
+            $article = $article->fresh([
+                'tags',
+                'category',
+                'user',
+                'media' => fn ($q) => $q->where('status', 'ready')
+                    ->whereIn('collection', ['featured', 'poster']),
+            ]);
 
             if (! $isAutoSave) {
                 if ($becamePublished) {
@@ -584,8 +612,95 @@ class ArticleService
     private function articleQuery()
     {
         return $this->article
-            ->with(['tags', 'category', 'user'])
+            ->with([
+                'tags',
+                'category',
+                'user',
+                'media' => fn ($q) => $q->where('status', 'ready')
+                    ->whereIn('collection', ['featured', 'poster']),
+            ])
             ->withReadingTime();
+    }
+
+    /**
+     * Pull optional media UUID keys out of the write payload so they are not
+     * mass-assigned onto the articles table.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function pullMediaUuid(array &$data, string $key): ?string
+    {
+        if (! array_key_exists($key, $data)) {
+            return null;
+        }
+
+        $value = $data[$key];
+        unset($data[$key]);
+
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        return is_string($value) ? $value : null;
+    }
+
+    /**
+     * Sync HasMedia featured/poster collections and keep featured_image in sync
+     * for list/OG backward compatibility.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function syncArticleFeaturedMedia(
+        Article $article,
+        ?string $featuredMediaUuid,
+        ?string $posterMediaUuid,
+        array $data
+    ): void {
+        if ($featuredMediaUuid === '') {
+            $this->mediaService->detachArticleCollection($article, 'featured');
+            $this->mediaService->detachArticleCollection($article, 'poster');
+
+            return;
+        }
+
+        if (is_string($featuredMediaUuid) && $featuredMediaUuid !== '') {
+            $featured = $this->mediaService->attachToArticle($article, $featuredMediaUuid, 'featured');
+
+            if ($featured && in_array($featured->media_type, ['video', 'audio'], true)) {
+                if ($posterMediaUuid === '') {
+                    $this->mediaService->detachArticleCollection($article, 'poster');
+                } elseif (is_string($posterMediaUuid) && $posterMediaUuid !== '') {
+                    $this->mediaService->attachToArticle($article, $posterMediaUuid, 'poster');
+                }
+            } else {
+                $this->mediaService->detachArticleCollection($article, 'poster');
+            }
+
+            $article->unsetRelation('media');
+            $poster = $article->posterMedia();
+            $featured = $article->featuredMedia();
+
+            $imageUrl = null;
+            if ($featured?->isImage()) {
+                $imageUrl = $featured->url;
+            } elseif ($poster?->url) {
+                $imageUrl = $poster->url;
+            } elseif ($featured?->thumbnail_url) {
+                $imageUrl = $featured->thumbnail_url;
+            }
+
+            if ($imageUrl && $imageUrl !== $article->featured_image) {
+                $article->update(['featured_image' => $imageUrl]);
+            }
+
+            return;
+        }
+
+        // Legacy URL-only path: if featured_image cleared, detach media collections.
+        if (array_key_exists('featured_image', $data) && ($data['featured_image'] === null || $data['featured_image'] === '')) {
+            $this->mediaService->detachArticleCollection($article, 'featured');
+            $this->mediaService->detachArticleCollection($article, 'poster');
+        }
     }
 
     /**

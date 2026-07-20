@@ -9,6 +9,7 @@ use App\Traits\HasMedia;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Article extends Model
@@ -93,5 +94,41 @@ class Article extends Model
         }
 
         return ReadTime::fromHtml($this->article_description);
+    }
+
+    public function featuredMediaItems(): MorphMany
+    {
+        return $this->mediaInCollection('featured');
+    }
+
+    public function posterMediaItems(): MorphMany
+    {
+        return $this->mediaInCollection('poster');
+    }
+
+    public function featuredMedia(): ?Media
+    {
+        if ($this->relationLoaded('media')) {
+            return $this->media
+                ->where('collection', 'featured')
+                ->where('status', 'ready')
+                ->sortByDesc('id')
+                ->first();
+        }
+
+        return $this->firstMedia('featured');
+    }
+
+    public function posterMedia(): ?Media
+    {
+        if ($this->relationLoaded('media')) {
+            return $this->media
+                ->where('collection', 'poster')
+                ->where('status', 'ready')
+                ->sortByDesc('id')
+                ->first();
+        }
+
+        return $this->firstMedia('poster');
     }
 }

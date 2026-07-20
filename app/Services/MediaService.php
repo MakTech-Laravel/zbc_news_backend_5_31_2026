@@ -200,6 +200,49 @@ class MediaService
         };
     }
 
+    /**
+     * Attach a ready media item to an article collection. Detaches any previous
+     * items in that collection from the article (does not delete Cloudinary assets).
+     */
+    public function attachToArticle(Article $article, string $uuid, string $collection): ?Media
+    {
+        $media = Media::query()
+            ->where('uuid', $uuid)
+            ->where('status', 'ready')
+            ->first();
+
+        if (! $media) {
+            return null;
+        }
+
+        $this->detachArticleCollection($article, $collection, exceptId: $media->id);
+
+        $media->update([
+            'mediable_type' => Article::class,
+            'mediable_id' => $article->id,
+            'collection' => $collection,
+        ]);
+
+        return $media->refresh();
+    }
+
+    /**
+     * Detach media in a collection from the article without deleting the file.
+     */
+    public function detachArticleCollection(Article $article, string $collection, ?int $exceptId = null): void
+    {
+        Media::query()
+            ->where('mediable_type', Article::class)
+            ->where('mediable_id', $article->id)
+            ->where('collection', $collection)
+            ->when($exceptId !== null, fn ($q) => $q->where('id', '!=', $exceptId))
+            ->update([
+                'mediable_type' => null,
+                'mediable_id' => null,
+                'collection' => 'default',
+            ]);
+    }
+
     public function getTransformationPreset(string $preset, string $mediaType): array
     {
         return match ($preset) {

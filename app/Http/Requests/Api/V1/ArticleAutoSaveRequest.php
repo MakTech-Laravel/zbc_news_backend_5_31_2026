@@ -71,6 +71,8 @@ class ArticleAutoSaveRequest extends FormRequest
             'visibility' => ['nullable', new Enum(ArticleVisibility::class)],
             'featured_image' => $featuredImageRule,
             'open_graph_image' => $openGraphImageRule,
+            'featured_media_uuid' => ['nullable', 'string', 'max:36'],
+            'poster_media_uuid' => ['nullable', 'string', 'max:36'],
             'article_category_id' => ['nullable', 'integer', 'exists:article_categories,id'],
             'scheduled_publishing' => ['nullable', 'date'],
             'published_at' => ['nullable', 'date'],
