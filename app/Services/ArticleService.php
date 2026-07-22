@@ -30,6 +30,8 @@ class ArticleService
 
     public function getAllArticles()
     {
+        $this->publishDueScheduledArticles();
+
         return $this->articleQuery()
             ->latest()
             ->get();
@@ -45,7 +47,47 @@ class ArticleService
 
     public function getBySlug(string $slug): Article
     {
+        $this->publishDueScheduledArticles();
+
         return $this->articleQuery()->where('slug', $slug)->firstOrFail();
+    }
+
+    /**
+     * Publish any scheduled articles whose scheduled_publishing time is due (or past).
+     */
+    public function publishDueScheduledArticles(): int
+    {
+        $publishedCount = 0;
+
+        $this->article
+            ->newQuery()
+            ->where('status', ArticleStatus::SCHEDULED->value)
+            ->whereNotNull('scheduled_publishing')
+            ->where('scheduled_publishing', '<=', now())
+            ->orderBy('id')
+            ->each(function (Article $article) use (&$publishedCount) {
+                // Jobs must not bump updated_at — that is reserved for manual admin saves.
+                $this->updateWithoutTouchingTimestamp($article, [
+                    'status' => ArticleStatus::PUBLISHED->value,
+                    'published_at' => $article->scheduled_publishing,
+                ]);
+
+                $article = $article->fresh([
+                    'category',
+                    'tags',
+                    'user',
+                ]);
+
+                if (! $article) {
+                    return;
+                }
+
+                DispatchArticlePublishedNotifications::dispatch($article->id, 'published');
+                $this->broadcastPublishedArticle($article);
+                $publishedCount++;
+            });
+
+        return $publishedCount;
     }
 
     public function getPublishedBySlug(string $slug): Article
@@ -267,7 +309,12 @@ class ArticleService
 
             $previousStatus = $article->status;
 
-            $article->update($data);
+            // Auto-save must not bump updated_at — only explicit admin Save does.
+            if ($isAutoSave) {
+                $this->updateWithoutTouchingTimestamp($article, $data);
+            } else {
+                $article->update($data);
+            }
 
             $this->syncArticleFeaturedMedia($article, $featuredMediaUuid, $posterMediaUuid, $data);
 
@@ -690,7 +737,8 @@ class ArticleService
             }
 
             if ($imageUrl && $imageUrl !== $article->featured_image) {
-                $article->update(['featured_image' => $imageUrl]);
+                // Side-effect sync must not change editorial updated_at.
+                $this->updateWithoutTouchingTimestamp($article, ['featured_image' => $imageUrl]);
             }
 
             return;
@@ -794,6 +842,14 @@ class ArticleService
             throw new \InvalidArgumentException('Scheduled publishing date is required for scheduled articles.');
         }
 
+        // Past (or due) schedule → publish immediately instead of staying scheduled.
+        if ($status === ArticleStatus::SCHEDULED->value) {
+            $scheduledAt = Carbon::parse($data['scheduled_publishing']);
+            if ($scheduledAt->lessThanOrEqualTo(now())) {
+                return ArticleStatus::PUBLISHED->value;
+            }
+        }
+
         return $status;
     }
 
@@ -807,6 +863,14 @@ class ArticleService
 
         if (! empty($data['published_at'])) {
             return Carbon::parse($data['published_at']);
+        }
+
+        // When a due/past schedule is promoted to published, keep that instant.
+        if (! empty($data['scheduled_publishing'])) {
+            $scheduledAt = Carbon::parse($data['scheduled_publishing']);
+            if ($scheduledAt->lessThanOrEqualTo(now())) {
+                return $scheduledAt;
+            }
         }
 
         return $existing?->published_at ?? now();
@@ -911,6 +975,23 @@ class ArticleService
             slug: $article->slug,
             category: $article->category?->title ?? 'Uncategorized',
         ));
+    }
+
+    /**
+     * Persist article attributes without changing updated_at.
+     * Use for jobs, auto-save, and other non-manual side effects.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    private function updateWithoutTouchingTimestamp(Article $article, array $attributes): void
+    {
+        $article->timestamps = false;
+
+        try {
+            $article->update($attributes);
+        } finally {
+            $article->timestamps = true;
+        }
     }
 
 }

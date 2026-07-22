@@ -166,13 +166,17 @@ class NewsletterController extends Controller
         try {
             $scheduled = $this->newsletterService->scheduleCampaign(
                 $campaign,
-                Carbon::parse($validated['scheduled_at']),
+                Carbon::parse($validated['scheduled_at'])->utc(),
             );
         } catch (\RuntimeException $e) {
             return sendResponse(false, $e->getMessage(), null, HttpStatus::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        return sendResponse(true, 'Campaign scheduled successfully', $scheduled, HttpStatus::HTTP_OK);
+        $message = $scheduled->status === 'sending'
+            ? 'Campaign is sending now'
+            : 'Campaign scheduled successfully';
+
+        return sendResponse(true, $message, $scheduled, HttpStatus::HTTP_OK);
     }
 
     public function sendCampaign(int $id)

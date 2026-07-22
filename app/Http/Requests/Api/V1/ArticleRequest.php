@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1;
 
 use App\Enums\ArticleStatus;
 use App\Enums\ArticleVisibility;
+use App\Http\Requests\Concerns\NormalizesDatetimeInput;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -12,6 +13,8 @@ use App\Models\Article;
 
 class ArticleRequest extends FormRequest
 {
+    use NormalizesDatetimeInput;
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -39,17 +42,6 @@ class ArticleRequest extends FormRequest
         if ($merge !== []) {
             $this->merge($merge);
         }
-    }
-
-    private function normalizeDatetimeInput(string $value): string
-    {
-        $value = trim(str_replace('T', ' ', $value));
-
-        if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/', $value)) {
-            return $value . ':00';
-        }
-
-        return $value;
     }
 
     /**
@@ -105,7 +97,6 @@ class ArticleRequest extends FormRequest
                 Rule::requiredIf(fn() => $this->input('status') === ArticleStatus::SCHEDULED->value),
                 'nullable',
                 'date',
-                'after:now',
             ],
             'published_at'          => ['nullable', 'date'],
             'user_id'               => ['nullable', 'integer', 'exists:users,id'],
@@ -118,7 +109,6 @@ class ArticleRequest extends FormRequest
     {
         return [
             'scheduled_publishing.required' => 'Scheduled publishing date and time are required when status is scheduled.',
-            'scheduled_publishing.after'    => 'Scheduled publishing must be a future date and time.',
         ];
     }
 }

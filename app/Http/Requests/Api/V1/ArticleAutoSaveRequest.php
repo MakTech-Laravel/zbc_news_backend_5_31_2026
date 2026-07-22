@@ -3,12 +3,15 @@
 namespace App\Http\Requests\Api\V1;
 
 use App\Enums\ArticleVisibility;
+use App\Http\Requests\Concerns\NormalizesDatetimeInput;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Enum;
 
 class ArticleAutoSaveRequest extends FormRequest
 {
+    use NormalizesDatetimeInput;
+
     public function authorize(): bool
     {
         return true;
@@ -33,17 +36,6 @@ class ArticleAutoSaveRequest extends FormRequest
         if ($merge !== []) {
             $this->merge($merge);
         }
-    }
-
-    private function normalizeDatetimeInput(string $value): string
-    {
-        $value = trim(str_replace('T', ' ', $value));
-
-        if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/', $value)) {
-            return $value.':00';
-        }
-
-        return $value;
     }
 
     /**

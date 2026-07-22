@@ -78,6 +78,12 @@ class ArticleAutoSaveTest extends TestCase
             'user_id' => $this->user->id,
         ]);
 
+        $frozenUpdatedAt = now()->subDays(2)->startOfSecond();
+        $article->timestamps = false;
+        $article->forceFill(['updated_at' => $frozenUpdatedAt])->save();
+        $article->timestamps = true;
+        $article->refresh();
+
         $response = $this->postJson('/api/v1/admin/articles/auto-save/'.$article->slug, [
             'title' => 'Updated published title',
             'article_description' => '<p>Updated body</p>',
@@ -91,6 +97,11 @@ class ArticleAutoSaveTest extends TestCase
 
         $this->assertSame(ArticleStatus::PUBLISHED->value, $article->status->value);
         $this->assertSame('Updated published title', $article->title);
+        $this->assertSame(
+            $frozenUpdatedAt->utc()->format('Y-m-d H:i:s'),
+            $article->updated_at->utc()->format('Y-m-d H:i:s'),
+            'Auto-save must not change updated_at',
+        );
     }
 
     private function seedPermissions(): void
