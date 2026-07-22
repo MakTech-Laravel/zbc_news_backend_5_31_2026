@@ -405,11 +405,15 @@ class NewsletterService
 
     public function listCampaigns(): LengthAwarePaginator
     {
+        $this->processDueScheduledCampaigns();
+
         return NewsletterCampaign::query()->latest('id')->paginate(20);
     }
 
     public function getCampaign(int $id): ?NewsletterCampaign
     {
+        $this->processDueScheduledCampaigns();
+
         return NewsletterCampaign::query()->find($id);
     }
 
@@ -435,6 +439,15 @@ class NewsletterService
             throw new \RuntimeException('Only draft campaigns can be scheduled.');
         }
 
+        $scheduledAt = $scheduledAt->clone()->utc();
+
+        // Past/due schedule → send immediately (same expectation as articles).
+        if ($scheduledAt->lessThanOrEqualTo(now())) {
+            $campaign->scheduled_at = $scheduledAt;
+
+            return $this->dispatchCampaign($campaign);
+        }
+
         $campaign->update([
             'status' => 'scheduled',
             'scheduled_at' => $scheduledAt,
@@ -443,7 +456,7 @@ class NewsletterService
         return $campaign->fresh();
     }
 
-    public function dispatchCampaign(NewsletterCampaign $campaign): NewsletterCampaign
+    public function dispatchCampaign(NewsletterCampaign $campaign, bool $touchTimestamps = true): NewsletterCampaign
     {
         if (! in_array($campaign->status, ['draft', 'scheduled'], true)) {
             throw new \RuntimeException('Campaign cannot be sent in its current state.');
@@ -457,12 +470,18 @@ class NewsletterService
             );
         }
 
-        $campaign->update([
+        $attributes = [
             'status' => 'sending',
             'scheduled_at' => $campaign->scheduled_at ?? now(),
             'subscriber_count' => $recipientCount,
             'failed_count' => 0,
-        ]);
+        ];
+
+        if ($touchTimestamps) {
+            $campaign->update($attributes);
+        } else {
+            $this->updateCampaignWithoutTouchingTimestamp($campaign, $attributes);
+        }
 
         SendNewsletterCampaignJob::dispatch($campaign->id);
 
@@ -475,10 +494,12 @@ class NewsletterService
 
         NewsletterCampaign::query()
             ->where('status', 'scheduled')
+            ->whereNotNull('scheduled_at')
             ->where('scheduled_at', '<=', now())
+            ->orderBy('id')
             ->each(function (NewsletterCampaign $campaign) use (&$count): void {
                 try {
-                    $this->dispatchCampaign($campaign);
+                    $this->dispatchCampaign($campaign, touchTimestamps: false);
                     $count++;
                 } catch (\RuntimeException $exception) {
                     Log::warning('Scheduled newsletter campaign could not be sent.', [
@@ -486,7 +507,7 @@ class NewsletterService
                         'message' => $exception->getMessage(),
                     ]);
 
-                    $campaign->update([
+                    $this->updateCampaignWithoutTouchingTimestamp($campaign, [
                         'status' => 'draft',
                         'scheduled_at' => null,
                     ]);
@@ -880,7 +901,7 @@ class NewsletterService
             'subject' => filled($data['subject'] ?? null) ? $data['subject'] : $data['title'],
             'content_html' => $data['content_html'],
             'status' => $data['status'] ?? 'draft',
-            'scheduled_at' => $data['scheduled_at'] ?? null,
+            'scheduled_at' => $this->normalizeCampaignScheduledAt($data['scheduled_at'] ?? null),
             'segments' => $segments,
         ];
 
@@ -957,5 +978,32 @@ class NewsletterService
         }
 
         return self::$columnCache[$key];
+    }
+
+    private function normalizeCampaignScheduledAt(mixed $value): ?Carbon
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if ($value instanceof Carbon) {
+            return $value->clone()->utc();
+        }
+
+        return Carbon::parse((string) $value)->utc();
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function updateCampaignWithoutTouchingTimestamp(NewsletterCampaign $campaign, array $attributes): void
+    {
+        $campaign->timestamps = false;
+
+        try {
+            $campaign->update($attributes);
+        } finally {
+            $campaign->timestamps = true;
+        }
     }
 }
