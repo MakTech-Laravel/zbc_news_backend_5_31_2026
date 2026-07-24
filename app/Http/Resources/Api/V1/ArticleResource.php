@@ -23,6 +23,7 @@ class ArticleResource extends JsonResource
             'excerpt' => $this->excerpt,
             'article_description' => $this->article_description,
             'read_time' => $this->formattedReadTime(),
+            'estimated_read_time' => $this->estimatedReadTime(),
 
             'status' => $this->status?->value ?? $this->status,
             'visibility' => $this->visibility?->value ?? $this->visibility,
