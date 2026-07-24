@@ -96,6 +96,12 @@ class Article extends Model
         return ReadTime::fromHtml($this->article_description);
     }
 
+    /** Content-based estimate for public display (ignores engagement history). */
+    public function estimatedReadTime(): string
+    {
+        return ReadTime::estimatedFromHtml($this->article_description);
+    }
+
     public function featuredMediaItems(): MorphMany
     {
         return $this->mediaInCollection('featured');

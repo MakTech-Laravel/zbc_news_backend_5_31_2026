@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\ArticleStatus;
 use App\Enums\ArticleVisibility;
+use App\Enums\CommentStatus;
 use App\Events\NewsPublished;
 use App\Jobs\DispatchArticlePublishedNotifications;
 use App\Models\Article;
@@ -115,6 +116,9 @@ class ArticleService
             ->orderByDesc('read_count')
             ->with(['tags', 'category', 'user', 'media' => fn ($q) => $q->where('status', 'ready')
                 ->whereIn('collection', ['featured', 'poster'])])
+            ->withCount([
+                'comments as comments_count' => fn ($q) => $q->where('status', CommentStatus::APPROVED),
+            ])
             ->withSum('histroy', 'time_spent')
             ->limit($limit)
             ->get();
@@ -665,6 +669,9 @@ class ArticleService
                 'user',
                 'media' => fn ($q) => $q->where('status', 'ready')
                     ->whereIn('collection', ['featured', 'poster']),
+            ])
+            ->withCount([
+                'comments as comments_count' => fn ($q) => $q->where('status', CommentStatus::APPROVED),
             ])
             ->withReadingTime();
     }

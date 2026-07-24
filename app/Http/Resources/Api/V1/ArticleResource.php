@@ -23,6 +23,7 @@ class ArticleResource extends JsonResource
             'excerpt' => $this->excerpt,
             'article_description' => $this->article_description,
             'read_time' => $this->formattedReadTime(),
+            'estimated_read_time' => $this->estimatedReadTime(),
 
             'status' => $this->status?->value ?? $this->status,
             'visibility' => $this->visibility?->value ?? $this->visibility,
@@ -34,6 +35,7 @@ class ArticleResource extends JsonResource
             'published_at' => $this->published_at?->toIso8601String(),
             'views' => $this->views,
             'saves_count' => $this->save_articles_count ?? 0,
+            'comments_count' => (int) ($this->comments_count ?? 0),
 
             // relations
             'category' => $this->whenLoaded('category', function () {
