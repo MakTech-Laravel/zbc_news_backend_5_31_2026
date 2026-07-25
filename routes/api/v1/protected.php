@@ -101,7 +101,17 @@ Route::controller(ArticleController::class)->prefix('articles')->group(function 
 Route::controller(BreakingNewsController::class)->prefix('breaking-news')->group(function () {
     Route::get('/', 'index')->name('api.v1.breaking-news.index')
         ->middleware('permission:'.PermissionEnum::ARTICLES_LIST->value);
-    Route::delete('/{slug}', 'destroy')->name('api.v1.breaking-news.destroy')
+    Route::post('/store', 'store')->name('api.v1.breaking-news.store')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
+    Route::post('/reorder', 'reorder')->name('api.v1.breaking-news.reorder')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
+    Route::put('/update/{id}', 'update')->name('api.v1.breaking-news.update')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
+    Route::post('/activate/{id}', 'activate')->name('api.v1.breaking-news.activate')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
+    Route::post('/pause/{id}', 'pause')->name('api.v1.breaking-news.pause')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
+    Route::delete('/delete/{id}', 'destroy')->name('api.v1.breaking-news.destroy')
         ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
 });
 

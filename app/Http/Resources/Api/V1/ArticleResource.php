@@ -28,6 +28,22 @@ class ArticleResource extends JsonResource
             'status' => $this->status?->value ?? $this->status,
             'visibility' => $this->visibility?->value ?? $this->visibility,
             'is_breaking' => (bool) $this->is_breaking,
+            'breaking_news' => $this->whenLoaded('breakingNewsItem', function () {
+                $item = $this->breakingNewsItem;
+                if (! $item || ($item->status?->value ?? $item->status) === 'removed') {
+                    return null;
+                }
+
+                return [
+                    'id' => $item->id,
+                    'headline_override' => $item->headline_override,
+                    'priority' => $item->priority,
+                    'status' => $item->status?->value ?? $item->status,
+                    'starts_at' => $item->starts_at?->toIso8601String(),
+                    'expires_at' => $item->expires_at?->toIso8601String(),
+                    'is_live' => $item->isLive(),
+                ];
+            }),
             'featured_image' => MediaUrl::resolvePublic($this->featured_image),
             'open_graph_image' => MediaUrl::resolvePublic($this->open_graph_image),
             'featured_media' => $this->resolveFeaturedMediaPayload(),

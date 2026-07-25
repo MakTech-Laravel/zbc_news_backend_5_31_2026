@@ -3,11 +3,13 @@
 namespace Tests\Feature\Notifications;
 
 use App\Enums\ArticleStatus;
+use App\Enums\BreakingNewsStatus;
 use App\Events\UserNotificationCreated;
 use App\Jobs\DispatchArticlePublishedNotifications;
 use App\Models\Article;
 use App\Models\ArticleCategory;
 use App\Models\ArticleHistroy;
+use App\Models\BreakingNewsItem;
 use App\Models\NotificationPreference;
 use App\Models\SaveArticle;
 use App\Models\Tag;
@@ -76,8 +78,12 @@ class NotificationDispatchTest extends TestCase
         $article = $this->createArticle($category, $author, [
             'is_breaking' => true,
         ]);
-        $breakingTag = Tag::query()->create(['tag' => 'breaking']);
-        $article->tags()->attach($breakingTag->id);
+
+        BreakingNewsItem::query()->create([
+            'article_id' => $article->id,
+            'priority' => 10,
+            'status' => BreakingNewsStatus::ACTIVE,
+        ]);
 
         DispatchArticlePublishedNotifications::dispatchSync($article->id, 'published');
 

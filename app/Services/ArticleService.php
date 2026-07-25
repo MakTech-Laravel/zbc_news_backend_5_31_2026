@@ -27,6 +27,7 @@ class ArticleService
         private readonly SeoMetaService $seoMetaService,
         private readonly StoredImageService $storedImageService,
         private readonly MediaService $mediaService,
+        private readonly BreakingNewsService $breakingNewsService,
     ) {}
 
     public function getAllArticles()
@@ -143,70 +144,31 @@ class ArticleService
 
     public function getBreakingNewsArticles(int $limit = 10): Collection
     {
-        $limit = min(max($limit, 1), 10);
-
-        return $this->articleQuery()
-            ->where('status', ArticleStatus::PUBLISHED->value)
-            ->where(function ($query) {
-                $query->where('is_breaking', true)
-                    ->orWhereHas('tags', fn ($tagQuery) => $tagQuery->whereIn('tag', BreakingTag::VALUES));
-            })
-            ->latest('published_at')
-            ->limit($limit)
-            ->get();
+        return $this->breakingNewsService
+            ->listForTicker($limit)
+            ->map(fn ($item) => $item->article)
+            ->filter()
+            ->values();
     }
 
     public function getAdminBreakingNewsArticles(): Collection
     {
-        return $this->article
-            ->with([
-                'category:id,title,slug',
-                'user:id,name,slug',
-                'tags:id,tag',
-                'media' => fn ($q) => $q->where('status', 'ready')
-                    ->whereIn('collection', ['featured', 'poster']),
-            ])
-            ->where('is_breaking', true)
-            ->latest('published_at')
-            ->latest('updated_at')
-            ->get();
+        return $this->breakingNewsService->listForAdmin();
     }
 
     public function clearBreakingNews(string $slug): Article
     {
         $article = $this->article->where('slug', $slug)->firstOrFail();
+        $this->breakingNewsService->removeForArticle($article);
 
-        return DB::transaction(function () use ($article) {
-            $article->update(['is_breaking' => false]);
-
-            $breakingLower = array_map('strtolower', BreakingTag::VALUES);
-            $remainingTagIds = $article->tags()
-                ->get()
-                ->reject(fn ($tag) => in_array(strtolower((string) $tag->tag), $breakingLower, true))
-                ->pluck('id')
-                ->all();
-
-            $article->tags()->sync($remainingTagIds);
-
-            activity()
-                ->performedOn($article)
-                ->causedBy(auth()->user())
-                ->withProperties([
-                    'article_title' => $article->title,
-                    'article_slug' => $article->slug,
-                    'ip_address' => request()->ip(),
-                    'user_agent' => request()->userAgent(),
-                ])
-                ->log('Breaking news flag removed');
-
-            return $article->fresh([
-                'tags',
-                'category',
-                'user',
-                'media' => fn ($q) => $q->where('status', 'ready')
-                    ->whereIn('collection', ['featured', 'poster']),
-            ]);
-        });
+        return $article->fresh([
+            'tags',
+            'category',
+            'user',
+            'breakingNewsItem',
+            'media' => fn ($q) => $q->where('status', 'ready')
+                ->whereIn('collection', ['featured', 'poster']),
+        ]);
     }
 
     public function getLatestArticleByTag(string $tagSlug, string $type = 'latest'): Collection
@@ -244,7 +206,11 @@ class ArticleService
             $tags = $data['tags'] ?? [];
             unset($data['tags']);
 
-            $data['is_breaking'] = $this->resolveIsBreaking($data);
+            $breakingPayload = $this->extractBreakingPayload($data);
+
+            $data['is_breaking'] = $breakingPayload !== null
+                ? (bool) ($breakingPayload['enabled'] ?? false)
+                : false;
             $tags = $this->syncBreakingTagWithFlag($tags, $data['is_breaking']);
 
             $categoryTitle = ArticleCategory::query()
@@ -272,6 +238,14 @@ class ArticleService
                 $article->tags()->sync($tagIds);
             }
 
+            if ($breakingPayload !== null) {
+                $this->breakingNewsService->syncForArticle(
+                    $article,
+                    $breakingPayload,
+                    auth()->id(),
+                );
+            }
+
             activity()
                 ->performedOn($article)
                 ->causedBy(auth()->user())
@@ -280,7 +254,7 @@ class ArticleService
                     'article_slug' => $article->slug,
                     'status' => $article->status,
                     'article_category_id' => $article->article_category_id,
-                    'is_breaking' => $article->is_breaking,
+                    'is_breaking' => $article->fresh()->is_breaking,
                     'tags' => $tags,
                     'scheduled_publishing' => $article->scheduled_publishing,
                     'published_at' => $article->published_at,
@@ -291,6 +265,7 @@ class ArticleService
 
             $article = $article->load([
                 'tags',
+                'breakingNewsItem',
                 'media' => fn ($q) => $q->where('status', 'ready')
                     ->whereIn('collection', ['featured', 'poster']),
             ]);
@@ -304,6 +279,7 @@ class ArticleService
                 'tags',
                 'category',
                 'user',
+                'breakingNewsItem',
                 'media' => fn ($q) => $q->where('status', 'ready')
                     ->whereIn('collection', ['featured', 'poster']),
             ]);
@@ -344,12 +320,17 @@ class ArticleService
             $tags = $data['tags'] ?? null;
             unset($data['tags']);
 
+            $breakingPayload = $this->extractBreakingPayload($data);
+
             $tagNames = is_array($tags)
                 ? $tags
                 : $article->tags()->pluck('tag')->all();
 
-            if (array_key_exists('is_breaking', $data)) {
+            if ($breakingPayload !== null) {
+                $data['is_breaking'] = (bool) ($breakingPayload['enabled'] ?? false);
+            } elseif (array_key_exists('is_breaking', $data)) {
                 $data['is_breaking'] = $this->resolveIsBreaking($data);
+                $breakingPayload = ['enabled' => $data['is_breaking']];
             } else {
                 $data['is_breaking'] = (bool) $article->is_breaking;
             }
@@ -400,6 +381,14 @@ class ArticleService
             $tagIds = $this->resolveTags($tagNames);
             $article->tags()->sync($tagIds);
 
+            if ($breakingPayload !== null) {
+                $this->breakingNewsService->syncForArticle(
+                    $article->fresh(),
+                    $breakingPayload,
+                    auth()->id(),
+                );
+            }
+
             activity()
                 ->performedOn($article)
                 ->causedBy(auth()->user())
@@ -416,6 +405,7 @@ class ArticleService
                 'tags',
                 'category',
                 'user',
+                'breakingNewsItem',
                 'media' => fn ($q) => $q->where('status', 'ready')
                     ->whereIn('collection', ['featured', 'poster']),
             ]);
@@ -736,6 +726,7 @@ class ArticleService
                 'tags',
                 'category',
                 'user',
+                'breakingNewsItem',
                 'media' => fn ($q) => $q->where('status', 'ready')
                     ->whereIn('collection', ['featured', 'poster']),
             ])
@@ -1006,6 +997,66 @@ class ArticleService
         }
 
         return filter_var($data['is_breaking'], FILTER_VALIDATE_BOOLEAN);
+    }
+
+    /**
+     * Pull breaking-news fields out of the article payload so they are not mass-assigned.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>|null  null when the request did not touch breaking news
+     */
+    private function extractBreakingPayload(array &$data): ?array
+    {
+        $keys = [
+            'is_breaking',
+            'breaking_priority',
+            'breaking_starts_at',
+            'breaking_expires_at',
+            'breaking_headline',
+            'breaking_status',
+        ];
+
+        $touched = false;
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $data)) {
+                $touched = true;
+                break;
+            }
+        }
+
+        $priority = $data['breaking_priority'] ?? null;
+        $startsAt = $data['breaking_starts_at'] ?? null;
+        $expiresAt = $data['breaking_expires_at'] ?? null;
+        $headline = $data['breaking_headline'] ?? null;
+        $status = $data['breaking_status'] ?? null;
+        $enabled = array_key_exists('is_breaking', $data)
+            ? filter_var($data['is_breaking'], FILTER_VALIDATE_BOOLEAN)
+            : null;
+
+        foreach ($keys as $key) {
+            unset($data[$key]);
+        }
+
+        if (! $touched) {
+            return null;
+        }
+
+        $payload = [
+            'enabled' => $enabled ?? false,
+            'starts_at' => $startsAt === '' ? null : $startsAt,
+            'expires_at' => $expiresAt === '' ? null : $expiresAt,
+            'headline_override' => $headline === '' ? null : $headline,
+        ];
+
+        if ($priority !== null && $priority !== '') {
+            $payload['priority'] = (int) $priority;
+        }
+
+        if ($status !== null && $status !== '') {
+            $payload['status'] = $status;
+        }
+
+        return $payload;
     }
 
     /**

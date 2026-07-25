@@ -3,8 +3,9 @@
 namespace Tests\Feature\Articles;
 
 use App\Enums\ArticleStatus;
+use App\Enums\BreakingNewsStatus;
 use App\Models\Article;
-use App\Models\Tag;
+use App\Models\BreakingNewsItem;
 use App\Models\User;
 use App\Support\BreakingTag;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -15,13 +16,13 @@ class BreakingNewsArticlesTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_breaking_news_endpoint_is_public_and_returns_latest_matching_articles(): void
+    public function test_breaking_news_endpoint_returns_live_ordered_items(): void
     {
         $author = User::factory()->create();
 
-        $newestBreaking = Article::query()->create([
-            'title' => 'Newest Breaking',
-            'slug' => 'newest-breaking',
+        $newer = Article::query()->create([
+            'title' => 'Second Priority',
+            'slug' => 'second-priority',
             'article_description' => 'Body',
             'status' => ArticleStatus::PUBLISHED,
             'is_breaking' => true,
@@ -29,9 +30,9 @@ class BreakingNewsArticlesTest extends TestCase
             'published_at' => now(),
         ]);
 
-        $olderBreaking = Article::query()->create([
-            'title' => 'Older Breaking',
-            'slug' => 'older-breaking',
+        $older = Article::query()->create([
+            'title' => 'First Priority',
+            'slug' => 'first-priority',
             'article_description' => 'Body',
             'status' => ArticleStatus::PUBLISHED,
             'is_breaking' => true,
@@ -39,14 +40,25 @@ class BreakingNewsArticlesTest extends TestCase
             'published_at' => now()->subHour(),
         ]);
 
+        BreakingNewsItem::query()->create([
+            'article_id' => $newer->id,
+            'priority' => 20,
+            'status' => BreakingNewsStatus::ACTIVE,
+        ]);
+
+        BreakingNewsItem::query()->create([
+            'article_id' => $older->id,
+            'priority' => 10,
+            'status' => BreakingNewsStatus::ACTIVE,
+        ]);
+
         Article::query()->create([
-            'title' => 'Sports Story',
-            'slug' => 'sports-story',
+            'title' => 'Not Breaking',
+            'slug' => 'not-breaking',
             'article_description' => 'Body',
             'status' => ArticleStatus::PUBLISHED,
-            'is_breaking' => false,
             'user_id' => $author->id,
-            'published_at' => now()->subMinutes(30),
+            'published_at' => now(),
         ]);
 
         $response = $this->getJson('/api/v1/articles/breaking?limit=5');
@@ -54,35 +66,65 @@ class BreakingNewsArticlesTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonCount(2, 'data')
-            ->assertJsonPath('data.0.slug', 'newest-breaking')
-            ->assertJsonPath('data.1.slug', 'older-breaking')
-            ->assertJsonPath('data.0.is_breaking', true);
-
-        $this->assertTrue($newestBreaking->fresh()->is_breaking);
-        $this->assertTrue($olderBreaking->fresh()->is_breaking);
+            ->assertJsonPath('data.0.slug', 'first-priority')
+            ->assertJsonPath('data.1.slug', 'second-priority')
+            ->assertJsonPath('data.0.title', 'First Priority');
     }
 
-    public function test_breaking_news_endpoint_still_includes_legacy_tagged_articles(): void
+    public function test_paused_and_expired_items_are_hidden_from_ticker(): void
     {
         $author = User::factory()->create();
-        $breakingTag = Tag::query()->create(['tag' => 'Breaking-News']);
 
-        $tagged = Article::query()->create([
-            'title' => 'Legacy Tagged',
-            'slug' => 'legacy-tagged',
+        $pausedArticle = Article::query()->create([
+            'title' => 'Paused Story',
+            'slug' => 'paused-story',
             'article_description' => 'Body',
             'status' => ArticleStatus::PUBLISHED,
-            'is_breaking' => false,
             'user_id' => $author->id,
             'published_at' => now(),
         ]);
-        $tagged->tags()->attach($breakingTag->id);
+
+        $expiredArticle = Article::query()->create([
+            'title' => 'Expired Story',
+            'slug' => 'expired-story',
+            'article_description' => 'Body',
+            'status' => ArticleStatus::PUBLISHED,
+            'user_id' => $author->id,
+            'published_at' => now(),
+        ]);
+
+        $scheduledArticle = Article::query()->create([
+            'title' => 'Future Story',
+            'slug' => 'future-story',
+            'article_description' => 'Body',
+            'status' => ArticleStatus::PUBLISHED,
+            'user_id' => $author->id,
+            'published_at' => now(),
+        ]);
+
+        BreakingNewsItem::query()->create([
+            'article_id' => $pausedArticle->id,
+            'priority' => 10,
+            'status' => BreakingNewsStatus::PAUSED,
+        ]);
+
+        BreakingNewsItem::query()->create([
+            'article_id' => $expiredArticle->id,
+            'priority' => 20,
+            'status' => BreakingNewsStatus::ACTIVE,
+            'expires_at' => now()->subMinute(),
+        ]);
+
+        BreakingNewsItem::query()->create([
+            'article_id' => $scheduledArticle->id,
+            'priority' => 30,
+            'status' => BreakingNewsStatus::ACTIVE,
+            'starts_at' => now()->addHour(),
+        ]);
 
         $response = $this->getJson('/api/v1/articles/breaking?limit=5');
 
-        $response->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.slug', 'legacy-tagged');
+        $response->assertOk()->assertJsonCount(0, 'data');
     }
 
     public function test_breaking_news_limit_is_capped_at_ten(): void
@@ -90,14 +132,19 @@ class BreakingNewsArticlesTest extends TestCase
         $author = User::factory()->create();
 
         for ($i = 1; $i <= 12; $i++) {
-            Article::query()->create([
+            $article = Article::query()->create([
                 'title' => "Breaking {$i}",
                 'slug' => "breaking-{$i}",
                 'article_description' => 'Body',
                 'status' => ArticleStatus::PUBLISHED,
-                'is_breaking' => true,
                 'user_id' => $author->id,
                 'published_at' => now()->subMinutes($i),
+            ]);
+
+            BreakingNewsItem::query()->create([
+                'article_id' => $article->id,
+                'priority' => $i * 10,
+                'status' => BreakingNewsStatus::ACTIVE,
             ]);
         }
 
