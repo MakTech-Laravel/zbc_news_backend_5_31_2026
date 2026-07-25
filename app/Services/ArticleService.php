@@ -147,10 +147,66 @@ class ArticleService
 
         return $this->articleQuery()
             ->where('status', ArticleStatus::PUBLISHED->value)
-            ->whereHas('tags', fn ($query) => $query->whereIn('tag', BreakingTag::VALUES))
+            ->where(function ($query) {
+                $query->where('is_breaking', true)
+                    ->orWhereHas('tags', fn ($tagQuery) => $tagQuery->whereIn('tag', BreakingTag::VALUES));
+            })
             ->latest('published_at')
             ->limit($limit)
             ->get();
+    }
+
+    public function getAdminBreakingNewsArticles(): Collection
+    {
+        return $this->article
+            ->with([
+                'category:id,title,slug',
+                'user:id,name,slug',
+                'tags:id,tag',
+                'media' => fn ($q) => $q->where('status', 'ready')
+                    ->whereIn('collection', ['featured', 'poster']),
+            ])
+            ->where('is_breaking', true)
+            ->latest('published_at')
+            ->latest('updated_at')
+            ->get();
+    }
+
+    public function clearBreakingNews(string $slug): Article
+    {
+        $article = $this->article->where('slug', $slug)->firstOrFail();
+
+        return DB::transaction(function () use ($article) {
+            $article->update(['is_breaking' => false]);
+
+            $breakingLower = array_map('strtolower', BreakingTag::VALUES);
+            $remainingTagIds = $article->tags()
+                ->get()
+                ->reject(fn ($tag) => in_array(strtolower((string) $tag->tag), $breakingLower, true))
+                ->pluck('id')
+                ->all();
+
+            $article->tags()->sync($remainingTagIds);
+
+            activity()
+                ->performedOn($article)
+                ->causedBy(auth()->user())
+                ->withProperties([
+                    'article_title' => $article->title,
+                    'article_slug' => $article->slug,
+                    'ip_address' => request()->ip(),
+                    'user_agent' => request()->userAgent(),
+                ])
+                ->log('Breaking news flag removed');
+
+            return $article->fresh([
+                'tags',
+                'category',
+                'user',
+                'media' => fn ($q) => $q->where('status', 'ready')
+                    ->whereIn('collection', ['featured', 'poster']),
+            ]);
+        });
     }
 
     public function getLatestArticleByTag(string $tagSlug, string $type = 'latest'): Collection
@@ -188,6 +244,9 @@ class ArticleService
             $tags = $data['tags'] ?? [];
             unset($data['tags']);
 
+            $data['is_breaking'] = $this->resolveIsBreaking($data);
+            $tags = $this->syncBreakingTagWithFlag($tags, $data['is_breaking']);
+
             $categoryTitle = ArticleCategory::query()
                 ->whereKey($data['article_category_id'] ?? null)
                 ->value('title');
@@ -221,6 +280,7 @@ class ArticleService
                     'article_slug' => $article->slug,
                     'status' => $article->status,
                     'article_category_id' => $article->article_category_id,
+                    'is_breaking' => $article->is_breaking,
                     'tags' => $tags,
                     'scheduled_publishing' => $article->scheduled_publishing,
                     'published_at' => $article->published_at,
@@ -288,6 +348,15 @@ class ArticleService
                 ? $tags
                 : $article->tags()->pluck('tag')->all();
 
+            if (array_key_exists('is_breaking', $data)) {
+                $data['is_breaking'] = $this->resolveIsBreaking($data);
+            } else {
+                $data['is_breaking'] = (bool) $article->is_breaking;
+            }
+
+            $tagNames = $this->syncBreakingTagWithFlag($tagNames, (bool) $data['is_breaking']);
+            $tags = is_array($tags) ? $tagNames : $tags;
+
             $categoryId = $data['article_category_id'] ?? $article->article_category_id;
             $categoryTitle = ArticleCategory::query()->whereKey($categoryId)->value('title');
 
@@ -307,6 +376,7 @@ class ArticleService
                 'slug',
                 'status',
                 'article_category_id',
+                'is_breaking',
                 'scheduled_publishing',
                 'published_at',
             ]);
@@ -326,10 +396,9 @@ class ArticleService
             $becamePublished = $previousStatus !== ArticleStatus::PUBLISHED
                 && $article->status === ArticleStatus::PUBLISHED;
 
-            if (! is_null($tags)) {
-                $tagIds = $this->resolveTags($tags);
-                $article->tags()->sync($tagIds);
-            }
+            // Always sync tags when is_breaking may have changed the tag set.
+            $tagIds = $this->resolveTags($tagNames);
+            $article->tags()->sync($tagIds);
 
             activity()
                 ->performedOn($article)
@@ -337,7 +406,7 @@ class ArticleService
                 ->withProperties([
                     'old' => $old,
                     'new' => $article->fresh()->only(array_keys($old)),
-                    'tags' => $tags,
+                    'tags' => $tagNames,
                     'ip_address' => request()->ip(),
                     'user_agent' => request()->userAgent(),
                 ])
@@ -928,6 +997,48 @@ class ArticleService
         return collect($tags)
             ->map(fn ($tagName) => Tag::firstOrCreate(['tag' => strtolower(trim($tagName))])->id)
             ->toArray();
+    }
+
+    private function resolveIsBreaking(array $data): bool
+    {
+        if (! array_key_exists('is_breaking', $data)) {
+            return false;
+        }
+
+        return filter_var($data['is_breaking'], FILTER_VALIDATE_BOOLEAN);
+    }
+
+    /**
+     * Keep the canonical breaking-news tag in sync with the is_breaking flag.
+     *
+     * @param  array<int, string>  $tags
+     * @return array<int, string>
+     */
+    private function syncBreakingTagWithFlag(array $tags, bool $isBreaking): array
+    {
+        $breakingLower = array_map('strtolower', BreakingTag::VALUES);
+
+        $normalized = collect($tags)
+            ->map(fn ($tag) => trim((string) $tag))
+            ->filter()
+            ->values();
+
+        if ($isBreaking) {
+            $hasBreaking = $normalized->contains(
+                fn (string $tag) => in_array(strtolower($tag), $breakingLower, true),
+            );
+
+            if (! $hasBreaking) {
+                $normalized->push('breaking-news');
+            }
+
+            return $normalized->unique()->values()->all();
+        }
+
+        return $normalized
+            ->reject(fn (string $tag) => in_array(strtolower($tag), $breakingLower, true))
+            ->values()
+            ->all();
     }
 
     public function getGridArticles(int $limit = 50, array $excludeIds = []): Collection

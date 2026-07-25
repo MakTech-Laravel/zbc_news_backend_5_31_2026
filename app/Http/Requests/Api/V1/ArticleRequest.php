@@ -88,6 +88,7 @@ class ArticleRequest extends FormRequest
             'excerpt'               => ['nullable', 'string'],
             'status'                => ['nullable', new Enum(ArticleStatus::class)],
             'visibility'                => ['nullable', new Enum(ArticleVisibility::class)],
+            'is_breaking'           => ['sometimes', 'boolean'],
             'featured_image'        => $featuredImageRule,
             'open_graph_image'      => $openGraphImageRule,
             'featured_media_uuid'   => ['nullable', 'string', 'max:36'],

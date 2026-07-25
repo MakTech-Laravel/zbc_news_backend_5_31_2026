@@ -27,6 +27,7 @@ class ArticleResource extends JsonResource
 
             'status' => $this->status?->value ?? $this->status,
             'visibility' => $this->visibility?->value ?? $this->visibility,
+            'is_breaking' => (bool) $this->is_breaking,
             'featured_image' => MediaUrl::resolvePublic($this->featured_image),
             'open_graph_image' => MediaUrl::resolvePublic($this->open_graph_image),
             'featured_media' => $this->resolveFeaturedMediaPayload(),

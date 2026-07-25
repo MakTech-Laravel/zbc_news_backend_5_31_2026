@@ -73,7 +73,9 @@ class NotificationDispatchTest extends TestCase
             'platform_announcements' => true,
         ]);
 
-        $article = $this->createArticle($category, $author);
+        $article = $this->createArticle($category, $author, [
+            'is_breaking' => true,
+        ]);
         $breakingTag = Tag::query()->create(['tag' => 'breaking']);
         $article->tags()->attach($breakingTag->id);
 

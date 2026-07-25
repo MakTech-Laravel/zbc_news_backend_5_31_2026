@@ -19,38 +19,35 @@ class BreakingNewsArticlesTest extends TestCase
     {
         $author = User::factory()->create();
 
-        $breakingTag = Tag::query()->create(['tag' => 'Breaking-News']);
-        $otherTag = Tag::query()->create(['tag' => 'sports']);
-
         $newestBreaking = Article::query()->create([
             'title' => 'Newest Breaking',
             'slug' => 'newest-breaking',
             'article_description' => 'Body',
             'status' => ArticleStatus::PUBLISHED,
+            'is_breaking' => true,
             'user_id' => $author->id,
             'published_at' => now(),
         ]);
-        $newestBreaking->tags()->attach($breakingTag->id);
 
         $olderBreaking = Article::query()->create([
             'title' => 'Older Breaking',
             'slug' => 'older-breaking',
             'article_description' => 'Body',
             'status' => ArticleStatus::PUBLISHED,
+            'is_breaking' => true,
             'user_id' => $author->id,
             'published_at' => now()->subHour(),
         ]);
-        $olderBreaking->tags()->attach($breakingTag->id);
 
-        $nonBreaking = Article::query()->create([
+        Article::query()->create([
             'title' => 'Sports Story',
             'slug' => 'sports-story',
             'article_description' => 'Body',
             'status' => ArticleStatus::PUBLISHED,
+            'is_breaking' => false,
             'user_id' => $author->id,
             'published_at' => now()->subMinutes(30),
         ]);
-        $nonBreaking->tags()->attach($otherTag->id);
 
         $response = $this->getJson('/api/v1/articles/breaking?limit=5');
 
@@ -58,24 +55,50 @@ class BreakingNewsArticlesTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.slug', 'newest-breaking')
-            ->assertJsonPath('data.1.slug', 'older-breaking');
+            ->assertJsonPath('data.1.slug', 'older-breaking')
+            ->assertJsonPath('data.0.is_breaking', true);
+
+        $this->assertTrue($newestBreaking->fresh()->is_breaking);
+        $this->assertTrue($olderBreaking->fresh()->is_breaking);
+    }
+
+    public function test_breaking_news_endpoint_still_includes_legacy_tagged_articles(): void
+    {
+        $author = User::factory()->create();
+        $breakingTag = Tag::query()->create(['tag' => 'Breaking-News']);
+
+        $tagged = Article::query()->create([
+            'title' => 'Legacy Tagged',
+            'slug' => 'legacy-tagged',
+            'article_description' => 'Body',
+            'status' => ArticleStatus::PUBLISHED,
+            'is_breaking' => false,
+            'user_id' => $author->id,
+            'published_at' => now(),
+        ]);
+        $tagged->tags()->attach($breakingTag->id);
+
+        $response = $this->getJson('/api/v1/articles/breaking?limit=5');
+
+        $response->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.slug', 'legacy-tagged');
     }
 
     public function test_breaking_news_limit_is_capped_at_ten(): void
     {
         $author = User::factory()->create();
-        $breakingTag = Tag::query()->create(['tag' => 'breaking_news']);
 
         for ($i = 1; $i <= 12; $i++) {
-            $article = Article::query()->create([
+            Article::query()->create([
                 'title' => "Breaking {$i}",
                 'slug' => "breaking-{$i}",
                 'article_description' => 'Body',
                 'status' => ArticleStatus::PUBLISHED,
+                'is_breaking' => true,
                 'user_id' => $author->id,
                 'published_at' => now()->subMinutes($i),
             ]);
-            $article->tags()->attach($breakingTag->id);
         }
 
         $response = $this->getJson('/api/v1/articles/breaking?limit=25');

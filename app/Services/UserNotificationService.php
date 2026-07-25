@@ -284,7 +284,13 @@ class UserNotificationService
 
     private function isBreakingArticle(Article $article): bool
     {
-        return $article->tags->contains(fn ($tag) => BreakingTag::isBreaking($tag->tag));
+        if ($article->is_breaking) {
+            return true;
+        }
+
+        return $article->relationLoaded('tags')
+            ? $article->tags->contains(fn ($tag) => BreakingTag::isBreaking($tag->tag))
+            : $article->tags()->whereIn('tag', BreakingTag::VALUES)->exists();
     }
 
     private function notifyBreakingNews(Article $article): void

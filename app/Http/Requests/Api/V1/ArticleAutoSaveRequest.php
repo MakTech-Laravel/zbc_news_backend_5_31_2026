@@ -61,6 +61,7 @@ class ArticleAutoSaveRequest extends FormRequest
             'article_description' => ['nullable', 'string'],
             'excerpt' => ['nullable', 'string'],
             'visibility' => ['nullable', new Enum(ArticleVisibility::class)],
+            'is_breaking' => ['sometimes', 'boolean'],
             'featured_image' => $featuredImageRule,
             'open_graph_image' => $openGraphImageRule,
             'featured_media_uuid' => ['nullable', 'string', 'max:36'],
