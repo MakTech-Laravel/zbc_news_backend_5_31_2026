@@ -55,12 +55,12 @@ class ArticleController extends Controller
     public function breakingNews(Request $request): JsonResponse
     {
         $limit = (int) $request->query('limit', 10);
-        $articles = $this->articleService->getBreakingNewsArticles($limit);
+        $items = app(\App\Services\BreakingNewsService::class)->listForTicker($limit);
 
         return sendResponse(
             true,
             'Breaking news articles retrieved successfully',
-            ArticleResource::collection($articles),
+            \App\Http\Resources\Api\V1\BreakingNewsItemResource::collection($items),
             HttpStatus::HTTP_OK,
         );
     }

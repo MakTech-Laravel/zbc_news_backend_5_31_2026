@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\backend\AdSlotController;
 use App\Http\Controllers\Api\V1\backend\AnnouncementController;
 use App\Http\Controllers\Api\V1\backend\ArticleController;
 use App\Http\Controllers\Api\V1\backend\ArticleTrackingController;
+use App\Http\Controllers\Api\V1\backend\BreakingNewsController;
 use App\Http\Controllers\Api\V1\backend\CategoryController;
 use App\Http\Controllers\Api\V1\backend\MediaController;
 use App\Http\Controllers\Api\V1\backend\MembershipPlanController;
@@ -95,6 +96,23 @@ Route::controller(ArticleController::class)->prefix('articles')->group(function 
         ->middleware('permission:'.PermissionEnum::ARTICLES_STATS->value);
     Route::get('/{tagSlug}/articles', 'articlesByTag')->name('api.v1.articles.articles-by-tag');
     Route::get('/long-reads', 'longReads')->name('api.v1.articles.long-reads');
+});
+
+Route::controller(BreakingNewsController::class)->prefix('breaking-news')->group(function () {
+    Route::get('/', 'index')->name('api.v1.breaking-news.index')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_LIST->value);
+    Route::post('/store', 'store')->name('api.v1.breaking-news.store')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
+    Route::post('/reorder', 'reorder')->name('api.v1.breaking-news.reorder')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
+    Route::put('/update/{id}', 'update')->name('api.v1.breaking-news.update')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
+    Route::post('/activate/{id}', 'activate')->name('api.v1.breaking-news.activate')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
+    Route::post('/pause/{id}', 'pause')->name('api.v1.breaking-news.pause')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
+    Route::delete('/delete/{id}', 'destroy')->name('api.v1.breaking-news.destroy')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
 });
 
 Route::get('/user/read-history', [ArticleTrackingController::class, 'userHistory'])

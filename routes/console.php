@@ -13,6 +13,7 @@ Artisan::command('inspire', function () {
 // Publish scheduled articles every minute
 Schedule::job(new PublishScheduledArticles)->everyMinute();
 Schedule::job(new ProcessScheduledNewsletterCampaigns)->everyMinute();
+Schedule::job(new \App\Jobs\ExpireBreakingNewsItems)->everyMinute();
 
 // Keep the sitemap caches warm (lazy TTLs still rebuild on demand: general 1h,
 // news 10m). Hourly warm avoids a slow first request after expiry.

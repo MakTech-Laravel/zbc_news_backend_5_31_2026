@@ -39,6 +39,18 @@ class ArticleRequest extends FormRequest
             );
         }
 
+        if ($this->filled('breaking_starts_at')) {
+            $merge['breaking_starts_at'] = $this->normalizeDatetimeInput(
+                (string) $this->input('breaking_starts_at'),
+            );
+        }
+
+        if ($this->filled('breaking_expires_at')) {
+            $merge['breaking_expires_at'] = $this->normalizeDatetimeInput(
+                (string) $this->input('breaking_expires_at'),
+            );
+        }
+
         if ($merge !== []) {
             $this->merge($merge);
         }
@@ -88,6 +100,12 @@ class ArticleRequest extends FormRequest
             'excerpt'               => ['nullable', 'string'],
             'status'                => ['nullable', new Enum(ArticleStatus::class)],
             'visibility'                => ['nullable', new Enum(ArticleVisibility::class)],
+            'is_breaking'           => ['sometimes', 'boolean'],
+            'breaking_priority'     => ['sometimes', 'integer', 'min:0', 'max:9999'],
+            'breaking_starts_at'    => ['nullable', 'date'],
+            'breaking_expires_at'   => ['nullable', 'date'],
+            'breaking_headline'     => ['nullable', 'string', 'max:255'],
+            'breaking_status'       => ['sometimes', 'string', Rule::in(['active', 'paused'])],
             'featured_image'        => $featuredImageRule,
             'open_graph_image'      => $openGraphImageRule,
             'featured_media_uuid'   => ['nullable', 'string', 'max:36'],

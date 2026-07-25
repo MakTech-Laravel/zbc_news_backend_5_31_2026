@@ -284,7 +284,25 @@ class UserNotificationService
 
     private function isBreakingArticle(Article $article): bool
     {
-        return $article->tags->contains(fn ($tag) => BreakingTag::isBreaking($tag->tag));
+        $article->loadMissing('breakingNewsItem');
+
+        $item = $article->breakingNewsItem;
+        if ($item && $item->isLive() && $item->notified_at === null) {
+            return true;
+        }
+
+        // Fallback for legacy flagged articles without a breaking item row yet.
+        if ($article->is_breaking && ! $item) {
+            return true;
+        }
+
+        if ($item) {
+            return false;
+        }
+
+        return $article->relationLoaded('tags')
+            ? $article->tags->contains(fn ($tag) => BreakingTag::isBreaking($tag->tag))
+            : $article->tags()->whereIn('tag', BreakingTag::VALUES)->exists();
     }
 
     private function notifyBreakingNews(Article $article): void
@@ -304,10 +322,14 @@ class UserNotificationService
             NotifyBreakingNewsBatch::dispatch($article->id, $batch);
         }
 
+        $article->loadMissing('breakingNewsItem');
+        if ($article->breakingNewsItem && $article->breakingNewsItem->notified_at === null) {
+            $article->breakingNewsItem->forceFill(['notified_at' => now()])->save();
+        }
+
         Log::info('Breaking news notification batches queued', [
             'article_id' => $article->id,
             'recipient_batches' => (int) ceil(count($userIds) / self::BREAKING_BATCH_SIZE),
-            'recipient_count' => count($userIds),
         ]);
     }
 

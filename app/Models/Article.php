@@ -30,6 +30,7 @@ class Article extends Model
         'open_graph_image',
         'article_category_id',
         'visibility',
+        'is_breaking',
         'excerpt',
         'scheduled_publishing',
         'published_at',
@@ -40,6 +41,7 @@ class Article extends Model
     protected $casts = [
         'status' => ArticleStatus::class,
         'visibility' => ArticleVisibility::class,
+        'is_breaking' => 'boolean',
         'scheduled_publishing' => 'datetime',
         'published_at' => 'datetime',
         'views' => 'integer',
@@ -58,6 +60,11 @@ class Article extends Model
     public function tags()
     {
         return $this->belongsToMany(Tag::class, 'article_tags', 'article_id', 'tag_id');
+    }
+
+    public function breakingNewsItem()
+    {
+        return $this->hasOne(BreakingNewsItem::class);
     }
 
     public function saveArticles()

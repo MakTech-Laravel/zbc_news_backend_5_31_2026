@@ -27,6 +27,7 @@ class ArticleService
         private readonly SeoMetaService $seoMetaService,
         private readonly StoredImageService $storedImageService,
         private readonly MediaService $mediaService,
+        private readonly BreakingNewsService $breakingNewsService,
     ) {}
 
     public function getAllArticles()
@@ -143,14 +144,31 @@ class ArticleService
 
     public function getBreakingNewsArticles(int $limit = 10): Collection
     {
-        $limit = min(max($limit, 1), 10);
+        return $this->breakingNewsService
+            ->listForTicker($limit)
+            ->map(fn ($item) => $item->article)
+            ->filter()
+            ->values();
+    }
 
-        return $this->articleQuery()
-            ->where('status', ArticleStatus::PUBLISHED->value)
-            ->whereHas('tags', fn ($query) => $query->whereIn('tag', BreakingTag::VALUES))
-            ->latest('published_at')
-            ->limit($limit)
-            ->get();
+    public function getAdminBreakingNewsArticles(): Collection
+    {
+        return $this->breakingNewsService->listForAdmin();
+    }
+
+    public function clearBreakingNews(string $slug): Article
+    {
+        $article = $this->article->where('slug', $slug)->firstOrFail();
+        $this->breakingNewsService->removeForArticle($article);
+
+        return $article->fresh([
+            'tags',
+            'category',
+            'user',
+            'breakingNewsItem',
+            'media' => fn ($q) => $q->where('status', 'ready')
+                ->whereIn('collection', ['featured', 'poster']),
+        ]);
     }
 
     public function getLatestArticleByTag(string $tagSlug, string $type = 'latest'): Collection
@@ -188,6 +206,13 @@ class ArticleService
             $tags = $data['tags'] ?? [];
             unset($data['tags']);
 
+            $breakingPayload = $this->extractBreakingPayload($data);
+
+            $data['is_breaking'] = $breakingPayload !== null
+                ? (bool) ($breakingPayload['enabled'] ?? false)
+                : false;
+            $tags = $this->syncBreakingTagWithFlag($tags, $data['is_breaking']);
+
             $categoryTitle = ArticleCategory::query()
                 ->whereKey($data['article_category_id'] ?? null)
                 ->value('title');
@@ -213,6 +238,14 @@ class ArticleService
                 $article->tags()->sync($tagIds);
             }
 
+            if ($breakingPayload !== null) {
+                $this->breakingNewsService->syncForArticle(
+                    $article,
+                    $breakingPayload,
+                    auth()->id(),
+                );
+            }
+
             activity()
                 ->performedOn($article)
                 ->causedBy(auth()->user())
@@ -221,6 +254,7 @@ class ArticleService
                     'article_slug' => $article->slug,
                     'status' => $article->status,
                     'article_category_id' => $article->article_category_id,
+                    'is_breaking' => $article->fresh()->is_breaking,
                     'tags' => $tags,
                     'scheduled_publishing' => $article->scheduled_publishing,
                     'published_at' => $article->published_at,
@@ -231,6 +265,7 @@ class ArticleService
 
             $article = $article->load([
                 'tags',
+                'breakingNewsItem',
                 'media' => fn ($q) => $q->where('status', 'ready')
                     ->whereIn('collection', ['featured', 'poster']),
             ]);
@@ -244,6 +279,7 @@ class ArticleService
                 'tags',
                 'category',
                 'user',
+                'breakingNewsItem',
                 'media' => fn ($q) => $q->where('status', 'ready')
                     ->whereIn('collection', ['featured', 'poster']),
             ]);
@@ -284,9 +320,23 @@ class ArticleService
             $tags = $data['tags'] ?? null;
             unset($data['tags']);
 
+            $breakingPayload = $this->extractBreakingPayload($data);
+
             $tagNames = is_array($tags)
                 ? $tags
                 : $article->tags()->pluck('tag')->all();
+
+            if ($breakingPayload !== null) {
+                $data['is_breaking'] = (bool) ($breakingPayload['enabled'] ?? false);
+            } elseif (array_key_exists('is_breaking', $data)) {
+                $data['is_breaking'] = $this->resolveIsBreaking($data);
+                $breakingPayload = ['enabled' => $data['is_breaking']];
+            } else {
+                $data['is_breaking'] = (bool) $article->is_breaking;
+            }
+
+            $tagNames = $this->syncBreakingTagWithFlag($tagNames, (bool) $data['is_breaking']);
+            $tags = is_array($tags) ? $tagNames : $tags;
 
             $categoryId = $data['article_category_id'] ?? $article->article_category_id;
             $categoryTitle = ArticleCategory::query()->whereKey($categoryId)->value('title');
@@ -307,6 +357,7 @@ class ArticleService
                 'slug',
                 'status',
                 'article_category_id',
+                'is_breaking',
                 'scheduled_publishing',
                 'published_at',
             ]);
@@ -326,9 +377,16 @@ class ArticleService
             $becamePublished = $previousStatus !== ArticleStatus::PUBLISHED
                 && $article->status === ArticleStatus::PUBLISHED;
 
-            if (! is_null($tags)) {
-                $tagIds = $this->resolveTags($tags);
-                $article->tags()->sync($tagIds);
+            // Always sync tags when is_breaking may have changed the tag set.
+            $tagIds = $this->resolveTags($tagNames);
+            $article->tags()->sync($tagIds);
+
+            if ($breakingPayload !== null) {
+                $this->breakingNewsService->syncForArticle(
+                    $article->fresh(),
+                    $breakingPayload,
+                    auth()->id(),
+                );
             }
 
             activity()
@@ -337,7 +395,7 @@ class ArticleService
                 ->withProperties([
                     'old' => $old,
                     'new' => $article->fresh()->only(array_keys($old)),
-                    'tags' => $tags,
+                    'tags' => $tagNames,
                     'ip_address' => request()->ip(),
                     'user_agent' => request()->userAgent(),
                 ])
@@ -347,6 +405,7 @@ class ArticleService
                 'tags',
                 'category',
                 'user',
+                'breakingNewsItem',
                 'media' => fn ($q) => $q->where('status', 'ready')
                     ->whereIn('collection', ['featured', 'poster']),
             ]);
@@ -667,6 +726,7 @@ class ArticleService
                 'tags',
                 'category',
                 'user',
+                'breakingNewsItem',
                 'media' => fn ($q) => $q->where('status', 'ready')
                     ->whereIn('collection', ['featured', 'poster']),
             ])
@@ -928,6 +988,108 @@ class ArticleService
         return collect($tags)
             ->map(fn ($tagName) => Tag::firstOrCreate(['tag' => strtolower(trim($tagName))])->id)
             ->toArray();
+    }
+
+    private function resolveIsBreaking(array $data): bool
+    {
+        if (! array_key_exists('is_breaking', $data)) {
+            return false;
+        }
+
+        return filter_var($data['is_breaking'], FILTER_VALIDATE_BOOLEAN);
+    }
+
+    /**
+     * Pull breaking-news fields out of the article payload so they are not mass-assigned.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>|null  null when the request did not touch breaking news
+     */
+    private function extractBreakingPayload(array &$data): ?array
+    {
+        $keys = [
+            'is_breaking',
+            'breaking_priority',
+            'breaking_starts_at',
+            'breaking_expires_at',
+            'breaking_headline',
+            'breaking_status',
+        ];
+
+        $touched = false;
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $data)) {
+                $touched = true;
+                break;
+            }
+        }
+
+        $priority = $data['breaking_priority'] ?? null;
+        $startsAt = $data['breaking_starts_at'] ?? null;
+        $expiresAt = $data['breaking_expires_at'] ?? null;
+        $headline = $data['breaking_headline'] ?? null;
+        $status = $data['breaking_status'] ?? null;
+        $enabled = array_key_exists('is_breaking', $data)
+            ? filter_var($data['is_breaking'], FILTER_VALIDATE_BOOLEAN)
+            : null;
+
+        foreach ($keys as $key) {
+            unset($data[$key]);
+        }
+
+        if (! $touched) {
+            return null;
+        }
+
+        $payload = [
+            'enabled' => $enabled ?? false,
+            'starts_at' => $startsAt === '' ? null : $startsAt,
+            'expires_at' => $expiresAt === '' ? null : $expiresAt,
+            'headline_override' => $headline === '' ? null : $headline,
+        ];
+
+        if ($priority !== null && $priority !== '') {
+            $payload['priority'] = (int) $priority;
+        }
+
+        if ($status !== null && $status !== '') {
+            $payload['status'] = $status;
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Keep the canonical breaking-news tag in sync with the is_breaking flag.
+     *
+     * @param  array<int, string>  $tags
+     * @return array<int, string>
+     */
+    private function syncBreakingTagWithFlag(array $tags, bool $isBreaking): array
+    {
+        $breakingLower = array_map('strtolower', BreakingTag::VALUES);
+
+        $normalized = collect($tags)
+            ->map(fn ($tag) => trim((string) $tag))
+            ->filter()
+            ->values();
+
+        if ($isBreaking) {
+            $hasBreaking = $normalized->contains(
+                fn (string $tag) => in_array(strtolower($tag), $breakingLower, true),
+            );
+
+            if (! $hasBreaking) {
+                $normalized->push('breaking-news');
+            }
+
+            return $normalized->unique()->values()->all();
+        }
+
+        return $normalized
+            ->reject(fn (string $tag) => in_array(strtolower($tag), $breakingLower, true))
+            ->values()
+            ->all();
     }
 
     public function getGridArticles(int $limit = 50, array $excludeIds = []): Collection

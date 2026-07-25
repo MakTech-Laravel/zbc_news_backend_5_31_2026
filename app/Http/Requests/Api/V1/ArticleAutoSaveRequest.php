@@ -6,6 +6,7 @@ use App\Enums\ArticleVisibility;
 use App\Http\Requests\Concerns\NormalizesDatetimeInput;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
 
 class ArticleAutoSaveRequest extends FormRequest
@@ -61,6 +62,12 @@ class ArticleAutoSaveRequest extends FormRequest
             'article_description' => ['nullable', 'string'],
             'excerpt' => ['nullable', 'string'],
             'visibility' => ['nullable', new Enum(ArticleVisibility::class)],
+            'is_breaking' => ['sometimes', 'boolean'],
+            'breaking_priority' => ['sometimes', 'integer', 'min:0', 'max:9999'],
+            'breaking_starts_at' => ['nullable', 'date'],
+            'breaking_expires_at' => ['nullable', 'date'],
+            'breaking_headline' => ['nullable', 'string', 'max:255'],
+            'breaking_status' => ['sometimes', 'string', Rule::in(['active', 'paused'])],
             'featured_image' => $featuredImageRule,
             'open_graph_image' => $openGraphImageRule,
             'featured_media_uuid' => ['nullable', 'string', 'max:36'],
