@@ -31,6 +31,9 @@ class Article extends Model
         'article_category_id',
         'visibility',
         'is_breaking',
+        'is_live',
+        'live_started_at',
+        'live_ended_at',
         'excerpt',
         'scheduled_publishing',
         'published_at',
@@ -42,6 +45,9 @@ class Article extends Model
         'status' => ArticleStatus::class,
         'visibility' => ArticleVisibility::class,
         'is_breaking' => 'boolean',
+        'is_live' => 'boolean',
+        'live_started_at' => 'datetime',
+        'live_ended_at' => 'datetime',
         'scheduled_publishing' => 'datetime',
         'published_at' => 'datetime',
         'views' => 'integer',
@@ -76,11 +82,6 @@ class Article extends Model
     {
         return $this->hasMany(ArticleComment::class, 'article_id');
     }
-
-    // public function readLogs()
-    // {
-    //     return $this->hasMany(ArticleReadLog::class, 'article_id');
-    // }
 
     public function histroy()
     {

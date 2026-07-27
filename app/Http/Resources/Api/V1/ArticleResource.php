@@ -28,6 +28,9 @@ class ArticleResource extends JsonResource
             'status' => $this->status?->value ?? $this->status,
             'visibility' => $this->visibility?->value ?? $this->visibility,
             'is_breaking' => (bool) $this->is_breaking,
+            'is_live' => (bool) ($this->is_live ?? false),
+            'live_started_at' => $this->live_started_at?->toIso8601String(),
+            'live_ended_at' => $this->live_ended_at?->toIso8601String(),
             'breaking_news' => $this->whenLoaded('breakingNewsItem', function () {
                 $item = $this->breakingNewsItem;
                 if (! $item || ($item->status?->value ?? $item->status) === 'removed') {

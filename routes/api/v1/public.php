@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\frontend\NavigationController;
 use App\Http\Controllers\Api\V1\frontend\NewsletterController;
 use App\Http\Controllers\Api\V1\frontend\PublicSiteSettingsController;
 use App\Http\Controllers\Api\V1\frontend\SearchController;
+use App\Http\Controllers\Api\V1\frontend\SubMenuController;
 use App\Http\Controllers\Api\V1\RealtimeController;
 use Illuminate\Support\Facades\Route;
 
@@ -89,6 +90,8 @@ Route::controller(SearchController::class)->prefix('search')->middleware('option
 });
 
 Route::get('/navigation/quick-links', [NavigationController::class, 'quickLinks'])->name('api.v1.navigation.quick-links');
+Route::get('/sub-menu', [SubMenuController::class, 'index'])->name('api.v1.sub-menu.index');
+Route::get('/sub-menu/{section}', [SubMenuController::class, 'show'])->name('api.v1.sub-menu.show');
 Route::get('/menus/location/{location}', [MenuController::class, 'byLocation'])->name('api.v1.menus.by-location');
 Route::get('/menus/slug/{slug}', [MenuController::class, 'bySlug'])->name('api.v1.menus.by-slug');
 Route::get('/ads/slots', [AdSlotController::class, 'index'])->name('api.v1.ads.slots');
