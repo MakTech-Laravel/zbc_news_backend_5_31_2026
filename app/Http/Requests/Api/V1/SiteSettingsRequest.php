@@ -22,6 +22,7 @@ class SiteSettingsRequest extends FormRequest
             'site_tag' => 'nullable|string|max:255',
             'site_logo' => 'nullable|string|max:2048',
             'favicon' => 'nullable|string|max:2048',
+            'header_layout' => 'nullable|string|in:compact,stacked',
             'timezone' => 'nullable|string|max:64',
             'language' => 'nullable|string|max:16',
             'meta_title' => 'nullable|string|max:255',
