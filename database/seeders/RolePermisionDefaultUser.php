@@ -110,8 +110,15 @@ class RolePermisionDefaultUser extends Seeder
 
     private function assignPermissionsToRoles(): void
     {
+        $allPermissions = Permission::query()->where('guard_name', 'api')->get();
+
+        // Super Admin: every permission (frontend + API). Gate::before also bypasses checks.
+        $superAdminRole = Role::findByName('super_admin', 'api');
+        $superAdminRole->syncPermissions($allPermissions);
+
+        // Staff Admin: full CMS access via explicit grant (still subject to frontend/API permission checks).
         $adminRole = Role::findByName('admin', 'api');
-        $adminRole->syncPermissions(Permission::all());
+        $adminRole->syncPermissions($allPermissions);
 
         $rolePermissionsCsv = fopen(database_path('data/role_permissions.csv'), 'r');
         $header = fgetcsv($rolePermissionsCsv, 0, ',');
@@ -119,6 +126,10 @@ class RolePermisionDefaultUser extends Seeder
 
         while (($row = fgetcsv($rolePermissionsCsv, 0, ',')) !== false) {
             $data = array_combine($header, $row);
+            // Never overwrite super_admin / admin full grants from the CSV.
+            if (in_array($data['role_name'], ['super_admin', 'admin'], true)) {
+                continue;
+            }
             $grouped[$data['role_name']][] = $data['permission_name'];
         }
 
