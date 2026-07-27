@@ -26,6 +26,8 @@ class MenuDemoSeeder extends Seeder
             'mobile-navigation',
             'sidebarmenu',
             'footer-links',
+            'footer-company',
+            'footer-legal',
         ];
         foreach ($demoSlugs as $slug) {
             $existing = Menu::withTrashed()->where('slug', $slug)->first();
@@ -131,29 +133,82 @@ class MenuDemoSeeder extends Seeder
             'sort_order' => 1,
         ]);
 
-        // 5) Footer Links (assigned to footer).
+        // 5) Footer Sections (assigned to footer).
         $footer = $menus->createMenu([
-            'name' => 'Footer Links',
+            'name' => 'Footer Sections',
             'slug' => 'footer-links',
-            'description' => 'Footer column links',
+            'description' => 'First footer column (Sections)',
             'status' => MenuStatus::ACTIVE->value,
             'location_keys' => ['footer'],
         ]);
 
         foreach (
             [
-                ['label' => 'Privacy Policy', 'url' => '/privacy'],
-                ['label' => 'Terms of Use', 'url' => '/terms'],
-                ['label' => 'Advertise', 'url' => '/advertise'],
-                ['label' => 'Careers', 'url' => '/careers', 'target' => MenuItemTarget::BLANK->value],
-                ['label' => 'Contact', 'url' => '/contact'],
+                ['label' => 'Home', 'url' => '/'],
+                ['label' => 'Breaking News', 'url' => '/breaking-news'],
+                ['label' => 'World', 'url' => '/world'],
+                ['label' => 'Politics', 'url' => '/politics'],
+                ['label' => 'Business', 'url' => '/business'],
             ] as $index => $link
         ) {
             $menus->createItem($footer, [
                 'type' => MenuItemType::CUSTOM->value,
                 'label' => $link['label'],
                 'url' => $link['url'],
-                'target' => $link['target'] ?? MenuItemTarget::SELF->value,
+                'target' => MenuItemTarget::SELF->value,
+                'sort_order' => $index + 1,
+            ]);
+        }
+
+        // 6) Footer Company (assigned to footer_company).
+        $footerCompany = $menus->createMenu([
+            'name' => 'Footer Company',
+            'slug' => 'footer-company',
+            'description' => 'Second footer column (Company)',
+            'status' => MenuStatus::ACTIVE->value,
+            'location_keys' => ['footer_company'],
+        ]);
+
+        foreach (
+            [
+                ['label' => 'About Us', 'url' => '/about'],
+                ['label' => 'Careers', 'url' => '/careers'],
+                ['label' => 'Contact', 'url' => '/contact'],
+                ['label' => 'Newsletter', 'url' => '/newsletter'],
+                ['label' => 'Advertise', 'url' => '/advertise'],
+            ] as $index => $link
+        ) {
+            $menus->createItem($footerCompany, [
+                'type' => MenuItemType::CUSTOM->value,
+                'label' => $link['label'],
+                'url' => $link['url'],
+                'target' => MenuItemTarget::SELF->value,
+                'sort_order' => $index + 1,
+            ]);
+        }
+
+        // 7) Footer Legal (assigned to footer_legal).
+        $footerLegal = $menus->createMenu([
+            'name' => 'Footer Legal',
+            'slug' => 'footer-legal',
+            'description' => 'Third footer column (Legal)',
+            'status' => MenuStatus::ACTIVE->value,
+            'location_keys' => ['footer_legal'],
+        ]);
+
+        foreach (
+            [
+                ['label' => 'Privacy Policy', 'url' => '/privacy'],
+                ['label' => 'Terms of Service', 'url' => '/terms'],
+                ['label' => 'Cookie Policy', 'url' => '/cookie-policy'],
+                ['label' => 'Accessibility', 'url' => '/accessibility-statement'],
+            ] as $index => $link
+        ) {
+            $menus->createItem($footerLegal, [
+                'type' => MenuItemType::CUSTOM->value,
+                'label' => $link['label'],
+                'url' => $link['url'],
+                'target' => MenuItemTarget::SELF->value,
                 'sort_order' => $index + 1,
             ]);
         }
@@ -162,7 +217,7 @@ class MenuDemoSeeder extends Seeder
 
         $this->command?->info('Default menus created and assigned to default locations.');
         $rows = [];
-        foreach ([$primaryMenu, $primary, $mobile, $sidebarMenu, $footer] as $menu) {
+        foreach ([$primaryMenu, $primary, $mobile, $sidebarMenu, $footer, $footerCompany, $footerLegal] as $menu) {
             $fresh = Menu::with(['locations', 'items'])->find($menu->id);
             if (! $fresh) {
                 $rows[] = [

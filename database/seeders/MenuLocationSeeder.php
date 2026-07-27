@@ -41,10 +41,24 @@ class MenuLocationSeeder extends Seeder
             ],
             [
                 'key' => 'footer',
-                'name' => 'Footer Menu',
-                'description' => 'Primary footer link columns',
+                'name' => 'Footer Sections',
+                'description' => 'First footer column (Sections)',
                 'render_style' => MenuRenderStyle::FOOTER->value,
                 'sort_order' => 5,
+            ],
+            [
+                'key' => 'footer_company',
+                'name' => 'Footer Company',
+                'description' => 'Second footer column (Company)',
+                'render_style' => MenuRenderStyle::FOOTER->value,
+                'sort_order' => 6,
+            ],
+            [
+                'key' => 'footer_legal',
+                'name' => 'Footer Legal',
+                'description' => 'Third footer column (Legal)',
+                'render_style' => MenuRenderStyle::FOOTER->value,
+                'sort_order' => 7,
             ],
         ];
 
@@ -61,7 +75,7 @@ class MenuLocationSeeder extends Seeder
             );
         }
 
-        // Keep only the five default locations active/visible by default.
+        // Deactivate any locations outside the default set.
         MenuLocation::query()
             ->whereNotIn('key', array_column($locations, 'key'))
             ->update([
