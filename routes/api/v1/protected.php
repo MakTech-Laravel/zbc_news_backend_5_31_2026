@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\V1\backend\RoleController;
 use App\Http\Controllers\Api\V1\backend\SaveArticleController;
 use App\Http\Controllers\Api\V1\backend\SeoPageController;
 use App\Http\Controllers\Api\V1\backend\SeoSitemapAdminController;
+use App\Http\Controllers\Api\V1\backend\SubMenuController;
 use App\Http\Controllers\Api\V1\backend\SiteSettingsController;
 use App\Http\Controllers\Api\V1\backend\TagController;
 use App\Http\Controllers\Api\V1\backend\UserController;
@@ -312,6 +313,23 @@ Route::controller(NavigationLinkController::class)->prefix('navigation-links')->
     Route::post('/store', 'store')->name('api.v1.navigation-links.store');
     Route::post('/update/{id}', 'update')->name('api.v1.navigation-links.update');
     Route::delete('/delete/{id}', 'destroy')->name('api.v1.navigation-links.destroy');
+});
+
+Route::controller(SubMenuController::class)->prefix('sub-menu')->group(function () {
+    Route::get('/', 'index')->name('api.v1.sub-menu.admin.index')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_LIST->value);
+    Route::post('/settings/{section}', 'updateSettings')->name('api.v1.sub-menu.admin.settings.update')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
+    Route::post('/manual/{section}', 'storeManual')->name('api.v1.sub-menu.admin.manual.store')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
+    Route::post('/manual/{section}/reorder', 'reorderManual')->name('api.v1.sub-menu.admin.manual.reorder')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
+    Route::delete('/manual/{id}', 'removeManual')->name('api.v1.sub-menu.admin.manual.delete')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
+    Route::post('/live/start/{articleId}', 'startLive')->name('api.v1.sub-menu.admin.live.start')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
+    Route::post('/live/end/{articleId}', 'endLive')->name('api.v1.sub-menu.admin.live.end')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
 });
 
 Route::controller(MenuController::class)->prefix('menus')->group(function () {
