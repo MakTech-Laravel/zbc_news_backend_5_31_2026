@@ -101,28 +101,84 @@ class ArticleService
             ->firstOrFail();
     }
 
-    public function getMostRead(bool $unique = false, int $limit = 10): Collection
-    {
+    /**
+     * @return array{items: Collection, meta: array{current_page: int, last_page: int, per_page: int, total: int}}
+     */
+    public function getMostRead(
+        bool $unique = true,
+        string $period = 'today',
+        int $perPage = 5,
+        int $page = 1,
+    ): array {
+        $perPage = max(1, min(20, $perPage));
+        $page = max(1, $page);
+
         $countExpr = $unique
             ? 'COUNT(DISTINCT COALESCE(ah.user_id, ah.ip_address)) as read_count'
             : 'COUNT(ah.id) as read_count';
 
-        return $this->article
-            ->select('articles.*')
+        $since = match ($period) {
+            'week' => now()->startOfWeek(),
+            'month' => now()->startOfMonth(),
+            'all' => null,
+            default => now()->startOfDay(),
+        };
+
+        $baseQuery = $this->article
+            ->newQuery()
+            ->select('articles.id')
             ->selectRaw($countExpr)
             ->join('article_histroys as ah', 'articles.id', '=', 'ah.article_id')
-            ->where('ah.read_at', '>=', now()->subHours(24))
+            ->when($since !== null, fn ($q) => $q->where('ah.read_at', '>=', $since))
             ->where('articles.status', ArticleStatus::PUBLISHED->value)
-            ->groupBy('articles.id')
+            ->groupBy('articles.id');
+
+        $total = (int) DB::query()
+            ->fromSub((clone $baseQuery)->toBase(), 'most_read_ranked')
+            ->count();
+
+        $rankedIds = (clone $baseQuery)
             ->orderByDesc('read_count')
-            ->with(['tags', 'category', 'user', 'media' => fn ($q) => $q->where('status', 'ready')
-                ->whereIn('collection', ['featured', 'poster'])])
-            ->withCount([
-                'comments as comments_count' => fn ($q) => $q->where('status', CommentStatus::APPROVED),
-            ])
-            ->withSum('histroy', 'time_spent')
-            ->limit($limit)
-            ->get();
+            ->forPage($page, $perPage)
+            ->get()
+            ->mapWithKeys(fn ($row) => [(int) $row->id => (int) $row->read_count]);
+
+        $items = $rankedIds->isEmpty()
+            ? new Collection()
+            : $this->article
+                ->newQuery()
+                ->whereIn('articles.id', $rankedIds->keys())
+                ->with([
+                    'tags',
+                    'category',
+                    'user',
+                    'media' => fn ($q) => $q->where('status', 'ready')
+                        ->whereIn('collection', ['featured', 'poster']),
+                ])
+                ->withCount([
+                    'comments as comments_count' => fn ($q) => $q->where('status', CommentStatus::APPROVED),
+                ])
+                ->withSum('histroy', 'time_spent')
+                ->get()
+                ->map(function (Article $article) use ($rankedIds) {
+                    $article->setAttribute('read_count', (int) $rankedIds[$article->id]);
+
+                    return $article;
+                })
+                ->sortByDesc(fn (Article $article) => (int) $article->read_count)
+                ->values();
+
+        $lastPage = max(1, (int) ceil($total / $perPage));
+
+        return [
+            'items' => $items,
+            'meta' => [
+                'current_page' => $page,
+                'last_page' => $lastPage,
+                'per_page' => $perPage,
+                'total' => $total,
+            ],
+        ];
     }
 
     public function getLatestArticle(): Article
