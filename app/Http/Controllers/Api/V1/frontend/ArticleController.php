@@ -80,15 +80,13 @@ class ArticleController extends Controller
     public function mostRead(Request $request)
     {
         $validated = $request->validate([
-            'unique' => ['sometimes', 'boolean'],
             'period' => ['sometimes', 'string', 'in:today,week,month,all'],
             'page' => ['sometimes', 'integer', 'min:1'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:20'],
         ]);
 
-        $unique = array_key_exists('unique', $validated)
-            ? filter_var($validated['unique'], FILTER_VALIDATE_BOOLEAN)
-            : true;
+        // Query strings arrive as "true"/"false"; Laravel's boolean rule only accepts 0/1.
+        $unique = filter_var($request->query('unique', true), FILTER_VALIDATE_BOOLEAN);
         $period = $validated['period'] ?? 'today';
         $page = (int) ($validated['page'] ?? 1);
         $perPage = (int) ($validated['per_page'] ?? 5);
