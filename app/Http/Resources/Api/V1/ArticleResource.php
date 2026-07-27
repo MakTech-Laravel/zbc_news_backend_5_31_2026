@@ -50,7 +50,7 @@ class ArticleResource extends JsonResource
 
             'scheduled_publishing' => $this->scheduled_publishing?->toIso8601String(),
             'published_at' => $this->published_at?->toIso8601String(),
-            'views' => $this->views,
+            'views' => isset($this->read_count) ? (int) $this->read_count : $this->views,
             'saves_count' => $this->save_articles_count ?? 0,
             'comments_count' => (int) ($this->comments_count ?? 0),
 
