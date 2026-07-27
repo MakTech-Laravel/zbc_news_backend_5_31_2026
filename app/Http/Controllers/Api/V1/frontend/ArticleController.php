@@ -79,13 +79,34 @@ class ArticleController extends Controller
 
     public function mostRead(Request $request)
     {
-        $unique = filter_var($request->query('unique', false), FILTER_VALIDATE_BOOLEAN);
-        $articles = $this->articleService->getMostRead(unique: $unique);
+        $validated = $request->validate([
+            'unique' => ['sometimes', 'boolean'],
+            'period' => ['sometimes', 'string', 'in:today,week,month,all'],
+            'page' => ['sometimes', 'integer', 'min:1'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:20'],
+        ]);
+
+        $unique = array_key_exists('unique', $validated)
+            ? filter_var($validated['unique'], FILTER_VALIDATE_BOOLEAN)
+            : true;
+        $period = $validated['period'] ?? 'today';
+        $page = (int) ($validated['page'] ?? 1);
+        $perPage = (int) ($validated['per_page'] ?? 5);
+
+        $result = $this->articleService->getMostRead(
+            unique: $unique,
+            period: $period,
+            perPage: $perPage,
+            page: $page,
+        );
 
         return sendResponse(
             true,
             'Most read articles retrieved successfully',
-            ArticleResource::collection($articles),
+            [
+                'articles' => ArticleResource::collection($result['items']),
+                'meta' => $result['meta'],
+            ],
             HttpStatus::HTTP_OK,
         );
     }
