@@ -114,6 +114,18 @@ class MostReadArticlesTest extends TestCase
             ->assertJsonPath('data.articles.0.views', 2);
     }
 
+    public function test_most_read_accepts_unique_true_query_string(): void
+    {
+        [$category, $author] = $this->seedCategoryAndAuthor();
+        $article = $this->createPublishedArticle($category, $author, 'Tracked', 'tracked-unique-param');
+        $visitor = User::factory()->create();
+        $this->track($article, user: $visitor, ip: '9.9.9.9', readAt: now());
+
+        $this->getJson('/api/v1/articles/most-read?unique=true&period=today')
+            ->assertOk()
+            ->assertJsonPath('data.articles.0.slug', 'tracked-unique-param');
+    }
+
     /**
      * @return array{0: ArticleCategory, 1: User}
      */
