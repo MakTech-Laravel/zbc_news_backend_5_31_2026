@@ -16,6 +16,7 @@ class SiteSettingsResource extends JsonResource
             'site_tag' => $this->site_tag,
             'site_logo' => MediaUrl::resolvePublic($this->site_logo),
             'favicon' => MediaUrl::resolvePublic($this->favicon),
+            'header_layout' => $this->header_layout ?? 'stacked',
             'timezone' => $this->timezone,
             'language' => $this->language,
             'meta_title' => $this->meta_title,

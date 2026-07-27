@@ -38,6 +38,7 @@ class SiteSettingsService
         return $this->getAll() ?? new SiteSettings([
             'site_name' => 'ZBC News',
             'site_tag' => 'Breaking news and analysis from around the world',
+            'header_layout' => 'stacked',
             'timezone' => 'America/New_York',
             'language' => 'en',
             'posts_per_page' => 10,

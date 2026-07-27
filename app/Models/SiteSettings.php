@@ -11,6 +11,7 @@ class SiteSettings extends Model
         'site_tag',
         'site_logo',
         'favicon',
+        'header_layout',
         'timezone',
         'language',
         'meta_title',
