@@ -15,6 +15,8 @@ class UserResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $isSuperAdmin = $this->hasRole('super_admin');
+
         return [
             'id' => $this->id,
             'name' => $this->name,
@@ -23,8 +25,10 @@ class UserResource extends JsonResource
             'email_verified_at' => $this->email_verified_at,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
-            'roles' => $this->getRoleNames(),
-            'permissions' => $this->getAllPermissions(),
+            'roles' => $this->getRoleNames()->values()->all(),
+            'is_super_admin' => $isSuperAdmin,
+            // Plain permission name strings for frontend `can()` checks.
+            'permissions' => $this->getAllPermissions()->pluck('name')->values()->all(),
             'user_information' => $this->whenLoaded('userInformation', fn() => [
                 'profile_image' => MediaUrl::resolvePublic($this->userInformation->profile_image),
                 'bio'           => $this->userInformation->bio,
