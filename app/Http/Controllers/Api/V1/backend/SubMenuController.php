@@ -47,10 +47,10 @@ class SubMenuController extends Controller
         $this->validateSectionOrFail($section);
 
         $validated = $request->validate([
-            'limit' => ['sometimes', 'integer', 'min:1', 'max:20'],
-            'trending_window_hours' => ['sometimes', 'integer', 'min:1', 'max:168'],
+            'limit' => ['sometimes', 'integer'],
+            'trending_window_hours' => ['sometimes', 'integer'],
             'most_read_default_period' => ['sometimes', 'string', Rule::in(['today', 'week', 'month', 'all'])],
-            'pinned_slots' => ['sometimes', 'integer', 'min:0', 'max:20'],
+            'pinned_slots' => ['sometimes', 'integer'],
             'is_enabled' => ['sometimes', 'boolean'],
             'config' => ['sometimes', 'array'],
         ]);

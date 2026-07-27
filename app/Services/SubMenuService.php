@@ -55,7 +55,10 @@ class SubMenuService
 
         $manualArticleIds = $manual->pluck('article_id')->map(fn ($id) => (int) $id)->all();
         $merged = $this->mergeManualWithAlgorithmic(
-            $manual->filter(fn (SubMenuFeaturedArticle $entry) => $entry->isCurrentlyActive()),
+            $manual->filter(
+                fn (SubMenuFeaturedArticle $entry) => $entry->isCurrentlyActive()
+                    && $this->isPublishedArticle($entry->article),
+            ),
             $algorithmic->reject(fn (Article $article) => in_array((int) $article->id, $manualArticleIds, true)),
             (int) $settings->limit,
             max(0, (int) $settings->pinned_slots),
@@ -84,7 +87,10 @@ class SubMenuService
                 $enabled = (bool) $snapshot['settings']->is_enabled;
                 $activeManual = $enabled
                     ? $snapshot['manual']
-                        ->filter(fn (SubMenuFeaturedArticle $entry) => $entry->isCurrentlyActive())
+                        ->filter(
+                            fn (SubMenuFeaturedArticle $entry) => $entry->isCurrentlyActive()
+                                && $this->isPublishedArticle($entry->article),
+                        )
                         ->values()
                     : new Collection();
 
@@ -157,7 +163,10 @@ class SubMenuService
         $entry->save();
         $this->flushPublicCache();
 
-        return $entry->fresh(['article.category', 'article.user', 'creator']);
+        return $entry->fresh()->load([
+            'article' => fn ($q) => $q->withTrashed()->with(['category', 'user']),
+            'creator',
+        ]);
     }
 
     public function removeManualEntry(int $id): void
@@ -187,7 +196,10 @@ class SubMenuService
 
             return SubMenuFeaturedArticle::query()
                 ->forSection($key)
-                ->with(['article.category', 'article.user', 'creator'])
+                ->with([
+                    'article' => fn ($q) => $q->withTrashed()->with(['category', 'user']),
+                    'creator',
+                ])
                 ->orderBy('sort_order')
                 ->orderBy('id')
                 ->get();
@@ -248,10 +260,9 @@ class SubMenuService
         $query = SubMenuFeaturedArticle::query()
             ->forSection($section)
             ->with([
-                'article' => fn ($q) => $q
-                    ->where('status', ArticleStatus::PUBLISHED->value)
-                    ->whereNull('deleted_at')
-                    ->with(['category', 'user']),
+                // Always load article for admin titles (incl. drafts / soft-deleted);
+                // public merge still filters via isPublishedArticle().
+                'article' => fn ($q) => $q->withTrashed()->with(['category', 'user']),
                 'creator:id,name',
             ])
             ->orderByDesc('is_pinned')
@@ -263,6 +274,17 @@ class SubMenuService
         }
 
         return $query->get();
+    }
+
+    private function isPublishedArticle(?Article $article): bool
+    {
+        if (! $article || $article->trashed()) {
+            return false;
+        }
+
+        $status = $article->status?->value ?? $article->status;
+
+        return $status === ArticleStatus::PUBLISHED->value;
     }
 
     /**
