@@ -126,6 +126,8 @@ enum PermissionEnum: string
     case TERMS_OF_SERVICE_SHOW = 'terms-of-service.show';
     case TERMS_OF_SERVICE_UPDATE = 'terms-of-service.update';
 
+    case ABOUT_US_SHOW = 'about-us.show';
+    case ABOUT_US_UPDATE = 'about-us.update';
     case COOKIE_POLICY_SHOW = 'cookie-policy.show';
     case COOKIE_POLICY_UPDATE = 'cookie-policy.update';
 

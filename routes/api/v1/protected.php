@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\backend\AdminCareersPageController;
 use App\Http\Controllers\Api\V1\backend\AdminCookiePolicyController;
 use App\Http\Controllers\Api\V1\backend\AdminPrivacyPolicyController;
 use App\Http\Controllers\Api\V1\backend\AdminTermsOfServiceController;
+use App\Http\Controllers\Api\V1\backend\AdminAboutUsController;
 use App\Http\Controllers\Api\V1\backend\AdminCommentController;
 use App\Http\Controllers\Api\V1\backend\AdminContactInquiryController;
 use App\Http\Controllers\Api\V1\backend\AdminDashboardController;
@@ -268,11 +269,17 @@ Route::controller(AdminTermsOfServiceController::class)->prefix('terms-of-servic
         ->middleware('permission:'.PermissionEnum::TERMS_OF_SERVICE_UPDATE->value);
 });
 
+Route::controller(AdminAboutUsController::class)->prefix('about-us')->group(function () {
+    Route::get('/', 'show')->name('api.v1.admin.about-us.show')
+        ->middleware('permission:'.PermissionEnum::ABOUT_US_SHOW->value);
+    Route::put('/', 'update')->name('api.v1.admin.about-us.update')
+        ->middleware('permission:'.PermissionEnum::ABOUT_US_UPDATE->value);
 Route::controller(AdminCookiePolicyController::class)->prefix('cookie-policy')->group(function () {
     Route::get('/', 'show')->name('api.v1.admin.cookie-policy.show')
         ->middleware('permission:'.PermissionEnum::COOKIE_POLICY_SHOW->value);
     Route::put('/', 'update')->name('api.v1.admin.cookie-policy.update')
         ->middleware('permission:'.PermissionEnum::COOKIE_POLICY_UPDATE->value);
+    });
 });
 
 Route::prefix('careers')->group(function () {
