@@ -27,6 +27,7 @@ class DatabaseSeeder extends Seeder
             MenuDemoSeeder::class,
             AdSlotSeeder::class,
             EntitySeoMetaSeeder::class,
+            CareersSeeder::class,
         ]);
        
     }

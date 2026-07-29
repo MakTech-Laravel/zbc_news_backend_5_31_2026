@@ -95,3 +95,18 @@ menus.force-delete,api,Menus
 menus.reorder,api,Menus
 menus.manage-locations,api,Menus
 menus.manage-items,api,Menus
+careers-page.show,api,Careers Page
+careers-page.update,api,Careers Page
+career-jobs.list,api,Career Jobs
+career-jobs.create,api,Career Jobs
+career-jobs.show,api,Career Jobs
+career-jobs.update,api,Career Jobs
+career-jobs.delete,api,Career Jobs
+career-jobs.restore,api,Career Jobs
+career-jobs.force-delete,api,Career Jobs
+career-applications.list,api,Career Applications
+career-applications.show,api,Career Applications
+career-applications.update,api,Career Applications
+career-applications.delete,api,Career Applications
+career-applications.export,api,Career Applications
+career-applications.bulk,api,Career Applications

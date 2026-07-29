@@ -116,4 +116,22 @@ enum PermissionEnum: string
     case MENUS_REORDER = 'menus.reorder';
     case MENUS_MANAGE_LOCATIONS = 'menus.manage-locations';
     case MENUS_MANAGE_ITEMS = 'menus.manage-items';
+
+    case CAREERS_PAGE_SHOW = 'careers-page.show';
+    case CAREERS_PAGE_UPDATE = 'careers-page.update';
+
+    case CAREER_JOBS_LIST = 'career-jobs.list';
+    case CAREER_JOBS_CREATE = 'career-jobs.create';
+    case CAREER_JOBS_SHOW = 'career-jobs.show';
+    case CAREER_JOBS_UPDATE = 'career-jobs.update';
+    case CAREER_JOBS_DELETE = 'career-jobs.delete';
+    case CAREER_JOBS_RESTORE = 'career-jobs.restore';
+    case CAREER_JOBS_FORCE_DELETE = 'career-jobs.force-delete';
+
+    case CAREER_APPLICATIONS_LIST = 'career-applications.list';
+    case CAREER_APPLICATIONS_SHOW = 'career-applications.show';
+    case CAREER_APPLICATIONS_UPDATE = 'career-applications.update';
+    case CAREER_APPLICATIONS_DELETE = 'career-applications.delete';
+    case CAREER_APPLICATIONS_EXPORT = 'career-applications.export';
+    case CAREER_APPLICATIONS_BULK = 'career-applications.bulk';
 }
