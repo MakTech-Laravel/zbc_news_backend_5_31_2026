@@ -15,6 +15,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Laravel\Passport\Passport;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -357,5 +358,78 @@ class SubMenuAdminTest extends TestCase
 
         $this->assertNotNull($settings);
         $this->assertSame(3, (int) $settings->pinned_slots);
+    }
+
+    public function test_all_sections_default_pinned_slots_are_three(): void
+    {
+        foreach (SubMenuKey::cases() as $section) {
+            $settings = SubMenuSetting::query()
+                ->where('section_key', $section->value)
+                ->first();
+
+            $this->assertNotNull($settings, $section->value);
+            $this->assertSame(3, (int) $settings->pinned_slots, $section->value);
+        }
+    }
+
+    #[DataProvider('curatedSectionProvider')]
+    public function test_pin_reorder_and_serial_match_across_curated_sections(string $section): void
+    {
+        $first = $this->makeArticle("First {$section}", "first-{$section}");
+        $second = $this->makeArticle("Second {$section}", "second-{$section}");
+
+        $this->postJson("/api/v1/admin/sub-menu/manual/{$section}", [
+            'article_id' => $first->id,
+            'is_pinned' => true,
+            'is_active' => true,
+        ])->assertCreated();
+
+        $this->postJson("/api/v1/admin/sub-menu/manual/{$section}", [
+            'article_id' => $second->id,
+            'is_pinned' => true,
+            'is_active' => true,
+        ])->assertCreated();
+
+        $ids = SubMenuFeaturedArticle::query()
+            ->where('section_key', $section)
+            ->orderBy('sort_order')
+            ->pluck('id')
+            ->all();
+
+        $this->assertCount(2, $ids);
+
+        $this->postJson("/api/v1/admin/sub-menu/manual/{$section}/reorder", [
+            'ids' => array_reverse($ids),
+        ])->assertOk();
+
+        $public = $this->getJson("/api/v1/sub-menu/{$section}")->assertOk();
+
+        $this->assertSame($second->id, $public->json('data.items.0.id'));
+        $this->assertSame($first->id, $public->json('data.items.1.id'));
+        $this->assertSame(1, $public->json('data.items.0.serial'));
+        $this->assertSame(2, $public->json('data.items.1.serial'));
+
+        // Unpin first item in public order (second article) → it should fall after remaining pin.
+        $this->postJson("/api/v1/admin/sub-menu/manual/{$section}", [
+            'article_id' => $second->id,
+            'is_pinned' => false,
+            'is_active' => true,
+        ])->assertCreated();
+
+        $afterUnpin = $this->getJson("/api/v1/sub-menu/{$section}")->assertOk();
+        $this->assertSame($first->id, $afterUnpin->json('data.items.0.id'));
+        $this->assertSame($second->id, $afterUnpin->json('data.items.1.id'));
+        $this->assertSame(1, $afterUnpin->json('data.items.0.serial'));
+        $this->assertSame(2, $afterUnpin->json('data.items.1.serial'));
+    }
+
+    public static function curatedSectionProvider(): array
+    {
+        return [
+            'trending' => [SubMenuKey::TRENDING->value],
+            'most_read' => [SubMenuKey::MOST_READ->value],
+            'live_updates' => [SubMenuKey::LIVE_UPDATES->value],
+            'editorial_picks' => [SubMenuKey::EDITORIAL_PICKS->value],
+        ];
     }
 }
