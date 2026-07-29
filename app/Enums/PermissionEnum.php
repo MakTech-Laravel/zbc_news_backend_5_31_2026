@@ -126,6 +126,9 @@ enum PermissionEnum: string
     case TERMS_OF_SERVICE_SHOW = 'terms-of-service.show';
     case TERMS_OF_SERVICE_UPDATE = 'terms-of-service.update';
 
+    case ABOUT_US_SHOW = 'about-us.show';
+    case ABOUT_US_UPDATE = 'about-us.update';
+
     case CAREER_JOBS_LIST = 'career-jobs.list';
     case CAREER_JOBS_CREATE = 'career-jobs.create';
     case CAREER_JOBS_SHOW = 'career-jobs.show';
