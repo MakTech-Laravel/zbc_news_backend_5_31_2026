@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\frontend\AdSlotController;
 use App\Http\Controllers\Api\V1\frontend\AdTrackingController;
 use App\Http\Controllers\Api\V1\frontend\ArticleController;
 use App\Http\Controllers\Api\V1\frontend\AuthorController;
+use App\Http\Controllers\Api\V1\frontend\CareersController;
 use App\Http\Controllers\Api\V1\frontend\CategoryController;
 use App\Http\Controllers\Api\V1\frontend\CommentController;
 use App\Http\Controllers\Api\V1\frontend\ContactController;
@@ -102,6 +103,14 @@ Route::post('/ads/track', [AdTrackingController::class, 'track'])
 Route::post('/contact', [ContactController::class, 'store'])
     ->middleware('request_limitter')
     ->name('api.v1.contact.store');
+
+Route::controller(CareersController::class)->prefix('careers')->group(function () {
+    Route::get('/page', 'page')->name('api.v1.careers.page');
+    Route::get('/jobs', 'jobs')->name('api.v1.careers.jobs');
+    Route::post('/applications', 'apply')
+        ->middleware('request_limitter')
+        ->name('api.v1.careers.applications.store');
+});
 
 Route::prefix('newsletter')->controller(NewsletterController::class)->group(function (): void {
     Route::post('/subscribe', 'subscribe')->middleware('request_limitter')->name('api.v1.newsletter.subscribe');
