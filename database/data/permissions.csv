@@ -103,6 +103,8 @@ terms-of-service.show,api,Terms of Service
 terms-of-service.update,api,Terms of Service
 about-us.show,api,About Us
 about-us.update,api,About Us
+cookie-policy.show,api,Cookie Policy
+cookie-policy.update,api,Cookie Policy
 career-jobs.list,api,Career Jobs
 career-jobs.create,api,Career Jobs
 career-jobs.show,api,Career Jobs

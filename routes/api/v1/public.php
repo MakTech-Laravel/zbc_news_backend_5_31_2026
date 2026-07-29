@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\V1\frontend\ContactController;
 use App\Http\Controllers\Api\V1\frontend\MenuController;
 use App\Http\Controllers\Api\V1\frontend\NavigationController;
 use App\Http\Controllers\Api\V1\frontend\NewsletterController;
+use App\Http\Controllers\Api\V1\frontend\CookiePolicyController;
 use App\Http\Controllers\Api\V1\frontend\PrivacyPolicyController;
 use App\Http\Controllers\Api\V1\frontend\TermsOfServiceController;
 use App\Http\Controllers\Api\V1\frontend\AboutUsController;
@@ -115,6 +116,8 @@ Route::get('/terms-of-service', [TermsOfServiceController::class, 'show'])
 
 Route::get('/about-us', [AboutUsController::class, 'show'])
     ->name('api.v1.about-us.show');
+Route::get('/cookie-policy', [CookiePolicyController::class, 'show'])
+    ->name('api.v1.cookie-policy.show');
 
 Route::controller(CareersController::class)->prefix('careers')->group(function () {
     Route::get('/page', 'page')->name('api.v1.careers.page');
