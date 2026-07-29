@@ -1,6 +1,9 @@
 <?php
 
 use App\Enums\PermissionEnum;
+use App\Http\Controllers\Api\V1\backend\AdminCareerApplicationController;
+use App\Http\Controllers\Api\V1\backend\AdminCareerJobController;
+use App\Http\Controllers\Api\V1\backend\AdminCareersPageController;
 use App\Http\Controllers\Api\V1\backend\AdminCommentController;
 use App\Http\Controllers\Api\V1\backend\AdminContactInquiryController;
 use App\Http\Controllers\Api\V1\backend\AdminDashboardController;
@@ -246,6 +249,49 @@ Route::controller(AdminContactInquiryController::class)->prefix('contact-inquiri
         ->middleware('permission:'.PermissionEnum::CONTACT_INQUIRIES_REPLY->value);
     Route::delete('/{id}', 'destroy')->name('api.v1.contact-inquiries.destroy')
         ->middleware('permission:'.PermissionEnum::CONTACT_INQUIRIES_DELETE->value);
+});
+
+Route::prefix('careers')->group(function () {
+    Route::controller(AdminCareersPageController::class)->prefix('page')->group(function () {
+        Route::get('/', 'show')->name('api.v1.admin.careers.page.show')
+            ->middleware('permission:'.PermissionEnum::CAREERS_PAGE_SHOW->value);
+        Route::put('/', 'update')->name('api.v1.admin.careers.page.update')
+            ->middleware('permission:'.PermissionEnum::CAREERS_PAGE_UPDATE->value);
+    });
+
+    Route::controller(AdminCareerJobController::class)->prefix('jobs')->group(function () {
+        Route::get('/', 'index')->name('api.v1.admin.careers.jobs.index')
+            ->middleware('permission:'.PermissionEnum::CAREER_JOBS_LIST->value);
+        Route::post('/store', 'store')->name('api.v1.admin.careers.jobs.store')
+            ->middleware('permission:'.PermissionEnum::CAREER_JOBS_CREATE->value);
+        Route::get('/show/{id}', 'show')->name('api.v1.admin.careers.jobs.show')
+            ->middleware('permission:'.PermissionEnum::CAREER_JOBS_SHOW->value);
+        Route::put('/update/{id}', 'update')->name('api.v1.admin.careers.jobs.update')
+            ->middleware('permission:'.PermissionEnum::CAREER_JOBS_UPDATE->value);
+        Route::delete('/delete/{id}', 'destroy')->name('api.v1.admin.careers.jobs.destroy')
+            ->middleware('permission:'.PermissionEnum::CAREER_JOBS_DELETE->value);
+        Route::post('/restore/{id}', 'restore')->name('api.v1.admin.careers.jobs.restore')
+            ->middleware('permission:'.PermissionEnum::CAREER_JOBS_RESTORE->value);
+        Route::delete('/force-delete/{id}', 'forceDelete')->name('api.v1.admin.careers.jobs.force-delete')
+            ->middleware('permission:'.PermissionEnum::CAREER_JOBS_FORCE_DELETE->value);
+    });
+
+    Route::controller(AdminCareerApplicationController::class)->prefix('applications')->group(function () {
+        Route::get('/', 'index')->name('api.v1.admin.careers.applications.index')
+            ->middleware('permission:'.PermissionEnum::CAREER_APPLICATIONS_LIST->value);
+        Route::get('/export', 'export')->name('api.v1.admin.careers.applications.export')
+            ->middleware('permission:'.PermissionEnum::CAREER_APPLICATIONS_EXPORT->value);
+        Route::post('/bulk', 'bulk')->name('api.v1.admin.careers.applications.bulk')
+            ->middleware('permission:'.PermissionEnum::CAREER_APPLICATIONS_BULK->value);
+        Route::get('/show/{id}', 'show')->name('api.v1.admin.careers.applications.show')
+            ->middleware('permission:'.PermissionEnum::CAREER_APPLICATIONS_SHOW->value);
+        Route::put('/{id}/status', 'updateStatus')->name('api.v1.admin.careers.applications.status')
+            ->middleware('permission:'.PermissionEnum::CAREER_APPLICATIONS_UPDATE->value);
+        Route::get('/{id}/resume', 'downloadResume')->name('api.v1.admin.careers.applications.resume')
+            ->middleware('permission:'.PermissionEnum::CAREER_APPLICATIONS_SHOW->value);
+        Route::delete('/{id}', 'destroy')->name('api.v1.admin.careers.applications.destroy')
+            ->middleware('permission:'.PermissionEnum::CAREER_APPLICATIONS_DELETE->value);
+    });
 });
 
 Route::controller(AdminCommentController::class)->prefix('comments')->group(function () {
