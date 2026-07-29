@@ -29,6 +29,7 @@ class DatabaseSeeder extends Seeder
             EntitySeoMetaSeeder::class,
             CareersSeeder::class,
             PrivacyPolicySeeder::class,
+            TermsOfServiceSeeder::class,
         ]);
        
     }
