@@ -143,7 +143,9 @@ class ArticleTrackingService
      */
     private function incrementViewCount(int $articleId): void
     {
-        Article::where('id', $articleId)->increment('views');
+        Article::withoutTimestamps(function () use ($articleId): void {
+            Article::where('id', $articleId)->increment('views');
+        });
     }
 
 
