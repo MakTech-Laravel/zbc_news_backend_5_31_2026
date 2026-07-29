@@ -31,11 +31,18 @@ class SubMenuController extends Controller
         $data = [];
         foreach ($sections as $section) {
             $snapshot = $this->subMenuService->adminSnapshot($section);
+            $items = $snapshot['merged']->values()->map(function ($article, int $index) {
+                $payload = (new ArticleResource($article))->resolve();
+                $payload['serial'] = $index + 1;
+
+                return $payload;
+            })->all();
+
             $data[$section] = [
                 'settings' => $snapshot['settings'],
                 'manual' => SubMenuFeaturedArticleResource::collection($snapshot['manual'])->resolve(),
                 'algorithmic' => ArticleResource::collection($snapshot['algorithmic'])->resolve(),
-                'items' => ArticleResource::collection($snapshot['merged'])->resolve(),
+                'items' => $items,
             ];
         }
 

@@ -213,6 +213,59 @@ class SubMenuPublicTest extends TestCase
         $this->assertNotContains($futurePick->id, $ids);
     }
 
+    public function test_editorial_picks_manual_before_algorithmic(): void
+    {
+        $category = ArticleCategory::query()->create([
+            'title' => 'General',
+            'slug' => 'general-editorial-manual-first',
+            'status' => ArticleCategoryStatus::ACTIVE,
+        ]);
+        $author = User::factory()->create();
+
+        $auto = Article::query()->create([
+            'title' => 'Auto Latest',
+            'slug' => 'auto-latest-editorial',
+            'article_description' => 'Body',
+            'status' => ArticleStatus::PUBLISHED,
+            'article_category_id' => $category->id,
+            'user_id' => $author->id,
+            'published_at' => now(),
+        ]);
+
+        $manual = Article::query()->create([
+            'title' => 'Manual Older',
+            'slug' => 'manual-older-editorial',
+            'article_description' => 'Body',
+            'status' => ArticleStatus::PUBLISHED,
+            'article_category_id' => $category->id,
+            'user_id' => $author->id,
+            'published_at' => now()->subDay(),
+        ]);
+
+        SubMenuFeaturedArticle::query()->create([
+            'section_key' => SubMenuKey::EDITORIAL_PICKS,
+            'article_id' => $manual->id,
+            'sort_order' => 10,
+            'is_pinned' => false,
+            'is_active' => true,
+        ]);
+
+        app(SubMenuService::class)->updateSettings(SubMenuKey::EDITORIAL_PICKS, [
+            'limit' => 5,
+            'is_enabled' => true,
+        ]);
+
+        $response = $this->getJson('/api/v1/sub-menu/editorial_picks')->assertOk();
+        $ids = collect($response->json('data.items'))->pluck('id')->all();
+
+        $this->assertSame($manual->id, $ids[0] ?? null);
+        $this->assertContains($auto->id, $ids);
+        $this->assertLessThan(
+            array_search($auto->id, $ids, true),
+            array_search($manual->id, $ids, true),
+        );
+    }
+
     public function test_disabled_sub_menu_returns_empty_items_on_public_endpoint(): void
     {
         $category = ArticleCategory::query()->create([

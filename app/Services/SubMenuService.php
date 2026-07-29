@@ -32,12 +32,17 @@ class SubMenuService
             return $setting;
         }
 
+        $defaultPinnedSlots = match ($key) {
+            SubMenuKey::TRENDING->value, SubMenuKey::EDITORIAL_PICKS->value => 3,
+            default => 0,
+        };
+
         return SubMenuSetting::query()->create([
             'section_key' => $key,
             'limit' => 5,
             'trending_window_hours' => 24,
             'most_read_default_period' => 'today',
-            'pinned_slots' => 0,
+            'pinned_slots' => $defaultPinnedSlots,
             'is_enabled' => true,
             'config' => null,
         ]);
@@ -78,42 +83,50 @@ class SubMenuService
     public function publicSection(string|SubMenuKey $section): array
     {
         $key = $section instanceof SubMenuKey ? $section->value : $section;
+        $cacheKey = SubMenuSetting::cacheKey($key, 'public');
 
-        return Cache::remember(
-            SubMenuSetting::cacheKey($key, 'public'),
-            SubMenuSetting::TTL_PUBLIC,
-            function () use ($key) {
-                $snapshot = $this->adminSnapshot($key);
-                $enabled = (bool) $snapshot['settings']->is_enabled;
-                $activeManual = $enabled
-                    ? $snapshot['manual']
-                        ->filter(
-                            fn (SubMenuFeaturedArticle $entry) => $entry->isCurrentlyActive()
-                                && $this->isPublishedArticle($entry->article),
-                        )
-                        ->values()
-                    : new Collection();
+        $cached = Cache::get($cacheKey);
+        if (is_array($cached)) {
+            return $cached;
+        }
 
-                return [
-                    'section' => $key,
-                    'settings' => [
-                        'limit' => (int) $snapshot['settings']->limit,
-                        'trending_window_hours' => (int) $snapshot['settings']->trending_window_hours,
-                        'most_read_default_period' => (string) $snapshot['settings']->most_read_default_period,
-                        'pinned_slots' => (int) $snapshot['settings']->pinned_slots,
-                        'is_enabled' => $enabled,
-                        'config' => $snapshot['settings']->config,
-                    ],
-                    'manual' => $activeManual->map(fn (SubMenuFeaturedArticle $entry) => $this->serializeManualEntry($entry))->values()->all(),
-                    'algorithmic' => $enabled
-                        ? $snapshot['algorithmic']->map(fn (Article $article) => $this->serializeArticle($article))->values()->all()
-                        : [],
-                    'items' => $enabled
-                        ? $snapshot['merged']->map(fn (Article $article) => $this->serializeArticle($article))->values()->all()
-                        : [],
-                ];
-            },
+        $snapshot = $this->adminSnapshot($key);
+        $enabled = (bool) $snapshot['settings']->is_enabled;
+        $activeManual = $enabled
+            ? $snapshot['manual']
+                ->filter(
+                    fn (SubMenuFeaturedArticle $entry) => $entry->isCurrentlyActive()
+                        && $this->isPublishedArticle($entry->article),
+                )
+                ->values()
+            : new Collection();
+
+        $payload = [
+            'section' => $key,
+            'settings' => [
+                'limit' => (int) $snapshot['settings']->limit,
+                'trending_window_hours' => (int) $snapshot['settings']->trending_window_hours,
+                'most_read_default_period' => (string) $snapshot['settings']->most_read_default_period,
+                'pinned_slots' => (int) $snapshot['settings']->pinned_slots,
+                'is_enabled' => $enabled,
+                'config' => $snapshot['settings']->config,
+            ],
+            'manual' => $activeManual->map(fn (SubMenuFeaturedArticle $entry) => $this->serializeManualEntry($entry))->values()->all(),
+            'algorithmic' => $enabled
+                ? $this->serializeOrderedArticles($snapshot['algorithmic'])
+                : [],
+            'items' => $enabled
+                ? $this->serializeOrderedArticles($snapshot['merged'])
+                : [],
+        ];
+
+        Cache::put(
+            $cacheKey,
+            $payload,
+            $this->publicCacheTtlFromEntries($snapshot['manual']),
         );
+
+        return $payload;
     }
 
     public function updateSettings(string|SubMenuKey $section, array $payload): SubMenuSetting
@@ -138,14 +151,34 @@ class SubMenuService
     public function upsertManualEntry(string|SubMenuKey $section, array $payload, ?int $actorId = null): SubMenuFeaturedArticle
     {
         $key = $section instanceof SubMenuKey ? $section->value : $section;
+        $articleId = (int) $payload['article_id'];
 
         $entry = SubMenuFeaturedArticle::query()->firstOrNew([
             'section_key' => $key,
-            'article_id' => (int) $payload['article_id'],
+            'article_id' => $articleId,
         ]);
 
+        // New picks must be published; existing rows can still be managed/removed.
+        if (! $entry->exists) {
+            $article = Article::query()->find($articleId);
+            if (! $this->isPublishedArticle($article)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'article_id' => ['Only published articles can be added to sub menu sections.'],
+                ]);
+            }
+        }
+
+        $scheduleTouched = array_key_exists('starts_at', $payload) || array_key_exists('ends_at', $payload);
+
+        $sortOrder = $entry->exists
+            ? (int) $entry->sort_order
+            : $this->nextManualSortOrder($key);
+        if (array_key_exists('sort_order', $payload) && $payload['sort_order'] !== null) {
+            $sortOrder = max(0, (int) $payload['sort_order']);
+        }
+
         $entry->fill([
-            'sort_order' => isset($payload['sort_order']) ? max(0, (int) $payload['sort_order']) : ($entry->exists ? $entry->sort_order : 0),
+            'sort_order' => $sortOrder,
             'is_pinned' => array_key_exists('is_pinned', $payload)
                 ? (bool) filter_var($payload['is_pinned'], FILTER_VALIDATE_BOOLEAN)
                 : ($entry->exists ? (bool) $entry->is_pinned : false),
@@ -155,6 +188,19 @@ class SubMenuService
             'starts_at' => array_key_exists('starts_at', $payload) ? $payload['starts_at'] : $entry->starts_at,
             'ends_at' => array_key_exists('ends_at', $payload) ? $payload['ends_at'] : $entry->ends_at,
         ]);
+
+        // Only auto-manage active when schedule fields are intentionally updated
+        // and at least one boundary is set (avoid pin/toggle side-effects).
+        $hasScheduleWindow = $entry->starts_at !== null || $entry->ends_at !== null;
+        if ($scheduleTouched && $hasScheduleWindow) {
+            $endsAt = $entry->ends_at;
+            if ($endsAt && $endsAt->lessThanOrEqualTo(now())) {
+                $entry->is_active = false;
+            } else {
+                // Open or future window → live again (Disable still available separately).
+                $entry->is_active = true;
+            }
+        }
 
         if (! $entry->exists) {
             $entry->created_by = $actorId;
@@ -200,6 +246,7 @@ class SubMenuService
                     'article' => fn ($q) => $q->withTrashed()->with(['category', 'user']),
                     'creator',
                 ])
+                ->orderByDesc('is_pinned')
                 ->orderBy('sort_order')
                 ->orderBy('id')
                 ->get();
@@ -245,7 +292,15 @@ class SubMenuService
             ->where('live_ended_at', '<=', $now)
             ->update(['is_live' => false]);
 
-        if ($expired > 0 || $endedLive > 0) {
+        // Flush when windows change OR any schedule boundary exists so public
+        // cache picks up starts_at becoming due (not only ends_at expiry).
+        $hasScheduleWindows = SubMenuFeaturedArticle::query()
+            ->where(function ($q) {
+                $q->whereNotNull('starts_at')->orWhereNotNull('ends_at');
+            })
+            ->exists();
+
+        if ($expired > 0 || $endedLive > 0 || $hasScheduleWindows) {
             $this->flushPublicCache();
         }
 
@@ -395,6 +450,9 @@ class SubMenuService
     }
 
     /**
+     * Public / preview order matches admin manual list order:
+     * pinned first (by sort_order), then unpinned (by sort_order), then algorithmic fill.
+     *
      * @param  Collection<int, SubMenuFeaturedArticle>  $manualEntries
      * @param  Collection<int, Article>  $algorithmic
      * @return Collection<int, Article>
@@ -419,34 +477,20 @@ class SubMenuService
             return true;
         };
 
-        $pinned = $manualEntries
-            ->filter(fn (SubMenuFeaturedArticle $entry) => $entry->is_pinned && $entry->article !== null)
-            ->sortBy('sort_order')
-            ->values();
+        // Same ordering as admin manualEntries(): pin group, then sort_order.
+        // $pinnedSlots is retained for settings/UI; order already puts all pins first.
+        unset($pinnedSlots);
 
-        $pinnedTaken = 0;
-        foreach ($pinned as $entry) {
-            if ($articles->count() >= $limit) {
-                break;
-            }
-            if ($pinnedSlots > 0 && $pinnedTaken >= $pinnedSlots) {
-                break;
-            }
-            if ($pinnedSlots === 0) {
-                break;
-            }
-            if ($push($entry->article)) {
-                $pinnedTaken++;
-            }
-        }
-
-        // Remaining manual entries (unpinned, or pinned beyond reserved slots / when slots=0).
-        $remainingManual = $manualEntries
+        // Chain sortBy (last call = primary key). Do NOT pass an array of
+        // key-extractor closures — Laravel treats those as pairwise comparators.
+        $orderedManual = $manualEntries
             ->filter(fn (SubMenuFeaturedArticle $entry) => $entry->article !== null)
-            ->sortBy('sort_order')
+            ->sortBy(fn (SubMenuFeaturedArticle $entry) => (int) $entry->id)
+            ->sortBy(fn (SubMenuFeaturedArticle $entry) => (int) $entry->sort_order)
+            ->sortByDesc(fn (SubMenuFeaturedArticle $entry) => (bool) $entry->is_pinned)
             ->values();
 
-        foreach ($remainingManual as $entry) {
+        foreach ($orderedManual as $entry) {
             if ($articles->count() >= $limit) {
                 break;
             }
@@ -461,6 +505,67 @@ class SubMenuService
         }
 
         return $articles->values();
+    }
+
+    private function nextManualSortOrder(string $section): int
+    {
+        $max = (int) SubMenuFeaturedArticle::query()
+            ->forSection($section)
+            ->max('sort_order');
+
+        return $max + 10;
+    }
+
+    /**
+     * Shorten public cache TTL so schedule start/end boundaries apply promptly.
+     *
+     * @param  Collection<int, SubMenuFeaturedArticle>  $entries
+     */
+    private function publicCacheTtlFromEntries(Collection $entries): int
+    {
+        $now = now();
+        $nextBoundaryTs = null;
+
+        foreach ($entries as $entry) {
+            if (! $entry->is_active) {
+                continue;
+            }
+
+            foreach ([$entry->starts_at, $entry->ends_at] as $boundary) {
+                if (! $boundary || $boundary->lessThanOrEqualTo($now)) {
+                    continue;
+                }
+                $ts = $boundary->getTimestamp();
+                $nextBoundaryTs = $nextBoundaryTs === null ? $ts : min($nextBoundaryTs, $ts);
+            }
+        }
+
+        if ($nextBoundaryTs === null) {
+            return SubMenuSetting::TTL_PUBLIC;
+        }
+
+        $seconds = max(1, $nextBoundaryTs - $now->getTimestamp());
+
+        return min(SubMenuSetting::TTL_PUBLIC, $seconds);
+    }
+
+    /**
+     * Serialize articles in stable list order with 1-based `serial` matching display rank.
+     *
+     * @param  Collection<int, Article>  $articles
+     * @return list<array<string,mixed>>
+     */
+    private function serializeOrderedArticles(Collection $articles): array
+    {
+        return $articles
+            ->values()
+            ->map(function (Article $article, int $index) {
+                $payload = $this->serializeArticle($article);
+                $payload['serial'] = $index + 1;
+
+                return $payload;
+            })
+            ->all();
     }
 
     /** @return array<string,mixed> */

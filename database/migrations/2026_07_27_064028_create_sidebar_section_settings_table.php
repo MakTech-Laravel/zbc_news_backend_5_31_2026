@@ -62,7 +62,7 @@ return new class extends Migration
                 'limit' => 5,
                 'trending_window_hours' => 24,
                 'most_read_default_period' => 'today',
-                'pinned_slots' => 0,
+                'pinned_slots' => 3,
                 'is_enabled' => true,
                 'config' => null,
                 'created_at' => $now,
