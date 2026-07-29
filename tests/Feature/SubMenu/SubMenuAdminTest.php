@@ -225,10 +225,137 @@ class SubMenuAdminTest extends TestCase
             ->assertJsonPath('data.algorithmic', []);
     }
 
+    public function test_rejects_adding_unpublished_article_to_editorial_picks(): void
+    {
+        $draft = Article::query()->create([
+            'title' => 'Draft Editorial',
+            'slug' => 'draft-editorial-reject',
+            'article_description' => 'Body',
+            'status' => ArticleStatus::DRAFT,
+            'article_category_id' => $this->category->id,
+            'user_id' => $this->author->id,
+        ]);
+
+        $this->postJson('/api/v1/admin/sub-menu/manual/editorial_picks', [
+            'article_id' => $draft->id,
+            'is_pinned' => true,
+            'is_active' => true,
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors(['article_id']);
+
+        $this->assertSame(
+            0,
+            SubMenuFeaturedArticle::query()
+                ->where('section_key', SubMenuKey::EDITORIAL_PICKS->value)
+                ->where('article_id', $draft->id)
+                ->count(),
+        );
+    }
+
     public function test_rejects_invalid_section_key(): void
     {
         $this->postJson('/api/v1/admin/sub-menu/settings/not_a_section', [
             'limit' => 5,
         ])->assertStatus(422);
+    }
+
+    public function test_editorial_picks_pin_before_unpinned_even_when_slots_zero(): void
+    {
+        $unpinned = $this->makeArticle('Unpinned Manual', 'unpinned-manual');
+        $pinned = $this->makeArticle('Pinned Manual', 'pinned-manual');
+
+        SubMenuFeaturedArticle::query()->create([
+            'section_key' => SubMenuKey::EDITORIAL_PICKS,
+            'article_id' => $unpinned->id,
+            'sort_order' => 10,
+            'is_pinned' => false,
+            'is_active' => true,
+        ]);
+        SubMenuFeaturedArticle::query()->create([
+            'section_key' => SubMenuKey::EDITORIAL_PICKS,
+            'article_id' => $pinned->id,
+            'sort_order' => 20,
+            'is_pinned' => true,
+            'is_active' => true,
+        ]);
+
+        app(SubMenuService::class)->updateSettings(SubMenuKey::EDITORIAL_PICKS, [
+            'pinned_slots' => 0,
+            'limit' => 5,
+            'is_enabled' => true,
+        ]);
+
+        $this->getJson('/api/v1/sub-menu/editorial_picks')
+            ->assertOk()
+            ->assertJsonPath('data.items.0.id', $pinned->id)
+            ->assertJsonPath('data.items.1.id', $unpinned->id);
+    }
+
+    public function test_editorial_manual_entries_append_after_existing_sort_orders(): void
+    {
+        $first = $this->makeArticle('First Editorial', 'first-editorial-append');
+        $second = $this->makeArticle('Second Editorial', 'second-editorial-append');
+
+        SubMenuFeaturedArticle::query()->create([
+            'section_key' => SubMenuKey::EDITORIAL_PICKS,
+            'article_id' => $first->id,
+            'sort_order' => 50,
+            'is_pinned' => true,
+            'is_active' => true,
+        ]);
+
+        $this->postJson('/api/v1/admin/sub-menu/manual/editorial_picks', [
+            'article_id' => $second->id,
+            'is_pinned' => true,
+            'is_active' => true,
+        ])->assertCreated();
+
+        $orders = SubMenuFeaturedArticle::query()
+            ->where('section_key', SubMenuKey::EDITORIAL_PICKS->value)
+            ->orderBy('sort_order')
+            ->pluck('sort_order', 'article_id');
+
+        $this->assertSame(50, (int) $orders[$first->id]);
+        $this->assertSame(60, (int) $orders[$second->id]);
+    }
+
+    public function test_saving_editorial_schedule_reactivates_expired_entry(): void
+    {
+        $article = $this->makeArticle('Expired Editorial', 'expired-editorial-reactivate');
+
+        $entry = SubMenuFeaturedArticle::query()->create([
+            'section_key' => SubMenuKey::EDITORIAL_PICKS,
+            'article_id' => $article->id,
+            'sort_order' => 10,
+            'is_pinned' => true,
+            'is_active' => false,
+            'starts_at' => now()->subDay(),
+            'ends_at' => now()->subHour(),
+        ]);
+
+        $this->postJson('/api/v1/admin/sub-menu/manual/editorial_picks', [
+            'article_id' => $article->id,
+            'is_pinned' => true,
+            'is_active' => false,
+            'starts_at' => now()->subMinute()->toIso8601String(),
+            'ends_at' => now()->addHour()->toIso8601String(),
+        ])->assertCreated();
+
+        $fresh = $entry->fresh();
+        $this->assertTrue((bool) $fresh->is_active);
+
+        $this->getJson('/api/v1/sub-menu/editorial_picks')
+            ->assertOk()
+            ->assertJsonPath('data.items.0.id', $article->id);
+    }
+
+    public function test_editorial_picks_default_pinned_slots_is_three(): void
+    {
+        $settings = SubMenuSetting::query()
+            ->where('section_key', SubMenuKey::EDITORIAL_PICKS->value)
+            ->first();
+
+        $this->assertNotNull($settings);
+        $this->assertSame(3, (int) $settings->pinned_slots);
     }
 }
