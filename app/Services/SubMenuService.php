@@ -32,10 +32,7 @@ class SubMenuService
             return $setting;
         }
 
-        $defaultPinnedSlots = match ($key) {
-            SubMenuKey::TRENDING->value, SubMenuKey::EDITORIAL_PICKS->value => 3,
-            default => 0,
-        };
+        $defaultPinnedSlots = 3;
 
         return SubMenuSetting::query()->create([
             'section_key' => $key,
