@@ -101,6 +101,8 @@ privacy-policy.show,api,Privacy Policy
 privacy-policy.update,api,Privacy Policy
 terms-of-service.show,api,Terms of Service
 terms-of-service.update,api,Terms of Service
+cookie-policy.show,api,Cookie Policy
+cookie-policy.update,api,Cookie Policy
 career-jobs.list,api,Career Jobs
 career-jobs.create,api,Career Jobs
 career-jobs.show,api,Career Jobs
