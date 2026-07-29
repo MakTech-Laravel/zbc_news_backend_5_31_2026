@@ -287,7 +287,13 @@ class ArticleService
 
             $article = $this->article->create($data);
 
-            $this->syncArticleFeaturedMedia($article, $featuredMediaUuid, $posterMediaUuid, $data);
+            $this->syncArticleFeaturedMedia(
+                $article,
+                $featuredMediaUuid,
+                $posterMediaUuid,
+                $data,
+                preserveTimestamp: $isAutoSave,
+            );
 
             if (! empty($tags)) {
                 $tagIds = $this->resolveTags($tags);
@@ -420,8 +426,11 @@ class ArticleService
 
             $previousStatus = $article->status;
 
-            // Auto-save must not bump updated_at — only explicit admin Save does.
-            if ($isAutoSave) {
+            $shouldBumpUpdatedAt = ! $isAutoSave
+                && $this->manualUpdateTouchesEditorialTimestamp($article, $data);
+
+            // Auto-save and non-editorial edits must not bump updated_at.
+            if (! $shouldBumpUpdatedAt) {
                 $this->updateWithoutTouchingTimestamp($article, $data);
             } else {
                 $article->update($data);
@@ -824,7 +833,8 @@ class ArticleService
         Article $article,
         ?string $featuredMediaUuid,
         ?string $posterMediaUuid,
-        array $data
+        array $data,
+        bool $preserveTimestamp = true,
     ): void {
         if ($featuredMediaUuid === '') {
             $this->mediaService->detachArticleCollection($article, 'featured');
@@ -860,8 +870,12 @@ class ArticleService
             }
 
             if ($imageUrl && $imageUrl !== $article->featured_image) {
-                // Side-effect sync must not change editorial updated_at.
-                $this->updateWithoutTouchingTimestamp($article, ['featured_image' => $imageUrl]);
+                // Manual Save should update editorial updated_at; autosave/jobs should not.
+                if ($preserveTimestamp) {
+                    $this->updateWithoutTouchingTimestamp($article, ['featured_image' => $imageUrl]);
+                } else {
+                    $article->update(['featured_image' => $imageUrl]);
+                }
             }
 
             return;
@@ -1217,6 +1231,39 @@ class ArticleService
         } finally {
             $article->timestamps = true;
         }
+    }
+
+    /**
+     * Manual update should bump updated_at only when editorial fields change.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    private function manualUpdateTouchesEditorialTimestamp(Article $article, array $attributes): bool
+    {
+        if (array_key_exists('title', $attributes)) {
+            $incoming = (string) $attributes['title'];
+            if ($incoming !== (string) $article->title) {
+                return true;
+            }
+        }
+
+        if (array_key_exists('article_description', $attributes)) {
+            $incoming = (string) $attributes['article_description'];
+            if ($incoming !== (string) $article->article_description) {
+                return true;
+            }
+        }
+
+        if (array_key_exists('featured_image', $attributes)) {
+            $incoming = $attributes['featured_image'];
+            $normalizedIncoming = is_string($incoming) ? $incoming : null;
+            $normalizedCurrent = is_string($article->featured_image) ? $article->featured_image : null;
+            if ($normalizedIncoming !== $normalizedCurrent) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
 }
