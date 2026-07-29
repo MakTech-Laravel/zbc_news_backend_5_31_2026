@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\frontend\MenuController;
 use App\Http\Controllers\Api\V1\frontend\NavigationController;
 use App\Http\Controllers\Api\V1\frontend\NewsletterController;
 use App\Http\Controllers\Api\V1\frontend\AboutUsController;
+use App\Http\Controllers\Api\V1\frontend\AccessibilityReportController;
 use App\Http\Controllers\Api\V1\frontend\AccessibilityStatementController;
 use App\Http\Controllers\Api\V1\frontend\CookiePolicyController;
 use App\Http\Controllers\Api\V1\frontend\PrivacyPolicyController;
@@ -122,6 +123,10 @@ Route::get('/cookie-policy', [CookiePolicyController::class, 'show'])
 
 Route::get('/accessibility-statement', [AccessibilityStatementController::class, 'show'])
     ->name('api.v1.accessibility-statement.show');
+
+Route::post('/accessibility-reports', [AccessibilityReportController::class, 'store'])
+    ->middleware('request_limitter')
+    ->name('api.v1.accessibility-reports.store');
 
 Route::controller(CareersController::class)->prefix('careers')->group(function () {
     Route::get('/page', 'page')->name('api.v1.careers.page');

@@ -133,6 +133,8 @@ enum PermissionEnum: string
 
     case ACCESSIBILITY_STATEMENT_SHOW = 'accessibility-statement.show';
     case ACCESSIBILITY_STATEMENT_UPDATE = 'accessibility-statement.update';
+    case ACCESSIBILITY_REPORTS_LIST = 'accessibility-reports.list';
+    case ACCESSIBILITY_REPORTS_UPDATE = 'accessibility-reports.update';
 
     case CAREER_JOBS_LIST = 'career-jobs.list';
     case CAREER_JOBS_CREATE = 'career-jobs.create';

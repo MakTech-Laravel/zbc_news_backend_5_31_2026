@@ -107,6 +107,8 @@ cookie-policy.show,api,Cookie Policy
 cookie-policy.update,api,Cookie Policy
 accessibility-statement.show,api,Accessibility Statement
 accessibility-statement.update,api,Accessibility Statement
+accessibility-reports.list,api,Accessibility Reports
+accessibility-reports.update,api,Accessibility Reports
 career-jobs.list,api,Career Jobs
 career-jobs.create,api,Career Jobs
 career-jobs.show,api,Career Jobs
