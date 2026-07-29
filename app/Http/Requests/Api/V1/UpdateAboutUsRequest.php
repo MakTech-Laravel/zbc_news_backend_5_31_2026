@@ -27,6 +27,7 @@ class UpdateAboutUsRequest extends FormRequest
             'leaders.*.role' => ['required', 'string', 'max:160'],
             'leaders.*.bio' => ['required', 'string', 'max:1000'],
             'leaders.*.initials' => ['required', 'string', 'max:8'],
+            'leaders.*.photo' => ['nullable', 'string', 'max:2048'],
             'journey' => ['required', 'array', 'max:30'],
             'journey.*.year' => ['required', 'string', 'max:20'],
             'journey.*.short_year' => ['required', 'string', 'max:10'],
