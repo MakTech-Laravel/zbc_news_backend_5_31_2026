@@ -28,6 +28,8 @@ class DatabaseSeeder extends Seeder
             AdSlotSeeder::class,
             EntitySeoMetaSeeder::class,
             CareersSeeder::class,
+            PrivacyPolicySeeder::class,
+            TermsOfServiceSeeder::class,
         ]);
        
     }

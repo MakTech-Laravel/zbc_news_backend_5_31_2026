@@ -97,6 +97,10 @@ menus.manage-locations,api,Menus
 menus.manage-items,api,Menus
 careers-page.show,api,Careers Page
 careers-page.update,api,Careers Page
+privacy-policy.show,api,Privacy Policy
+privacy-policy.update,api,Privacy Policy
+terms-of-service.show,api,Terms of Service
+terms-of-service.update,api,Terms of Service
 career-jobs.list,api,Career Jobs
 career-jobs.create,api,Career Jobs
 career-jobs.show,api,Career Jobs

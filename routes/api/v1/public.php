@@ -15,6 +15,8 @@ use App\Http\Controllers\Api\V1\frontend\ContactController;
 use App\Http\Controllers\Api\V1\frontend\MenuController;
 use App\Http\Controllers\Api\V1\frontend\NavigationController;
 use App\Http\Controllers\Api\V1\frontend\NewsletterController;
+use App\Http\Controllers\Api\V1\frontend\PrivacyPolicyController;
+use App\Http\Controllers\Api\V1\frontend\TermsOfServiceController;
 use App\Http\Controllers\Api\V1\frontend\PublicSiteSettingsController;
 use App\Http\Controllers\Api\V1\frontend\SearchController;
 use App\Http\Controllers\Api\V1\frontend\SubMenuController;
@@ -103,6 +105,12 @@ Route::post('/ads/track', [AdTrackingController::class, 'track'])
 Route::post('/contact', [ContactController::class, 'store'])
     ->middleware('request_limitter')
     ->name('api.v1.contact.store');
+
+Route::get('/privacy-policy', [PrivacyPolicyController::class, 'show'])
+    ->name('api.v1.privacy-policy.show');
+
+Route::get('/terms-of-service', [TermsOfServiceController::class, 'show'])
+    ->name('api.v1.terms-of-service.show');
 
 Route::controller(CareersController::class)->prefix('careers')->group(function () {
     Route::get('/page', 'page')->name('api.v1.careers.page');

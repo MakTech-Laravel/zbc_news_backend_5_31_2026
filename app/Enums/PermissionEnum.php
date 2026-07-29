@@ -120,6 +120,12 @@ enum PermissionEnum: string
     case CAREERS_PAGE_SHOW = 'careers-page.show';
     case CAREERS_PAGE_UPDATE = 'careers-page.update';
 
+    case PRIVACY_POLICY_SHOW = 'privacy-policy.show';
+    case PRIVACY_POLICY_UPDATE = 'privacy-policy.update';
+
+    case TERMS_OF_SERVICE_SHOW = 'terms-of-service.show';
+    case TERMS_OF_SERVICE_UPDATE = 'terms-of-service.update';
+
     case CAREER_JOBS_LIST = 'career-jobs.list';
     case CAREER_JOBS_CREATE = 'career-jobs.create';
     case CAREER_JOBS_SHOW = 'career-jobs.show';

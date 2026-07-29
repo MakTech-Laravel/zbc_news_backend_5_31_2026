@@ -4,6 +4,8 @@ use App\Enums\PermissionEnum;
 use App\Http\Controllers\Api\V1\backend\AdminCareerApplicationController;
 use App\Http\Controllers\Api\V1\backend\AdminCareerJobController;
 use App\Http\Controllers\Api\V1\backend\AdminCareersPageController;
+use App\Http\Controllers\Api\V1\backend\AdminPrivacyPolicyController;
+use App\Http\Controllers\Api\V1\backend\AdminTermsOfServiceController;
 use App\Http\Controllers\Api\V1\backend\AdminCommentController;
 use App\Http\Controllers\Api\V1\backend\AdminContactInquiryController;
 use App\Http\Controllers\Api\V1\backend\AdminDashboardController;
@@ -249,6 +251,20 @@ Route::controller(AdminContactInquiryController::class)->prefix('contact-inquiri
         ->middleware('permission:'.PermissionEnum::CONTACT_INQUIRIES_REPLY->value);
     Route::delete('/{id}', 'destroy')->name('api.v1.contact-inquiries.destroy')
         ->middleware('permission:'.PermissionEnum::CONTACT_INQUIRIES_DELETE->value);
+});
+
+Route::controller(AdminPrivacyPolicyController::class)->prefix('privacy-policy')->group(function () {
+    Route::get('/', 'show')->name('api.v1.admin.privacy-policy.show')
+        ->middleware('permission:'.PermissionEnum::PRIVACY_POLICY_SHOW->value);
+    Route::put('/', 'update')->name('api.v1.admin.privacy-policy.update')
+        ->middleware('permission:'.PermissionEnum::PRIVACY_POLICY_UPDATE->value);
+});
+
+Route::controller(AdminTermsOfServiceController::class)->prefix('terms-of-service')->group(function () {
+    Route::get('/', 'show')->name('api.v1.admin.terms-of-service.show')
+        ->middleware('permission:'.PermissionEnum::TERMS_OF_SERVICE_SHOW->value);
+    Route::put('/', 'update')->name('api.v1.admin.terms-of-service.update')
+        ->middleware('permission:'.PermissionEnum::TERMS_OF_SERVICE_UPDATE->value);
 });
 
 Route::prefix('careers')->group(function () {
