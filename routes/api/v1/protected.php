@@ -4,10 +4,11 @@ use App\Enums\PermissionEnum;
 use App\Http\Controllers\Api\V1\backend\AdminCareerApplicationController;
 use App\Http\Controllers\Api\V1\backend\AdminCareerJobController;
 use App\Http\Controllers\Api\V1\backend\AdminCareersPageController;
+use App\Http\Controllers\Api\V1\backend\AdminAboutUsController;
+use App\Http\Controllers\Api\V1\backend\AdminAccessibilityStatementController;
 use App\Http\Controllers\Api\V1\backend\AdminCookiePolicyController;
 use App\Http\Controllers\Api\V1\backend\AdminPrivacyPolicyController;
 use App\Http\Controllers\Api\V1\backend\AdminTermsOfServiceController;
-use App\Http\Controllers\Api\V1\backend\AdminAboutUsController;
 use App\Http\Controllers\Api\V1\backend\AdminCommentController;
 use App\Http\Controllers\Api\V1\backend\AdminContactInquiryController;
 use App\Http\Controllers\Api\V1\backend\AdminDashboardController;
@@ -281,6 +282,13 @@ Route::controller(AdminCookiePolicyController::class)->prefix('cookie-policy')->
         ->middleware('permission:'.PermissionEnum::COOKIE_POLICY_SHOW->value);
     Route::put('/', 'update')->name('api.v1.admin.cookie-policy.update')
         ->middleware('permission:'.PermissionEnum::COOKIE_POLICY_UPDATE->value);
+});
+
+Route::controller(AdminAccessibilityStatementController::class)->prefix('accessibility-statement')->group(function () {
+    Route::get('/', 'show')->name('api.v1.admin.accessibility-statement.show')
+        ->middleware('permission:'.PermissionEnum::ACCESSIBILITY_STATEMENT_SHOW->value);
+    Route::put('/', 'update')->name('api.v1.admin.accessibility-statement.update')
+        ->middleware('permission:'.PermissionEnum::ACCESSIBILITY_STATEMENT_UPDATE->value);
 });
 
 Route::prefix('careers')->group(function () {

@@ -131,6 +131,9 @@ enum PermissionEnum: string
     case COOKIE_POLICY_SHOW = 'cookie-policy.show';
     case COOKIE_POLICY_UPDATE = 'cookie-policy.update';
 
+    case ACCESSIBILITY_STATEMENT_SHOW = 'accessibility-statement.show';
+    case ACCESSIBILITY_STATEMENT_UPDATE = 'accessibility-statement.update';
+
     case CAREER_JOBS_LIST = 'career-jobs.list';
     case CAREER_JOBS_CREATE = 'career-jobs.create';
     case CAREER_JOBS_SHOW = 'career-jobs.show';

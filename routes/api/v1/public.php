@@ -15,10 +15,11 @@ use App\Http\Controllers\Api\V1\frontend\ContactController;
 use App\Http\Controllers\Api\V1\frontend\MenuController;
 use App\Http\Controllers\Api\V1\frontend\NavigationController;
 use App\Http\Controllers\Api\V1\frontend\NewsletterController;
+use App\Http\Controllers\Api\V1\frontend\AboutUsController;
+use App\Http\Controllers\Api\V1\frontend\AccessibilityStatementController;
 use App\Http\Controllers\Api\V1\frontend\CookiePolicyController;
 use App\Http\Controllers\Api\V1\frontend\PrivacyPolicyController;
 use App\Http\Controllers\Api\V1\frontend\TermsOfServiceController;
-use App\Http\Controllers\Api\V1\frontend\AboutUsController;
 use App\Http\Controllers\Api\V1\frontend\PublicSiteSettingsController;
 use App\Http\Controllers\Api\V1\frontend\SearchController;
 use App\Http\Controllers\Api\V1\frontend\SubMenuController;
@@ -118,6 +119,9 @@ Route::get('/about-us', [AboutUsController::class, 'show'])
     ->name('api.v1.about-us.show');
 Route::get('/cookie-policy', [CookiePolicyController::class, 'show'])
     ->name('api.v1.cookie-policy.show');
+
+Route::get('/accessibility-statement', [AccessibilityStatementController::class, 'show'])
+    ->name('api.v1.accessibility-statement.show');
 
 Route::controller(CareersController::class)->prefix('careers')->group(function () {
     Route::get('/page', 'page')->name('api.v1.careers.page');
