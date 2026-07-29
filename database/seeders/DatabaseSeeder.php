@@ -32,6 +32,7 @@ class DatabaseSeeder extends Seeder
             TermsOfServiceSeeder::class,
             AboutUsSeeder::class,
             CookiePolicySeeder::class,
+            AccessibilityStatementSeeder::class,
         ]);
        
     }
