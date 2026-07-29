@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\backend\AdminCareerJobController;
 use App\Http\Controllers\Api\V1\backend\AdminCareersPageController;
 use App\Http\Controllers\Api\V1\backend\AdminAboutUsController;
 use App\Http\Controllers\Api\V1\backend\AdminAccessibilityStatementController;
+use App\Http\Controllers\Api\V1\backend\AdminAccessibilityReportController;
 use App\Http\Controllers\Api\V1\backend\AdminCookiePolicyController;
 use App\Http\Controllers\Api\V1\backend\AdminPrivacyPolicyController;
 use App\Http\Controllers\Api\V1\backend\AdminTermsOfServiceController;
@@ -289,6 +290,13 @@ Route::controller(AdminAccessibilityStatementController::class)->prefix('accessi
         ->middleware('permission:'.PermissionEnum::ACCESSIBILITY_STATEMENT_SHOW->value);
     Route::put('/', 'update')->name('api.v1.admin.accessibility-statement.update')
         ->middleware('permission:'.PermissionEnum::ACCESSIBILITY_STATEMENT_UPDATE->value);
+});
+
+Route::controller(AdminAccessibilityReportController::class)->prefix('accessibility-reports')->group(function () {
+    Route::get('/', 'index')->name('api.v1.admin.accessibility-reports.index')
+        ->middleware('permission:'.PermissionEnum::ACCESSIBILITY_REPORTS_LIST->value);
+    Route::patch('/{id}/status', 'updateStatus')->name('api.v1.admin.accessibility-reports.update-status')
+        ->middleware('permission:'.PermissionEnum::ACCESSIBILITY_REPORTS_UPDATE->value);
 });
 
 Route::prefix('careers')->group(function () {
