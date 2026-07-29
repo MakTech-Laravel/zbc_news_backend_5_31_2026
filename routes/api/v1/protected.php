@@ -274,12 +274,13 @@ Route::controller(AdminAboutUsController::class)->prefix('about-us')->group(func
         ->middleware('permission:'.PermissionEnum::ABOUT_US_SHOW->value);
     Route::put('/', 'update')->name('api.v1.admin.about-us.update')
         ->middleware('permission:'.PermissionEnum::ABOUT_US_UPDATE->value);
+});
+
 Route::controller(AdminCookiePolicyController::class)->prefix('cookie-policy')->group(function () {
     Route::get('/', 'show')->name('api.v1.admin.cookie-policy.show')
         ->middleware('permission:'.PermissionEnum::COOKIE_POLICY_SHOW->value);
     Route::put('/', 'update')->name('api.v1.admin.cookie-policy.update')
         ->middleware('permission:'.PermissionEnum::COOKIE_POLICY_UPDATE->value);
-    });
 });
 
 Route::prefix('careers')->group(function () {
