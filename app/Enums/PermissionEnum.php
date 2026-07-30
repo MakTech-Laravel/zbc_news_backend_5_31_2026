@@ -150,4 +150,26 @@ enum PermissionEnum: string
     case CAREER_APPLICATIONS_DELETE = 'career-applications.delete';
     case CAREER_APPLICATIONS_EXPORT = 'career-applications.export';
     case CAREER_APPLICATIONS_BULK = 'career-applications.bulk';
+
+    case LIVE_UPDATES_LIST = 'live-updates.list';
+    case LIVE_UPDATES_CREATE = 'live-updates.create';
+    case LIVE_UPDATES_SHOW = 'live-updates.show';
+    case LIVE_UPDATES_UPDATE = 'live-updates.update';
+    case LIVE_UPDATES_DELETE = 'live-updates.delete';
+
+    case MONETIZATION_LIST = 'monetization.list';
+    case MONETIZATION_CREATE = 'monetization.create';
+    case MONETIZATION_UPDATE = 'monetization.update';
+
+    case NAVIGATION_LIST = 'navigation.list';
+    case NAVIGATION_CREATE = 'navigation.create';
+    case NAVIGATION_UPDATE = 'navigation.update';
+    case NAVIGATION_DELETE = 'navigation.delete';
+
+    case NEWSLETTER_LIST = 'newsletter.list';
+    case NEWSLETTER_CREATE = 'newsletter.create';
+    case NEWSLETTER_SHOW = 'newsletter.show';
+    case NEWSLETTER_UPDATE = 'newsletter.update';
+    case NEWSLETTER_DELETE = 'newsletter.delete';
+    case NEWSLETTER_SEND = 'newsletter.send';
 }

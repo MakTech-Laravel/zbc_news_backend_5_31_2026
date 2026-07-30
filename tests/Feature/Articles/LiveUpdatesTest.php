@@ -29,34 +29,37 @@ class LiveUpdatesTest extends TestCase
 
         foreach ([
             'articles.list',
-            'articles.create',
-            'articles.show',
-            'articles.update',
-            'articles.delete',
+            'live-updates.list',
+            'live-updates.create',
+            'live-updates.show',
+            'live-updates.update',
+            'live-updates.delete',
         ] as $name) {
             Permission::query()->firstOrCreate(
                 ['name' => $name, 'guard_name' => 'api'],
-                ['group_name' => 'Articles'],
+                ['group_name' => str_starts_with($name, 'live-updates') ? 'Live Updates' : 'Articles'],
             );
         }
 
         $role = Role::query()->firstOrCreate(['name' => 'editor', 'guard_name' => 'api']);
         $role->givePermissionTo([
             'articles.list',
-            'articles.create',
-            'articles.show',
-            'articles.update',
-            'articles.delete',
+            'live-updates.list',
+            'live-updates.create',
+            'live-updates.show',
+            'live-updates.update',
+            'live-updates.delete',
         ]);
 
         $this->admin = User::factory()->create();
         $this->admin->assignRole('editor');
         $this->admin->givePermissionTo([
             'articles.list',
-            'articles.create',
-            'articles.show',
-            'articles.update',
-            'articles.delete',
+            'live-updates.list',
+            'live-updates.create',
+            'live-updates.show',
+            'live-updates.update',
+            'live-updates.delete',
         ]);
         Passport::actingAs($this->admin);
 
