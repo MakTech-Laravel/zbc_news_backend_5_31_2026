@@ -54,6 +54,37 @@ class ArticleService
             ->get();
     }
 
+    /**
+     * Public Live Updates feed: all published live-blog articles.
+     * Ongoing (is_live) first, then ended/previous, with pagination.
+     *
+     * @return array{items: Collection<int, Article>, meta: array{current_page: int, last_page: int, per_page: int, total: int}}
+     */
+    public function getLiveBlogFeed(int $perPage = 12, int $page = 1): array
+    {
+        $perPage = max(1, min(50, $perPage));
+        $page = max(1, $page);
+
+        $paginator = $this->articleQuery()
+            ->where('status', ArticleStatus::PUBLISHED->value)
+            ->where('is_live_blog', true)
+            ->orderByDesc('is_live')
+            ->orderByDesc('live_started_at')
+            ->orderByDesc('published_at')
+            ->orderByDesc('id')
+            ->paginate($perPage, ['*'], 'page', $page);
+
+        return [
+            'items' => $paginator->getCollection(),
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
+        ];
+    }
+
     public function getTrashedArticles()
     {
         return $this->articleQuery()

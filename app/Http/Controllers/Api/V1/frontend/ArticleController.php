@@ -127,6 +127,23 @@ class ArticleController extends Controller
         );
     }
 
+    public function liveBlogs(Request $request)
+    {
+        $perPage = $request->query('per_page') ? (int) $request->query('per_page') : 12;
+        $page = (int) $request->query('page', 1);
+        $result = $this->articleService->getLiveBlogFeed($perPage, $page);
+
+        return sendResponse(
+            true,
+            'Live update articles retrieved successfully',
+            [
+                'articles' => ArticleResource::collection($result['items']),
+                'meta' => $result['meta'],
+            ],
+            HttpStatus::HTTP_OK,
+        );
+    }
+
     public function related(string $slug)
     {
         $articles = $this->articleService->getRelatedArticles($slug);

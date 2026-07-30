@@ -444,10 +444,6 @@ Route::controller(SubMenuController::class)->prefix('sub-menu')->group(function 
         ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
     Route::delete('/manual/{id}', 'removeManual')->name('api.v1.sub-menu.admin.manual.delete')
         ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
-    Route::post('/live/start/{articleId}', 'startLive')->name('api.v1.sub-menu.admin.live.start')
-        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
-    Route::post('/live/end/{articleId}', 'endLive')->name('api.v1.sub-menu.admin.live.end')
-        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
 });
 
 Route::controller(MenuController::class)->prefix('menus')->group(function () {

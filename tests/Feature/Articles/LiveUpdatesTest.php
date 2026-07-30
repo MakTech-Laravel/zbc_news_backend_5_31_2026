@@ -241,4 +241,43 @@ class LiveUpdatesTest extends TestCase
             'body' => '<p>Nope</p>',
         ])->assertNotFound();
     }
+
+    public function test_public_live_blogs_feed_orders_ongoing_first_and_paginates(): void
+    {
+        $ongoing = $this->makeLiveBlog('ongoing-live', [
+            'title' => 'Ongoing Live',
+            'is_live' => true,
+            'live_started_at' => now()->subHour(),
+            'published_at' => now()->subDays(2),
+        ]);
+
+        $ended = $this->makeLiveBlog('ended-live', [
+            'title' => 'Ended Live',
+            'is_live' => false,
+            'live_started_at' => now()->subDays(3),
+            'live_ended_at' => now()->subDay(),
+            'published_at' => now()->subDay(),
+        ]);
+
+        Article::query()->create([
+            'title' => 'Regular Article',
+            'slug' => 'regular-not-live-blog',
+            'article_description' => 'Body',
+            'status' => ArticleStatus::PUBLISHED,
+            'is_live_blog' => false,
+            'article_category_id' => $this->category->id,
+            'user_id' => $this->admin->id,
+            'published_at' => now(),
+        ]);
+
+        $response = $this->getJson('/api/v1/articles/live-blogs?per_page=10')
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.meta.total', 2);
+
+        $ids = collect($response->json('data.articles'))->pluck('id')->all();
+        $this->assertSame([$ongoing->id, $ended->id], $ids);
+        $this->assertTrue((bool) $response->json('data.articles.0.is_live'));
+        $this->assertFalse((bool) $response->json('data.articles.1.is_live'));
+    }
 }
