@@ -128,25 +128,25 @@ Route::controller(BreakingNewsController::class)->prefix('breaking-news')->group
 
 Route::controller(LiveUpdateController::class)->prefix('live-updates')->group(function () {
     Route::get('/', 'index')->name('api.v1.live-updates.index')
-        ->middleware('permission:'.PermissionEnum::ARTICLES_LIST->value);
+        ->middleware('permission:'.PermissionEnum::LIVE_UPDATES_LIST->value);
     Route::post('/store', 'store')->name('api.v1.live-updates.store')
-        ->middleware('permission:'.PermissionEnum::ARTICLES_CREATE->value);
+        ->middleware('permission:'.PermissionEnum::LIVE_UPDATES_CREATE->value);
     Route::get('/show/{slug}', 'show')->name('api.v1.live-updates.show')
-        ->middleware('permission:'.PermissionEnum::ARTICLES_SHOW->value);
+        ->middleware('permission:'.PermissionEnum::LIVE_UPDATES_SHOW->value);
     Route::post('/update/{slug}', 'update')->name('api.v1.live-updates.update')
-        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
+        ->middleware('permission:'.PermissionEnum::LIVE_UPDATES_UPDATE->value);
     Route::delete('/delete/{slug}', 'destroy')->name('api.v1.live-updates.destroy')
-        ->middleware('permission:'.PermissionEnum::ARTICLES_DELETE->value);
+        ->middleware('permission:'.PermissionEnum::LIVE_UPDATES_DELETE->value);
     Route::post('/{slug}/entries', 'storeEntry')->name('api.v1.live-updates.entries.store')
-        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
+        ->middleware('permission:'.PermissionEnum::LIVE_UPDATES_UPDATE->value);
     Route::post('/{slug}/entries/{id}', 'updateEntry')->name('api.v1.live-updates.entries.update')
-        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
+        ->middleware('permission:'.PermissionEnum::LIVE_UPDATES_UPDATE->value);
     Route::delete('/{slug}/entries/{id}', 'destroyEntry')->name('api.v1.live-updates.entries.destroy')
-        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
+        ->middleware('permission:'.PermissionEnum::LIVE_UPDATES_DELETE->value);
     Route::post('/{slug}/live/start', 'startLive')->name('api.v1.live-updates.live.start')
-        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
+        ->middleware('permission:'.PermissionEnum::LIVE_UPDATES_UPDATE->value);
     Route::post('/{slug}/live/end', 'endLive')->name('api.v1.live-updates.live.end')
-        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
+        ->middleware('permission:'.PermissionEnum::LIVE_UPDATES_UPDATE->value);
 });
 
 Route::get('/user/read-history', [ArticleTrackingController::class, 'userHistory'])
@@ -427,10 +427,14 @@ Route::controller(UserController::class)->prefix('users')->group(function () {
 });
 
 Route::controller(NavigationLinkController::class)->prefix('navigation-links')->group(function () {
-    Route::get('/', 'index')->name('api.v1.navigation-links.index');
-    Route::post('/store', 'store')->name('api.v1.navigation-links.store');
-    Route::post('/update/{id}', 'update')->name('api.v1.navigation-links.update');
-    Route::delete('/delete/{id}', 'destroy')->name('api.v1.navigation-links.destroy');
+    Route::get('/', 'index')->name('api.v1.navigation-links.index')
+        ->middleware('permission:'.PermissionEnum::NAVIGATION_LIST->value);
+    Route::post('/store', 'store')->name('api.v1.navigation-links.store')
+        ->middleware('permission:'.PermissionEnum::NAVIGATION_CREATE->value);
+    Route::post('/update/{id}', 'update')->name('api.v1.navigation-links.update')
+        ->middleware('permission:'.PermissionEnum::NAVIGATION_UPDATE->value);
+    Route::delete('/delete/{id}', 'destroy')->name('api.v1.navigation-links.destroy')
+        ->middleware('permission:'.PermissionEnum::NAVIGATION_DELETE->value);
 });
 
 Route::controller(SubMenuController::class)->prefix('sub-menu')->group(function () {
@@ -495,13 +499,17 @@ Route::controller(MenuController::class)->prefix('menus')->group(function () {
 });
 
 Route::controller(AdSlotController::class)->prefix('ad-slots')->group(function () {
-    Route::get('/', 'index')->name('api.v1.ad-slots.index');
-    Route::post('/store', 'store')->name('api.v1.ad-slots.store');
-    Route::post('/update/{id}', 'update')->name('api.v1.ad-slots.update');
+    Route::get('/', 'index')->name('api.v1.ad-slots.index')
+        ->middleware('permission:'.PermissionEnum::MONETIZATION_LIST->value);
+    Route::post('/store', 'store')->name('api.v1.ad-slots.store')
+        ->middleware('permission:'.PermissionEnum::MONETIZATION_CREATE->value);
+    Route::post('/update/{id}', 'update')->name('api.v1.ad-slots.update')
+        ->middleware('permission:'.PermissionEnum::MONETIZATION_UPDATE->value);
 });
 
 Route::get('/monetization/overview', [MonetizationController::class, 'overview'])
-    ->name('api.v1.monetization.overview');
+    ->name('api.v1.monetization.overview')
+    ->middleware('permission:'.PermissionEnum::MONETIZATION_LIST->value);
 
 Route::get('/dashboard/overview', [AdminDashboardController::class, 'overview'])
     ->name('api.v1.admin.dashboard.overview');
@@ -513,18 +521,32 @@ Route::get('/user/dashboard', [UserDashboardController::class, 'index'])
     ->name('api.v1.user.dashboard');
 
 Route::prefix('newsletter')->controller(NewsletterController::class)->group(function () {
-    Route::get('/analytics', 'analytics')->name('api.v1.newsletter.analytics');
-    Route::get('/categories', 'categories')->name('api.v1.admin.newsletter.categories');
-    Route::get('/subscribers', 'subscribers')->name('api.v1.newsletter.subscribers');
-    Route::post('/subscribers/update/{id}', 'updateSubscriberStatus')->name('api.v1.newsletter.subscribers.update');
-    Route::post('/subscribers/resend-verification/{id}', 'resendSubscriberVerification')->name('api.v1.newsletter.subscribers.resend-verification');
-    Route::delete('/subscribers/{id}', 'deleteSubscriber')->name('api.v1.newsletter.subscribers.delete');
-    Route::get('/campaigns', 'campaigns')->name('api.v1.newsletter.campaigns');
-    Route::get('/campaigns/eligible-count', 'campaignEligibleCount')->name('api.v1.newsletter.campaigns.eligible-count');
-    Route::get('/campaigns/{id}/eligible-count', 'showCampaignEligibleCount')->name('api.v1.newsletter.campaigns.show-eligible-count');
-    Route::get('/campaigns/{id}', 'showCampaign')->name('api.v1.newsletter.campaigns.show');
-    Route::post('/campaigns/store', 'storeCampaign')->name('api.v1.newsletter.campaigns.store');
-    Route::post('/campaigns/update/{id}', 'updateCampaign')->name('api.v1.newsletter.campaigns.update');
-    Route::post('/campaigns/schedule/{id}', 'scheduleCampaign')->name('api.v1.newsletter.campaigns.schedule');
-    Route::post('/campaigns/send/{id}', 'sendCampaign')->name('api.v1.newsletter.campaigns.send');
+    Route::get('/analytics', 'analytics')->name('api.v1.newsletter.analytics')
+        ->middleware('permission:'.PermissionEnum::NEWSLETTER_LIST->value);
+    Route::get('/categories', 'categories')->name('api.v1.admin.newsletter.categories')
+        ->middleware('permission:'.PermissionEnum::NEWSLETTER_LIST->value);
+    Route::get('/subscribers', 'subscribers')->name('api.v1.newsletter.subscribers')
+        ->middleware('permission:'.PermissionEnum::NEWSLETTER_LIST->value);
+    Route::post('/subscribers/update/{id}', 'updateSubscriberStatus')->name('api.v1.newsletter.subscribers.update')
+        ->middleware('permission:'.PermissionEnum::NEWSLETTER_UPDATE->value);
+    Route::post('/subscribers/resend-verification/{id}', 'resendSubscriberVerification')->name('api.v1.newsletter.subscribers.resend-verification')
+        ->middleware('permission:'.PermissionEnum::NEWSLETTER_UPDATE->value);
+    Route::delete('/subscribers/{id}', 'deleteSubscriber')->name('api.v1.newsletter.subscribers.delete')
+        ->middleware('permission:'.PermissionEnum::NEWSLETTER_DELETE->value);
+    Route::get('/campaigns', 'campaigns')->name('api.v1.newsletter.campaigns')
+        ->middleware('permission:'.PermissionEnum::NEWSLETTER_LIST->value);
+    Route::get('/campaigns/eligible-count', 'campaignEligibleCount')->name('api.v1.newsletter.campaigns.eligible-count')
+        ->middleware('permission:'.PermissionEnum::NEWSLETTER_LIST->value);
+    Route::get('/campaigns/{id}/eligible-count', 'showCampaignEligibleCount')->name('api.v1.newsletter.campaigns.show-eligible-count')
+        ->middleware('permission:'.PermissionEnum::NEWSLETTER_SHOW->value);
+    Route::get('/campaigns/{id}', 'showCampaign')->name('api.v1.newsletter.campaigns.show')
+        ->middleware('permission:'.PermissionEnum::NEWSLETTER_SHOW->value);
+    Route::post('/campaigns/store', 'storeCampaign')->name('api.v1.newsletter.campaigns.store')
+        ->middleware('permission:'.PermissionEnum::NEWSLETTER_CREATE->value);
+    Route::post('/campaigns/update/{id}', 'updateCampaign')->name('api.v1.newsletter.campaigns.update')
+        ->middleware('permission:'.PermissionEnum::NEWSLETTER_UPDATE->value);
+    Route::post('/campaigns/schedule/{id}', 'scheduleCampaign')->name('api.v1.newsletter.campaigns.schedule')
+        ->middleware('permission:'.PermissionEnum::NEWSLETTER_SEND->value);
+    Route::post('/campaigns/send/{id}', 'sendCampaign')->name('api.v1.newsletter.campaigns.send')
+        ->middleware('permission:'.PermissionEnum::NEWSLETTER_SEND->value);
 });

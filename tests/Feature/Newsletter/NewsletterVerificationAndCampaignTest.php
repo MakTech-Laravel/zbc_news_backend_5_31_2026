@@ -100,7 +100,7 @@ class NewsletterVerificationAndCampaignTest extends TestCase
         Event::fake();
 
         $admin = User::factory()->create();
-        $admin->assignRole('admin');
+        $admin->assignRole('super_admin');
         Passport::actingAs($admin);
 
         $this->postJson('/api/v1/newsletter/subscribe', [
@@ -133,7 +133,7 @@ class NewsletterVerificationAndCampaignTest extends TestCase
         Event::fake();
 
         $admin = User::factory()->create();
-        $admin->assignRole('admin');
+        $admin->assignRole('super_admin');
         Passport::actingAs($admin);
 
         $this->postJson('/api/v1/newsletter/subscribe', [
@@ -160,7 +160,7 @@ class NewsletterVerificationAndCampaignTest extends TestCase
         Event::fake();
 
         $admin = User::factory()->create();
-        $admin->assignRole('admin');
+        $admin->assignRole('super_admin');
         Passport::actingAs($admin);
 
         $this->postJson('/api/v1/newsletter/subscribe', [
@@ -188,7 +188,7 @@ class NewsletterVerificationAndCampaignTest extends TestCase
     public function test_send_campaign_without_eligible_recipients_returns_user_friendly_error(): void
     {
         $admin = User::factory()->create();
-        $admin->assignRole('admin');
+        $admin->assignRole('super_admin');
         Passport::actingAs($admin);
 
         $campaign = NewsletterCampaign::query()->create([

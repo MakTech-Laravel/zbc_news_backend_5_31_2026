@@ -122,3 +122,21 @@ career-applications.update,api,Career Applications
 career-applications.delete,api,Career Applications
 career-applications.export,api,Career Applications
 career-applications.bulk,api,Career Applications
+live-updates.list,api,Live Updates
+live-updates.create,api,Live Updates
+live-updates.show,api,Live Updates
+live-updates.update,api,Live Updates
+live-updates.delete,api,Live Updates
+monetization.list,api,Monetization
+monetization.create,api,Monetization
+monetization.update,api,Monetization
+navigation.list,api,Navigation
+navigation.create,api,Navigation
+navigation.update,api,Navigation
+navigation.delete,api,Navigation
+newsletter.list,api,Newsletter
+newsletter.create,api,Newsletter
+newsletter.show,api,Newsletter
+newsletter.update,api,Newsletter
+newsletter.delete,api,Newsletter
+newsletter.send,api,Newsletter

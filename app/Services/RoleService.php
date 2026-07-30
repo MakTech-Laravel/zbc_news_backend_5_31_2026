@@ -89,10 +89,18 @@ class RoleService
     private function syncPermissions(Role $role, array $permissions): void
     {
         foreach ($permissions as $permissionName) {
-            Permission::firstOrCreate([
-                'name' => $permissionName,
-                'guard_name' => 'api',
-            ]);
+            $existing = Permission::query()
+                ->where('name', $permissionName)
+                ->where('guard_name', 'api')
+                ->first();
+
+            if (! $existing) {
+                Permission::query()->create([
+                    'name' => $permissionName,
+                    'guard_name' => 'api',
+                    'group_name' => 'Other',
+                ]);
+            }
         }
 
         $role->syncPermissions($permissions);

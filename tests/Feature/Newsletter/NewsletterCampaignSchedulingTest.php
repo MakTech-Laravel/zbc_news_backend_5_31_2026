@@ -29,7 +29,7 @@ class NewsletterCampaignSchedulingTest extends TestCase
         }
 
         $this->admin = User::factory()->create();
-        $this->admin->assignRole('admin');
+        $this->admin->assignRole('super_admin');
         Passport::actingAs($this->admin);
     }
 

@@ -31,7 +31,7 @@ class NewsletterCampaignRecipientsTest extends TestCase
     public function test_eligible_count_for_premium_campaign_counts_only_verified_subscribers(): void
     {
         $admin = User::factory()->create();
-        $admin->assignRole('admin');
+        $admin->assignRole('super_admin');
         Passport::actingAs($admin);
 
         NewsletterSubscriber::query()->create([
@@ -72,7 +72,7 @@ class NewsletterCampaignRecipientsTest extends TestCase
     public function test_eligible_count_for_standard_campaign_includes_all_subscribers_and_users(): void
     {
         $admin = User::factory()->create();
-        $admin->assignRole('admin');
+        $admin->assignRole('super_admin');
         Passport::actingAs($admin);
 
         NewsletterSubscriber::query()->create([
@@ -103,7 +103,7 @@ class NewsletterCampaignRecipientsTest extends TestCase
     public function test_premium_campaign_excludes_pending_subscribers(): void
     {
         $admin = User::factory()->create();
-        $admin->assignRole('admin');
+        $admin->assignRole('super_admin');
         Passport::actingAs($admin);
 
         NewsletterSubscriber::query()->create([
@@ -121,7 +121,7 @@ class NewsletterCampaignRecipientsTest extends TestCase
     public function test_standard_campaign_includes_verified_subscribers_and_users(): void
     {
         $admin = User::factory()->create();
-        $admin->assignRole('admin');
+        $admin->assignRole('super_admin');
         Passport::actingAs($admin);
 
         NewsletterSubscriber::query()->create([
@@ -145,7 +145,7 @@ class NewsletterCampaignRecipientsTest extends TestCase
     public function test_unsubscribed_emails_are_excluded_from_user_audience(): void
     {
         $admin = User::factory()->create();
-        $admin->assignRole('admin');
+        $admin->assignRole('super_admin');
         Passport::actingAs($admin);
 
         $user = User::factory()->create(['email' => 'blocked@example.com']);
@@ -196,7 +196,7 @@ class NewsletterCampaignRecipientsTest extends TestCase
     public function test_dispatch_campaign_provisions_subscriber_for_registered_user(): void
     {
         $admin = User::factory()->create();
-        $admin->assignRole('admin');
+        $admin->assignRole('super_admin');
         Passport::actingAs($admin);
 
         $user = User::factory()->create(['email' => 'account-only@example.com']);

@@ -67,7 +67,7 @@ class RolePermisionDefaultUser extends Seeder
         while (($row = fgetcsv($permissionsCsv, 0, ',')) !== false) {
             $data = array_combine($header, $row);
 
-            Permission::firstOrCreate(
+            Permission::updateOrCreate(
                 ['name' => $data['name'], 'guard_name' => $data['guard_name']],
                 ['group_name' => $data['group_name']]
             );
