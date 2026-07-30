@@ -30,6 +30,7 @@ class ArticleResource extends JsonResource
             'is_breaking' => (bool) $this->is_breaking,
             'is_live' => (bool) ($this->is_live ?? false),
             'is_live_blog' => (bool) ($this->is_live_blog ?? false),
+            'live_video_url' => $this->live_video_url,
             'live_started_at' => $this->live_started_at?->toIso8601String(),
             'live_ended_at' => $this->live_ended_at?->toIso8601String(),
             'live_updates' => $this->whenLoaded('liveUpdates', function () {
@@ -116,6 +117,19 @@ class ArticleResource extends JsonResource
         /** @var Media|null $poster */
         $poster = $this->resource->posterMedia();
 
+        if ($this->live_video_url) {
+            return [
+                'uuid' => null,
+                'type' => 'video',
+                'provider' => 'youtube',
+                'url' => $this->live_video_url,
+                'thumbnail_url' => null,
+                'poster_url' => MediaUrl::resolvePublic($poster?->url ?? $this->featured_image),
+                'poster_uuid' => $poster?->uuid,
+                'mime_type' => 'text/html',
+            ];
+        }
+
         if ($featured) {
             $type = match ($featured->media_type) {
                 'video' => 'video',
@@ -131,6 +145,7 @@ class ArticleResource extends JsonResource
             return [
                 'uuid' => $featured->uuid,
                 'type' => $type,
+                'provider' => 'native',
                 'url' => MediaUrl::resolvePublic($featured->url),
                 'thumbnail_url' => MediaUrl::resolvePublic($featured->thumbnail_url),
                 'poster_url' => MediaUrl::resolvePublic($posterUrl),
@@ -143,6 +158,7 @@ class ArticleResource extends JsonResource
             return [
                 'uuid' => null,
                 'type' => 'image',
+                'provider' => 'native',
                 'url' => MediaUrl::resolvePublic($this->featured_image),
                 'thumbnail_url' => MediaUrl::resolvePublic($this->featured_image),
                 'poster_url' => MediaUrl::resolvePublic($this->featured_image),

@@ -34,6 +34,7 @@ class Article extends Model
         'is_breaking',
         'is_live',
         'is_live_blog',
+        'live_video_url',
         'live_started_at',
         'live_ended_at',
         'excerpt',

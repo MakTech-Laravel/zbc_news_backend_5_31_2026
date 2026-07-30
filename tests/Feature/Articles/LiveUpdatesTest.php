@@ -8,6 +8,7 @@ use App\Enums\LiveUpdateStatus;
 use App\Models\Article;
 use App\Models\ArticleCategory;
 use App\Models\ArticleLiveUpdate;
+use App\Models\Media;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Passport\Passport;
@@ -243,6 +244,94 @@ class LiveUpdatesTest extends TestCase
         $this->postJson('/api/v1/admin/live-updates/normal-article/entries', [
             'body' => '<p>Nope</p>',
         ])->assertNotFound();
+    }
+
+    public function test_live_update_shell_attaches_featured_video_and_poster(): void
+    {
+        $video = Media::factory()->create([
+            'uploaded_by' => $this->admin->id,
+            'status' => 'ready',
+            'media_type' => 'video',
+            'resource_type' => 'video',
+            'mime_type' => 'video/mp4',
+            'extension' => 'mp4',
+            'original_filename' => 'live.mp4',
+            'url' => 'https://res.cloudinary.com/test/video/upload/v1/live.mp4',
+            'thumbnail_url' => 'https://res.cloudinary.com/test/video/upload/so_0/live.jpg',
+        ]);
+
+        $poster = Media::factory()->create([
+            'uploaded_by' => $this->admin->id,
+            'status' => 'ready',
+            'media_type' => 'image',
+            'url' => 'https://res.cloudinary.com/test/image/upload/v1/poster.jpg',
+            'thumbnail_url' => 'https://res.cloudinary.com/test/image/upload/w_200/poster.jpg',
+        ]);
+
+        $response = $this->postJson('/api/v1/admin/live-updates/store', [
+            'title' => 'Video Live Blog',
+            'slug' => 'video-live-blog',
+            'article_description' => '<p>Intro</p>',
+            'article_category_id' => $this->category->id,
+            'status' => ArticleStatus::PUBLISHED->value,
+            'visibility' => 'public',
+            'featured_media_uuid' => $video->uuid,
+            'poster_media_uuid' => $poster->uuid,
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.is_live_blog', true)
+            ->assertJsonPath('data.featured_media.type', 'video')
+            ->assertJsonPath('data.featured_media.uuid', $video->uuid)
+            ->assertJsonPath('data.featured_media.poster_uuid', $poster->uuid);
+
+        $this->assertSame(
+            'https://res.cloudinary.com/test/image/upload/v1/poster.jpg',
+            $response->json('data.featured_media.poster_url'),
+        );
+
+        $public = $this->getJson('/api/v1/articles/show/video-live-blog')
+            ->assertOk();
+
+        $this->assertSame('video', $public->json('data.featured_media.type'));
+        $this->assertSame($video->uuid, $public->json('data.featured_media.uuid'));
+        $this->assertSame($poster->uuid, $public->json('data.featured_media.poster_uuid'));
+    }
+
+    public function test_live_update_shell_exposes_youtube_live_video_with_poster(): void
+    {
+        $embedUrl = 'https://www.youtube.com/embed/dQw4w9WgXcQ';
+        $posterUrl = 'https://res.cloudinary.com/test/image/upload/v1/live-poster.jpg';
+
+        $response = $this->postJson('/api/v1/admin/live-updates/store', [
+            'title' => 'YouTube Live Blog',
+            'slug' => 'youtube-live-blog',
+            'article_description' => '<p>Intro</p>',
+            'article_category_id' => $this->category->id,
+            'status' => ArticleStatus::PUBLISHED->value,
+            'visibility' => 'public',
+            'live_video_url' => $embedUrl,
+            'featured_image' => $posterUrl,
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.live_video_url', $embedUrl)
+            ->assertJsonPath('data.featured_media.type', 'video')
+            ->assertJsonPath('data.featured_media.provider', 'youtube')
+            ->assertJsonPath('data.featured_media.url', $embedUrl)
+            ->assertJsonPath('data.featured_media.poster_url', $posterUrl);
+
+        $this->assertDatabaseHas('articles', [
+            'slug' => 'youtube-live-blog',
+            'is_live_blog' => true,
+            'live_video_url' => $embedUrl,
+            'featured_image' => $posterUrl,
+        ]);
+
+        $this->getJson('/api/v1/articles/show/youtube-live-blog')
+            ->assertOk()
+            ->assertJsonPath('data.featured_media.provider', 'youtube')
+            ->assertJsonPath('data.featured_media.poster_url', $posterUrl);
     }
 
     public function test_public_live_blogs_feed_orders_ongoing_first_and_paginates(): void

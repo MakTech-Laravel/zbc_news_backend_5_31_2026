@@ -102,6 +102,7 @@ class ArticleRequest extends FormRequest
             'visibility'                => ['nullable', new Enum(ArticleVisibility::class)],
             'is_breaking'           => ['sometimes', 'boolean'],
             'is_live_blog'          => ['sometimes', 'boolean'],
+            'live_video_url'        => ['nullable', 'url:http,https', 'max:2048'],
             'breaking_priority'     => ['sometimes', 'integer', 'min:0', 'max:9999'],
             'breaking_starts_at'    => ['nullable', 'date'],
             'breaking_expires_at'   => ['nullable', 'date'],
