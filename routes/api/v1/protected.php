@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\V1\backend\ArticleController;
 use App\Http\Controllers\Api\V1\backend\ArticleTrackingController;
 use App\Http\Controllers\Api\V1\backend\BreakingNewsController;
 use App\Http\Controllers\Api\V1\backend\CategoryController;
+use App\Http\Controllers\Api\V1\backend\LiveUpdateController;
 use App\Http\Controllers\Api\V1\backend\MediaController;
 use App\Http\Controllers\Api\V1\backend\MembershipPlanController;
 use App\Http\Controllers\Api\V1\backend\MenuController;
@@ -122,6 +123,29 @@ Route::controller(BreakingNewsController::class)->prefix('breaking-news')->group
     Route::post('/pause/{id}', 'pause')->name('api.v1.breaking-news.pause')
         ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
     Route::delete('/delete/{id}', 'destroy')->name('api.v1.breaking-news.destroy')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
+});
+
+Route::controller(LiveUpdateController::class)->prefix('live-updates')->group(function () {
+    Route::get('/', 'index')->name('api.v1.live-updates.index')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_LIST->value);
+    Route::post('/store', 'store')->name('api.v1.live-updates.store')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_CREATE->value);
+    Route::get('/show/{slug}', 'show')->name('api.v1.live-updates.show')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_SHOW->value);
+    Route::post('/update/{slug}', 'update')->name('api.v1.live-updates.update')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
+    Route::delete('/delete/{slug}', 'destroy')->name('api.v1.live-updates.destroy')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_DELETE->value);
+    Route::post('/{slug}/entries', 'storeEntry')->name('api.v1.live-updates.entries.store')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
+    Route::post('/{slug}/entries/{id}', 'updateEntry')->name('api.v1.live-updates.entries.update')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
+    Route::delete('/{slug}/entries/{id}', 'destroyEntry')->name('api.v1.live-updates.entries.destroy')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
+    Route::post('/{slug}/live/start', 'startLive')->name('api.v1.live-updates.live.start')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
+    Route::post('/{slug}/live/end', 'endLive')->name('api.v1.live-updates.live.end')
         ->middleware('permission:'.PermissionEnum::ARTICLES_UPDATE->value);
 });
 

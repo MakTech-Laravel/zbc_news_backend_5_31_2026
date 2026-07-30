@@ -19,7 +19,7 @@ class ArticleController extends Controller
 
     public function index()
     {
-        $articles = $this->articleService->getAllArticles();
+        $articles = $this->articleService->getAllArticles(excludeLiveBlogs: true);
 
         return sendResponse(
             true,
