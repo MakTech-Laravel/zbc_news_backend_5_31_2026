@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\ArticleStatus;
 use App\Enums\ArticleVisibility;
+use App\Enums\LiveUpdateStatus;
 use App\Support\ReadTime;
 use App\Traits\HasMedia;
 use Illuminate\Database\Eloquent\Builder;
@@ -32,6 +33,7 @@ class Article extends Model
         'visibility',
         'is_breaking',
         'is_live',
+        'is_live_blog',
         'live_started_at',
         'live_ended_at',
         'excerpt',
@@ -46,6 +48,7 @@ class Article extends Model
         'visibility' => ArticleVisibility::class,
         'is_breaking' => 'boolean',
         'is_live' => 'boolean',
+        'is_live_blog' => 'boolean',
         'live_started_at' => 'datetime',
         'live_ended_at' => 'datetime',
         'scheduled_publishing' => 'datetime',
@@ -71,6 +74,13 @@ class Article extends Model
     public function breakingNewsItem()
     {
         return $this->hasOne(BreakingNewsItem::class);
+    }
+
+    public function liveUpdates()
+    {
+        return $this->hasMany(ArticleLiveUpdate::class)
+            ->orderByDesc('posted_at')
+            ->orderByDesc('id');
     }
 
     public function saveArticles()
@@ -107,7 +117,18 @@ class Article extends Model
     /** Content-based estimate for public display (ignores engagement history). */
     public function estimatedReadTime(): string
     {
-        return ReadTime::estimatedFromHtml($this->article_description);
+        $html = (string) $this->article_description;
+
+        if ($this->is_live_blog && $this->relationLoaded('liveUpdates')) {
+            foreach ($this->liveUpdates as $entry) {
+                if (($entry->status?->value ?? $entry->status) === LiveUpdateStatus::PUBLISHED->value
+                    || $entry->status === LiveUpdateStatus::PUBLISHED) {
+                    $html .= ' '.(string) $entry->body;
+                }
+            }
+        }
+
+        return ReadTime::estimatedFromHtml($html);
     }
 
     public function featuredMediaItems(): MorphMany

@@ -131,6 +131,7 @@ class SubMenuPublicTest extends TestCase
             'article_category_id' => $category->id,
             'user_id' => $author->id,
             'published_at' => now(),
+            'is_live_blog' => true,
             'is_live' => true,
             'live_started_at' => now(),
         ]);
@@ -143,6 +144,7 @@ class SubMenuPublicTest extends TestCase
             'article_category_id' => $category->id,
             'user_id' => $author->id,
             'published_at' => now(),
+            'is_live_blog' => false,
             'is_live' => false,
         ]);
 
@@ -283,6 +285,7 @@ class SubMenuPublicTest extends TestCase
             'article_category_id' => $category->id,
             'user_id' => $author->id,
             'published_at' => now(),
+            'is_live_blog' => true,
             'is_live' => true,
             'live_started_at' => now(),
         ]);

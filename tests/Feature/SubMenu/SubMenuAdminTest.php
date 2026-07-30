@@ -156,20 +156,19 @@ class SubMenuAdminTest extends TestCase
         );
     }
 
-    public function test_admin_can_start_and_end_live_coverage(): void
+    public function test_admin_can_start_and_end_live_coverage_via_live_updates(): void
     {
         $article = $this->makeArticle('Breaking Live', 'breaking-live');
+        $article->is_live_blog = true;
+        $article->save();
 
-        $this->postJson('/api/v1/admin/sub-menu/live/start/'.$article->id)
+        $this->postJson('/api/v1/admin/live-updates/breaking-live/live/start')
             ->assertOk()
             ->assertJsonPath('data.is_live', true);
 
         $this->assertTrue((bool) $article->fresh()->is_live);
 
-        $livePublic = $this->getJson('/api/v1/sub-menu/live_updates')->assertOk();
-        $this->assertSame($article->id, $livePublic->json('data.items.0.id'));
-
-        $this->postJson('/api/v1/admin/sub-menu/live/end/'.$article->id)
+        $this->postJson('/api/v1/admin/live-updates/breaking-live/live/end')
             ->assertOk()
             ->assertJsonPath('data.is_live', false);
 

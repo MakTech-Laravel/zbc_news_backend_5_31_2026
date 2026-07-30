@@ -423,10 +423,12 @@ class SubMenuService
     /** @return Collection<int, Article> */
     private function liveArticles(int $limit): Collection
     {
+        // Legacy submenu fill — prefer live-blog articles; ongoing first.
         return Article::query()
             ->where('status', ArticleStatus::PUBLISHED->value)
             ->whereNull('deleted_at')
-            ->where('is_live', true)
+            ->where('is_live_blog', true)
+            ->orderByDesc('is_live')
             ->orderByDesc('live_started_at')
             ->orderByDesc('published_at')
             ->limit($limit)

@@ -29,8 +29,12 @@ class ArticleResource extends JsonResource
             'visibility' => $this->visibility?->value ?? $this->visibility,
             'is_breaking' => (bool) $this->is_breaking,
             'is_live' => (bool) ($this->is_live ?? false),
+            'is_live_blog' => (bool) ($this->is_live_blog ?? false),
             'live_started_at' => $this->live_started_at?->toIso8601String(),
             'live_ended_at' => $this->live_ended_at?->toIso8601String(),
+            'live_updates' => $this->whenLoaded('liveUpdates', function () {
+                return ArticleLiveUpdateResource::collection($this->liveUpdates);
+            }),
             'breaking_news' => $this->whenLoaded('breakingNewsItem', function () {
                 $item = $this->breakingNewsItem;
                 if (! $item || ($item->status?->value ?? $item->status) === 'removed') {

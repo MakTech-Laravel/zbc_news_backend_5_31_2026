@@ -6,7 +6,6 @@ use App\Enums\SubMenuKey;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\ArticleResource;
 use App\Http\Resources\Api\V1\SubMenuFeaturedArticleResource;
-use App\Models\Article;
 use App\Services\SubMenuService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -114,22 +113,6 @@ class SubMenuController extends Controller
         $this->subMenuService->removeManualEntry($id);
 
         return sendResponse(true, 'Sub menu manual entry removed successfully.', null, HttpStatus::HTTP_OK);
-    }
-
-    public function startLive(int $articleId)
-    {
-        $article = Article::query()->where('status', 'published')->findOrFail($articleId);
-        $updated = $this->subMenuService->startLiveCoverage($article);
-
-        return sendResponse(true, 'Live coverage started.', new ArticleResource($updated), HttpStatus::HTTP_OK);
-    }
-
-    public function endLive(int $articleId)
-    {
-        $article = Article::query()->findOrFail($articleId);
-        $updated = $this->subMenuService->endLiveCoverage($article);
-
-        return sendResponse(true, 'Live coverage ended.', new ArticleResource($updated), HttpStatus::HTTP_OK);
     }
 
     private function validateSectionOrFail(string $section): void

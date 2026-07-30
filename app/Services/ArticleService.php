@@ -30,19 +30,66 @@ class ArticleService
         private readonly BreakingNewsService $breakingNewsService,
     ) {}
 
-    public function getAllArticles()
+    public function getAllArticles(bool $excludeLiveBlogs = false)
+    {
+        $this->publishDueScheduledArticles();
+
+        $query = $this->articleQuery()->latest();
+
+        if ($excludeLiveBlogs) {
+            $query->where('is_live_blog', false);
+        }
+
+        return $query->get();
+    }
+
+    public function getLiveBlogArticles()
     {
         $this->publishDueScheduledArticles();
 
         return $this->articleQuery()
+            ->with(['liveUpdates.user'])
+            ->where('is_live_blog', true)
             ->latest()
             ->get();
+    }
+
+    /**
+     * Public Live Updates feed: all published live-blog articles.
+     * Ongoing (is_live) first, then ended/previous, with pagination.
+     *
+     * @return array{items: Collection<int, Article>, meta: array{current_page: int, last_page: int, per_page: int, total: int}}
+     */
+    public function getLiveBlogFeed(int $perPage = 12, int $page = 1): array
+    {
+        $perPage = max(1, min(50, $perPage));
+        $page = max(1, $page);
+
+        $paginator = $this->articleQuery()
+            ->where('status', ArticleStatus::PUBLISHED->value)
+            ->where('is_live_blog', true)
+            ->orderByDesc('is_live')
+            ->orderByDesc('live_started_at')
+            ->orderByDesc('published_at')
+            ->orderByDesc('id')
+            ->paginate($perPage, ['*'], 'page', $page);
+
+        return [
+            'items' => $paginator->getCollection(),
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
+        ];
     }
 
     public function getTrashedArticles()
     {
         return $this->articleQuery()
             ->onlyTrashed()
+            ->where('is_live_blog', false)
             ->latest('deleted_at')
             ->get();
     }
@@ -94,11 +141,19 @@ class ArticleService
 
     public function getPublishedBySlug(string $slug): Article
     {
-        return $this->articleQuery()
+        $article = $this->articleQuery()
             ->with(['user.userInformation'])
             ->where('slug', $slug)
             ->where('status', ArticleStatus::PUBLISHED->value)
             ->firstOrFail();
+
+        if ($article->is_live_blog) {
+            $article->load([
+                'liveUpdates' => fn ($q) => $q->published()->newestFirst()->with('user'),
+            ]);
+        }
+
+        return $article;
     }
 
     /**
@@ -269,6 +324,8 @@ class ArticleService
                 : false;
             $tags = $this->syncBreakingTagWithFlag($tags, $data['is_breaking']);
 
+            $data['is_live_blog'] = $this->resolveIsLiveBlog($data);
+
             $categoryTitle = ArticleCategory::query()
                 ->whereKey($data['article_category_id'] ?? null)
                 ->value('title');
@@ -281,6 +338,10 @@ class ArticleService
             $data['featured_image'] = $this->resolveImage($data, 'featured_image', 'articles/featured-images');
             $data['open_graph_image'] = $this->resolveImage($data, 'open_graph_image', 'articles/og-images');
             $data['user_id'] = auth()->user()->id;
+
+            if (! array_key_exists('article_description', $data) || $data['article_description'] === null) {
+                $data['article_description'] = '';
+            }
 
             $featuredMediaUuid = $this->pullMediaUuid($data, 'featured_media_uuid');
             $posterMediaUuid = $this->pullMediaUuid($data, 'poster_media_uuid');
@@ -395,6 +456,12 @@ class ArticleService
                 $breakingPayload = ['enabled' => $data['is_breaking']];
             } else {
                 $data['is_breaking'] = (bool) $article->is_breaking;
+            }
+
+            if (array_key_exists('is_live_blog', $data)) {
+                $data['is_live_blog'] = $this->resolveIsLiveBlog($data);
+            } else {
+                $data['is_live_blog'] = (bool) $article->is_live_blog;
             }
 
             $tagNames = $this->syncBreakingTagWithFlag($tagNames, (bool) $data['is_breaking']);
@@ -1067,6 +1134,15 @@ class ArticleService
         }
 
         return filter_var($data['is_breaking'], FILTER_VALIDATE_BOOLEAN);
+    }
+
+    private function resolveIsLiveBlog(array $data): bool
+    {
+        if (! array_key_exists('is_live_blog', $data)) {
+            return false;
+        }
+
+        return filter_var($data['is_live_blog'], FILTER_VALIDATE_BOOLEAN);
     }
 
     /**
