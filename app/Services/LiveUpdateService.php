@@ -148,6 +148,7 @@ class LiveUpdateService
 
         if ($wasPublished && $article->status === ArticleStatus::PUBLISHED) {
             $article->touch();
+            $this->subMenuService->flushPublicCache();
         }
 
         activity()
@@ -208,6 +209,7 @@ class LiveUpdateService
         }
 
         $article->touch();
+        $this->subMenuService->flushPublicCache();
         DispatchArticlePublishedNotifications::dispatch($article->id, 'updated');
     }
 }

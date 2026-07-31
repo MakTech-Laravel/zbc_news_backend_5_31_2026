@@ -42,6 +42,7 @@ class Article extends Model
         'published_at',
         'user_id',
         'views',
+        'pending_editorial_timestamp',
     ];
 
     protected $casts = [
@@ -50,6 +51,7 @@ class Article extends Model
         'is_breaking' => 'boolean',
         'is_live' => 'boolean',
         'is_live_blog' => 'boolean',
+        'pending_editorial_timestamp' => 'boolean',
         'live_started_at' => 'datetime',
         'live_ended_at' => 'datetime',
         'scheduled_publishing' => 'datetime',
