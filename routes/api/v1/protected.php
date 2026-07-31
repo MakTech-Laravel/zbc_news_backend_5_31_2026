@@ -549,4 +549,10 @@ Route::prefix('newsletter')->controller(NewsletterController::class)->group(func
         ->middleware('permission:'.PermissionEnum::NEWSLETTER_SEND->value);
     Route::post('/campaigns/send/{id}', 'sendCampaign')->name('api.v1.newsletter.campaigns.send')
         ->middleware('permission:'.PermissionEnum::NEWSLETTER_SEND->value);
+    Route::post('/campaigns/test/{id}', 'testCampaign')->name('api.v1.newsletter.campaigns.test')
+        ->middleware('permission:'.PermissionEnum::NEWSLETTER_SEND->value);
+    Route::get('/articles/search', 'searchArticles')->name('api.v1.newsletter.articles.search')
+        ->middleware('permission:'.PermissionEnum::NEWSLETTER_LIST->value);
+    Route::get('/articles/{id}/email-block', 'articleEmailBlock')->name('api.v1.newsletter.articles.email-block')
+        ->middleware('permission:'.PermissionEnum::NEWSLETTER_CREATE->value);
 });

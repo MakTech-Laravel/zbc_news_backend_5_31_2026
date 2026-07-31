@@ -22,6 +22,7 @@ class NewsletterCampaign extends Model
         'segments',
         'audience_type',
         'premium_only',
+        'article_id',
     ];
 
     protected $casts = [

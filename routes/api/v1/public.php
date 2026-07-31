@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthenticableController;
+use App\Http\Controllers\Api\V1\NewsletterWebhookController;
 use App\Http\Controllers\Api\V1\backend\ArticleTrackingController;
 use App\Http\Controllers\Api\V1\backend\SeoPageController;
 use App\Http\Controllers\Api\V1\backend\TagController;
@@ -149,3 +150,7 @@ Route::prefix('newsletter')->controller(NewsletterController::class)->group(func
     Route::get('/track/open/{campaignId}/{subscriberId}/{signature}', 'trackOpen')->name('api.v1.newsletter.track.open');
     Route::get('/track/click/{campaignId}/{subscriberId}/{signature}', 'trackClick')->name('api.v1.newsletter.track.click');
 });
+
+Route::post('/newsletter/webhooks/brevo', [NewsletterWebhookController::class, 'brevo'])
+    ->middleware('request_limitter')
+    ->name('api.v1.newsletter.webhooks.brevo');

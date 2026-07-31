@@ -196,6 +196,65 @@ class NewsletterController extends Controller
         return sendResponse(true, 'Campaign dispatch started', $dispatched, HttpStatus::HTTP_OK);
     }
 
+    public function testCampaign(Request $request, int $id)
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        $campaign = $this->newsletterService->getCampaign($id);
+
+        if (!$campaign) {
+            return sendResponse(false, 'Campaign not found', null, HttpStatus::HTTP_NOT_FOUND);
+        }
+
+        try {
+            $this->newsletterService->sendTestCampaign($campaign, (string) $validated['email']);
+        } catch (\InvalidArgumentException $e) {
+            return sendResponse(false, $e->getMessage(), null, HttpStatus::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return sendResponse(
+                false,
+                'Unable to send test email. Check newsletter provider settings.',
+                null,
+                HttpStatus::HTTP_INTERNAL_SERVER_ERROR,
+            );
+        }
+
+        return sendResponse(true, 'Test newsletter sent successfully', null, HttpStatus::HTTP_OK);
+    }
+
+    public function searchArticles(Request $request)
+    {
+        $validated = $request->validate([
+            'q' => ['nullable', 'string', 'max:255'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
+
+        return sendResponse(
+            true,
+            'Published articles retrieved successfully',
+            $this->newsletterService->searchPublishedArticles(
+                $validated['q'] ?? null,
+                (int) ($validated['limit'] ?? 20),
+            ),
+            HttpStatus::HTTP_OK,
+        );
+    }
+
+    public function articleEmailBlock(int $id)
+    {
+        try {
+            $block = $this->newsletterService->buildArticleEmailBlock($id);
+        } catch (\InvalidArgumentException $e) {
+            return sendResponse(false, $e->getMessage(), null, HttpStatus::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return sendResponse(true, 'Article email block built successfully', $block, HttpStatus::HTTP_OK);
+    }
+
     public function deleteSubscriber(int $id)
     {
         if (!$this->newsletterService->deleteSubscriber($id)) {
@@ -269,6 +328,7 @@ class NewsletterController extends Controller
             'category_slugs' => ['nullable', 'array'],
             'audience_type' => ['nullable', 'string', 'max:30'],
             'premium_only' => ['nullable', 'boolean'],
+            'article_id' => ['nullable', 'integer', 'exists:articles,id'],
         ];
 
         return $request->validate($rules);

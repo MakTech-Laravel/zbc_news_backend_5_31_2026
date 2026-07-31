@@ -42,6 +42,8 @@ class SiteSettings extends Model
         'newsletter_from_name',
         'resend_api_key',
         'brevo_api_key',
+        'brevo_list_id',
+        'newsletter_webhook_secret',
         'mailchimp_list_id',
         'disqus_shortname',
         'slack_webhook_url',

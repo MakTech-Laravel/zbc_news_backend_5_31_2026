@@ -6,11 +6,14 @@ use App\Enums\ArticleCategoryStatus;
 use App\Jobs\SendNewsletterAdminSubscriptionEmailJob;
 use App\Jobs\SendNewsletterCampaignJob;
 use App\Jobs\SendNewsletterVerificationEmailJob;
+use App\Jobs\SendNewsletterWelcomeEmailJob;
+use App\Models\Article;
 use App\Models\ArticleCategory;
 use App\Models\NewsletterCampaign;
 use App\Models\NewsletterEvent;
 use App\Models\NewsletterSubscriber;
 use App\Models\User;
+use App\Enums\ArticleStatus;
 use App\Services\UserNotificationService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -29,6 +32,7 @@ class NewsletterService
         private readonly NewsletterTrackingService $trackingService,
         private readonly NewsletterContentFormatter $contentFormatter,
         private readonly UserNotificationService $userNotificationService,
+        private readonly BrevoContactService $brevoContactService,
     ) {}
 
     public function subscribe(array $data, ?User $user = null): NewsletterSubscriber
@@ -138,8 +142,50 @@ class NewsletterService
             verified: true,
         );
         $this->queueAdminSubscriptionNotificationEmail($subscriber, verified: true);
+        $this->queueWelcomeEmail($subscriber);
+        $this->brevoContactService->syncVerifiedSubscriber($subscriber);
 
         return $subscriber;
+    }
+
+    public function queueWelcomeEmail(NewsletterSubscriber $subscriber): void
+    {
+        SendNewsletterWelcomeEmailJob::dispatch($subscriber->id);
+    }
+
+    public function sendWelcomeEmail(NewsletterSubscriber $subscriber): void
+    {
+        $frontendUrl = rtrim((string) config('app.frontend_url', config('app.url')), '/');
+        $from = $this->providerFactory->fromAddress();
+        $siteName = $from['name'] ?: 'ZBC News';
+        $subject = "Welcome to the {$siteName} newsletter";
+        $html = view('emails.newsletter-welcome', [
+            'subjectLine' => $subject,
+            'siteName' => $siteName,
+            'subscriberName' => $subscriber->name,
+            'homeUrl' => $frontendUrl.'/',
+            'preferencesUrl' => $frontendUrl.'/newsletter/preferences?token='.$subscriber->unsubscribe_token,
+            'unsubscribeUrl' => $frontendUrl.'/newsletter/unsubscribe?token='.$subscriber->unsubscribe_token,
+        ])->render();
+
+        try {
+            $this->providerFactory->make()->send([
+                'to' => $subscriber->email,
+                'to_name' => $subscriber->name,
+                'subject' => $subject,
+                'html' => $html,
+                'from_email' => $from['email'],
+                'from_name' => $from['name'],
+            ]);
+        } catch (\Throwable $exception) {
+            Log::warning('Newsletter welcome email could not be sent.', [
+                'subscriber_id' => $subscriber->id,
+                'email' => $subscriber->email,
+                'message' => $exception->getMessage(),
+            ]);
+
+            throw $exception;
+        }
     }
 
     public function sendAdminSubscriptionNotificationEmail(
@@ -230,6 +276,8 @@ class NewsletterService
             'event_type' => 'unsubscribe',
             'meta' => ['source' => 'link'],
         ]);
+
+        $this->brevoContactService->markUnsubscribed($subscriber);
 
         return $subscriber;
     }
@@ -735,6 +783,144 @@ class NewsletterService
         $this->trackingService->recordSent($campaign, $subscriber);
     }
 
+    /**
+     * Send a one-off test of the campaign HTML to a single address (does not mark campaign sent).
+     */
+    public function sendTestCampaign(NewsletterCampaign $campaign, string $email): void
+    {
+        $email = strtolower(trim($email));
+        if ($email === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new \InvalidArgumentException('A valid test email address is required.');
+        }
+
+        $subscriber = NewsletterSubscriber::query()->where('email', $email)->first();
+        if (! $subscriber) {
+            $subscriber = new NewsletterSubscriber([
+                'email' => $email,
+                'name' => 'Test recipient',
+                'status' => 'verified',
+                'unsubscribe_token' => Str::random(64),
+            ]);
+            $subscriber->id = 0;
+        }
+
+        $from = $this->providerFactory->fromAddress();
+        $html = $this->buildEmailHtml($campaign, $subscriber);
+
+        $this->providerFactory->make()->send([
+            'to' => $email,
+            'to_name' => $subscriber->name,
+            'subject' => '[TEST] '.$campaign->subject,
+            'html' => $html,
+            'from_email' => $from['email'],
+            'from_name' => $from['name'],
+        ]);
+    }
+
+    /**
+     * @return array{html: string, title: string, excerpt: string|null, image_url: string|null, url: string}
+     */
+    public function buildArticleEmailBlock(int $articleId): array
+    {
+        $article = Article::query()->find($articleId);
+        if (! $article) {
+            throw new \InvalidArgumentException('Article not found.');
+        }
+
+        if ($article->status !== ArticleStatus::PUBLISHED) {
+            throw new \InvalidArgumentException('Only published articles can be added to a newsletter campaign.');
+        }
+
+        $frontendUrl = rtrim((string) config('app.frontend_url', config('app.url')), '/');
+        $url = $frontendUrl.'/'.ltrim((string) $article->slug, '/');
+        $title = (string) $article->title;
+        $excerpt = filled($article->excerpt)
+            ? (string) $article->excerpt
+            : (filled($article->sub_title) ? (string) $article->sub_title : null);
+
+        $imageUrl = null;
+        if (filled($article->featured_image)) {
+            $imageUrl = storage_url((string) $article->featured_image) ?: (string) $article->featured_image;
+        } else {
+            $media = $article->featuredMedia();
+            if ($media && filled($media->url ?? null)) {
+                $imageUrl = (string) $media->url;
+            } elseif ($media && filled($media->path ?? null)) {
+                $imageUrl = storage_url((string) $media->path);
+            }
+        }
+
+        $safeTitle = e($title);
+        $safeExcerpt = $excerpt ? e($excerpt) : '';
+        $safeUrl = e($url);
+        $safeImage = $imageUrl ? e($imageUrl) : '';
+
+        $imageHtml = $safeImage !== ''
+            ? '<p style="margin:0 0 16px;"><a href="'.$safeUrl.'"><img src="'.$safeImage.'" alt="'.$safeTitle.'" width="552" style="display:block;width:100%;max-width:552px;height:auto;border:0;border-radius:8px;" /></a></p>'
+            : '';
+
+        $summaryHtml = $safeExcerpt !== ''
+            ? '<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#4b5563;">'.$safeExcerpt.'</p>'
+            : '';
+
+        $html = <<<HTML
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 24px;">
+  <tr>
+    <td style="padding:0;">
+      {$imageHtml}
+      <h2 style="margin:0 0 12px;font-size:22px;line-height:1.35;color:#111827;">
+        <a href="{$safeUrl}" style="color:#111827;text-decoration:none;">{$safeTitle}</a>
+      </h2>
+      {$summaryHtml}
+      <p style="margin:0;">
+        <a href="{$safeUrl}" style="display:inline-block;padding:12px 20px;background-color:#51a2ff;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;">
+          Read full article
+        </a>
+      </p>
+    </td>
+  </tr>
+</table>
+HTML;
+
+        return [
+            'html' => $html,
+            'title' => $title,
+            'excerpt' => $excerpt,
+            'image_url' => $imageUrl,
+            'url' => $url,
+        ];
+    }
+
+    /**
+     * @return list<array{id:int,title:string,slug:string,excerpt:?string,published_at:?string}>
+     */
+    public function searchPublishedArticles(?string $query = null, int $limit = 20): array
+    {
+        $builder = Article::query()
+            ->where('status', ArticleStatus::PUBLISHED)
+            ->latest('published_at')
+            ->limit(max(1, min($limit, 50)));
+
+        if (filled($query)) {
+            $term = '%'.trim($query).'%';
+            $builder->where(function (Builder $q) use ($term): void {
+                $q->where('title', 'like', $term)
+                    ->orWhere('slug', 'like', $term)
+                    ->orWhere('excerpt', 'like', $term);
+            });
+        }
+
+        return $builder->get(['id', 'title', 'slug', 'excerpt', 'published_at'])
+            ->map(fn (Article $article) => [
+                'id' => $article->id,
+                'title' => $article->title,
+                'slug' => $article->slug,
+                'excerpt' => $article->excerpt,
+                'published_at' => optional($article->published_at)?->toIso8601String(),
+            ])
+            ->all();
+    }
+
     public function markCampaignSent(NewsletterCampaign $campaign): void
     {
         $campaign->update([
@@ -915,6 +1101,10 @@ class NewsletterService
 
         if ($this->hasColumn('newsletter_campaigns', 'premium_only')) {
             $payload['premium_only'] = (bool) ($data['premium_only'] ?? false);
+        }
+
+        if ($this->hasColumn('newsletter_campaigns', 'article_id') && array_key_exists('article_id', $data)) {
+            $payload['article_id'] = $data['article_id'];
         }
 
         return $payload;
