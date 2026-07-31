@@ -405,6 +405,8 @@ Route::controller(MediaController::class)
 Route::controller(UserController::class)->prefix('users')->group(function () {
     Route::get('/', 'index')->name('api.v1.users.index')
         ->middleware('permission:'.PermissionEnum::USERS_LIST->value);
+    Route::get('/pending-deletions', 'pendingDeletions')->name('api.v1.users.pending-deletions')
+        ->middleware('permission:'.PermissionEnum::USERS_LIST->value);
     Route::post('/store', 'store')->name('api.v1.users.store')
         ->middleware('permission:'.PermissionEnum::USERS_CREATE->value);
     Route::get('/profile', 'profile')->name('api.v1.users.profile')
@@ -420,6 +422,8 @@ Route::controller(UserController::class)->prefix('users')->group(function () {
         ->middleware('permission:'.PermissionEnum::USERS_UPDATE->value);
     Route::delete('/delete/{id}', 'destroy')->name('api.v1.users.destroy')
         ->middleware('permission:'.PermissionEnum::USERS_DELETE->value);
+    Route::post('/restore-deletion/{id}', 'restoreDeletion')->name('api.v1.users.restore-deletion')
+        ->middleware('permission:'.PermissionEnum::USERS_UPDATE->value);
     Route::get('/{userId}/article-activities', 'articleActivities')->name('api.v1.users.article-activities')
         ->middleware('permission:'.PermissionEnum::USERS_ARTICLE_ACTIVITIES->value);
     Route::post('/two-factor-enable', 'twoFactorEnable')->name('api.v1.users.two-factor-enable')

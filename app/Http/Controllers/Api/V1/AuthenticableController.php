@@ -39,6 +39,26 @@ class AuthenticableController extends Controller
         $existing = User::query()->where('email', $email)->first();
 
         if ($existing) {
+            if ($existing->isPermanentlyDeleted()) {
+                return sendResponse(
+                    false,
+                    'Unable to register with this email.',
+                    null,
+                    HttpStatus::HTTP_UNPROCESSABLE_ENTITY,
+                );
+            }
+
+            if ($existing->isPendingDeletion()) {
+                return sendResponse(
+                    false,
+                    'This email belongs to an account scheduled for deletion. Cancel the deletion request from your email first, or contact support.',
+                    [
+                        'account_pending_deletion' => true,
+                    ],
+                    HttpStatus::HTTP_UNPROCESSABLE_ENTITY,
+                );
+            }
+
             if (! $existing->email_verified_at) {
                 $this->authOtpService->issue($email, AuthOtpService::PURPOSE_REGISTER);
             }
@@ -83,7 +103,7 @@ class AuthenticableController extends Controller
 
     public function login(LoginRequest $request): JsonResponse
     {
-        if (! Auth::attempt($request->only('email', 'password'))) {
+        if (! Auth::guard('web')->attempt($request->only('email', 'password'))) {
             activity()
                 ->performedOn(new User())
                 ->causedBy($request->user())
@@ -99,6 +119,31 @@ class AuthenticableController extends Controller
         }
 
         $user = User::where('email', $request->email)->first();
+
+        if ($user?->isPermanentlyDeleted()) {
+            Auth::guard('web')->logout();
+
+            return sendResponse(
+                false,
+                'This account has been permanently deleted and cannot be used.',
+                null,
+                HttpStatus::HTTP_FORBIDDEN,
+            );
+        }
+
+        if ($user?->isPendingDeletion()) {
+            Auth::guard('web')->logout();
+
+            return sendResponse(
+                false,
+                'This account is scheduled for deletion. Check your email for instructions to cancel the request before the final deletion date.',
+                [
+                    'account_pending_deletion' => true,
+                    'scheduled_permanent_deletion_at' => optional($user->scheduled_permanent_deletion_at)?->toIso8601String(),
+                ],
+                HttpStatus::HTTP_FORBIDDEN,
+            );
+        }
 
         if (! $user->email_verified_at) {
             $this->authOtpService->issue(
@@ -178,6 +223,17 @@ class AuthenticableController extends Controller
         }
         $user = User::find($attemptToken['user_id']);
 
+        if (! $user || $user->isDeletionBlocked()) {
+            session()->forget($request->attempt_token);
+
+            return sendResponse(
+                false,
+                'This account cannot be signed in.',
+                null,
+                HttpStatus::HTTP_FORBIDDEN,
+            );
+        }
+
         if (! $user->validateTwoFactorCode($request->code)) {
             return sendResponse(
                 false,
@@ -209,7 +265,7 @@ class AuthenticableController extends Controller
         $email = strtolower($request->string('email')->toString());
         $user = User::query()->where('email', $email)->first();
 
-        if ($user) {
+        if ($user && ! $user->isDeletionBlocked()) {
             $this->authOtpService->issue($email, AuthOtpService::PURPOSE_PASSWORD_RESET);
         }
 
@@ -226,7 +282,7 @@ class AuthenticableController extends Controller
         $email = strtolower($request->string('email')->toString());
         $user = User::query()->where('email', $email)->first();
 
-        if ($user) {
+        if ($user && ! $user->isDeletionBlocked()) {
             $purpose = $user->email_verified_at
                 ? AuthOtpService::PURPOSE_PASSWORD_RESET
                 : AuthOtpService::PURPOSE_REGISTER;
@@ -257,7 +313,7 @@ class AuthenticableController extends Controller
         }
 
         $user = User::query()->where('email', $email)->first();
-        if (! $user) {
+        if (! $user || $user->isDeletionBlocked()) {
             return sendResponse(
                 false,
                 'Invalid or expired verification code.',
@@ -299,7 +355,7 @@ class AuthenticableController extends Controller
         }
 
         $user = User::query()->where('email', $email)->first();
-        if (! $user) {
+        if (! $user || $user->isDeletionBlocked()) {
             return sendResponse(
                 false,
                 'Invalid or expired reset code.',

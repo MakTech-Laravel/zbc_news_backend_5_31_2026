@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AccountDeletionController;
 use App\Http\Controllers\Api\V1\AuthenticableController;
 use App\Http\Controllers\Api\V1\NewsletterWebhookController;
 use App\Http\Controllers\Api\V1\backend\ArticleTrackingController;
@@ -39,6 +40,12 @@ Route::controller(AuthenticableController::class)->prefix('auth')->group(functio
     Route::post('/two-factor-challenge', 'twoFactorChallenge')->name('api.v1.auth.two-factor-challenge')->middleware('request_limitter');
     Route::post('/logout', 'logout')->name('api.v1.auth.logout')->middleware('auth:api');
     Route::post('/logout-all', 'logoutAll')->name('api.v1.auth.logout-all')->middleware('auth:api');
+    Route::post('/account/delete', [AccountDeletionController::class, 'requestDeletion'])
+        ->name('api.v1.auth.account.delete')
+        ->middleware('auth:api');
+    Route::post('/account/cancel-deletion', [AccountDeletionController::class, 'cancelDeletion'])
+        ->name('api.v1.auth.account.cancel-deletion')
+        ->middleware('request_limitter');
 });
 
 Route::controller(CategoryController::class)->prefix('categories')->group(function () {

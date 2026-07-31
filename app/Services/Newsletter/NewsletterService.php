@@ -607,6 +607,8 @@ class NewsletterService
 
         $users = User::query()
             ->role('user')
+            ->whereNull('deletion_requested_at')
+            ->whereNull('permanently_deleted_at')
             ->get(['id', 'email']);
 
         $eligibleUsers = $users->filter(function (User $user) use ($unsubscribedEmails): bool {
@@ -659,6 +661,8 @@ class NewsletterService
 
         User::query()
             ->role('user')
+            ->whereNull('deletion_requested_at')
+            ->whereNull('permanently_deleted_at')
             ->orderBy('id')
             ->get()
             ->each(function (User $user) use (&$recipientIds, $unsubscribedEmails): void {
