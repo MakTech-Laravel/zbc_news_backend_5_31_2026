@@ -53,6 +53,8 @@ class SiteSettingsRequest extends FormRequest
             'newsletter_from_name' => 'nullable|string|max:255',
             'resend_api_key' => 'nullable|string|max:255',
             'brevo_api_key' => 'nullable|string|max:255',
+            'brevo_list_id' => 'nullable|string|max:255',
+            'newsletter_webhook_secret' => 'nullable|string|max:255',
             'mailchimp_list_id' => 'nullable|string|max:255',
             'disqus_shortname' => 'nullable|string|max:255',
             'slack_webhook_url' => 'nullable|string|max:500',

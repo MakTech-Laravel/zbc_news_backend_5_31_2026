@@ -30,6 +30,24 @@ class UserService
         return $this->user->with('userInformation')->latest()->get();
     }
 
+    /**
+     * Readers with an active soft-deletion request (grace period / cancel review).
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, User>
+     */
+    public function getPendingDeletionUsers()
+    {
+        return $this->user
+            ->newQuery()
+            ->with(['userInformation', 'roles'])
+            ->whereNotNull('deletion_requested_at')
+            ->whereNull('permanently_deleted_at')
+            ->orderByRaw('deletion_cancel_requested_at is null')
+            ->orderByDesc('deletion_cancel_requested_at')
+            ->orderByDesc('deletion_requested_at')
+            ->get();
+    }
+
     public function getUserById($id)
     {
         return $this->user->with('userInformation')->find($id);

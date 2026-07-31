@@ -7,6 +7,7 @@ use App\Http\Requests\Api\V1\ProfileUpdateRequest;
 use App\Http\Requests\Api\V1\UserRequest;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Models\User;
+use App\Services\AccountDeletionService;
 use App\Services\UserService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,7 +18,8 @@ use Symfony\Component\HttpFoundation\Response as HttpStatus;
 class UserController extends Controller
 {
     public function __construct(
-        private readonly UserService $userService
+        private readonly UserService $userService,
+        private readonly AccountDeletionService $accountDeletionService,
     ) {}
 
 
@@ -56,6 +58,18 @@ class UserController extends Controller
         return sendResponse(
             true,
             'Users retrieved successfully',
+            UserResource::collection($users),
+            HttpStatus::HTTP_OK,
+        );
+    }
+
+    public function pendingDeletions()
+    {
+        $users = $this->userService->getPendingDeletionUsers();
+
+        return sendResponse(
+            true,
+            'Pending account deletions retrieved successfully',
             UserResource::collection($users),
             HttpStatus::HTTP_OK,
         );
@@ -119,6 +133,33 @@ class UserController extends Controller
                 $e->getCode() ?: HttpStatus::HTTP_FORBIDDEN,
             );
         }
+    }
+
+    public function restoreDeletion(int $id): JsonResponse
+    {
+        $user = User::query()->find($id);
+
+        if (! $user) {
+            return sendResponse(false, 'User not found', null, HttpStatus::HTTP_NOT_FOUND);
+        }
+
+        try {
+            $restored = $this->accountDeletionService->adminRestore($user);
+        } catch (\InvalidArgumentException $exception) {
+            return sendResponse(
+                false,
+                $exception->getMessage(),
+                null,
+                HttpStatus::HTTP_UNPROCESSABLE_ENTITY,
+            );
+        }
+
+        return sendResponse(
+            true,
+            'Account deletion request cancelled. The user can sign in again.',
+            new UserResource($restored->load(['roles', 'permissions', 'userInformation'])),
+            HttpStatus::HTTP_OK,
+        );
     }
 
     public function articleActivities(int $userId)

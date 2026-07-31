@@ -14,8 +14,21 @@ use Laravel\Passport\HasApiTokens;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use App\Traits\HasMedia;
 use Spatie\Permission\Traits\HasRoles;
-#[Fillable(['name', 'email', 'password', 'slug'])]
-#[Hidden(['password', 'remember_token'])]
+#[Fillable([
+    'name',
+    'email',
+    'password',
+    'slug',
+    'email_verified_at',
+    'terms_accepted_at',
+    'privacy_accepted_at',
+    'deletion_requested_at',
+    'scheduled_permanent_deletion_at',
+    'deletion_cancel_token',
+    'deletion_cancel_requested_at',
+    'permanently_deleted_at',
+])]
+#[Hidden(['password', 'remember_token', 'deletion_cancel_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -33,6 +46,13 @@ class User extends Authenticatable
         'slug',
         'email',
         'email_verified_at',
+        'terms_accepted_at',
+        'privacy_accepted_at',
+        'deletion_requested_at',
+        'scheduled_permanent_deletion_at',
+        'deletion_cancel_token',
+        'deletion_cancel_requested_at',
+        'permanently_deleted_at',
         'password',
         'remember_token',
         'created_at',
@@ -43,8 +63,36 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'terms_accepted_at' => 'datetime',
+            'privacy_accepted_at' => 'datetime',
+            'deletion_requested_at' => 'datetime',
+            'scheduled_permanent_deletion_at' => 'datetime',
+            'deletion_cancel_requested_at' => 'datetime',
+            'permanently_deleted_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function isPendingDeletion(): bool
+    {
+        return $this->deletion_requested_at !== null
+            && $this->permanently_deleted_at === null;
+    }
+
+    public function hasDeletionCancelRequest(): bool
+    {
+        return $this->isPendingDeletion()
+            && $this->deletion_cancel_requested_at !== null;
+    }
+
+    public function isPermanentlyDeleted(): bool
+    {
+        return $this->permanently_deleted_at !== null;
+    }
+
+    public function isDeletionBlocked(): bool
+    {
+        return $this->isPendingDeletion() || $this->isPermanentlyDeleted();
     }
 
     protected static function booted(): void

@@ -2,7 +2,10 @@
 
 namespace App\Http\Requests\Api\V1\Authenticable;
 
+use App\Rules\TurnstileToken;
+use App\Services\TurnstileService;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rules\Password;
 
 class RegisterRequest extends FormRequest
 {
@@ -13,13 +16,37 @@ class RegisterRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
+        $rules = [
             'name' => ['sometimes', 'string', 'max:255'],
             'first_name' => ['sometimes', 'string', 'max:120'],
             'last_name' => ['sometimes', 'string', 'max:120'],
-            'email' => ['required', 'email', 'unique:users,email'],
+            // Unique check is handled in the controller with a generic response
+            // so we do not reveal whether the email is already registered.
+            'email' => ['required', 'email', 'max:255'],
             'phone' => ['sometimes', 'nullable', 'string', 'max:30'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => [
+                'required',
+                'confirmed',
+                Password::min(8)
+                    ->mixedCase()
+                    ->numbers()
+                    ->symbols(),
+            ],
+            'accepted_terms' => ['required', 'accepted'],
+        ];
+
+        if (app(TurnstileService::class)->isEnabled()) {
+            $rules['captcha_token'] = ['required', 'string', new TurnstileToken];
+        }
+
+        return $rules;
+    }
+
+    public function messages(): array
+    {
+        return [
+            'accepted_terms.required' => 'You must accept the Terms of Service and Privacy Policy.',
+            'accepted_terms.accepted' => 'You must accept the Terms of Service and Privacy Policy.',
         ];
     }
 

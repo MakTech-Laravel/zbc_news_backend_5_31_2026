@@ -47,6 +47,8 @@ class SiteSettingsResource extends JsonResource
             'newsletter_from_name' => $this->newsletter_from_name,
             'resend_api_key' => $this->resend_api_key,
             'brevo_api_key' => $this->brevo_api_key,
+            'brevo_list_id' => $this->brevo_list_id,
+            'newsletter_webhook_secret' => $this->newsletter_webhook_secret,
             'mailchimp_list_id' => $this->mailchimp_list_id,
             'disqus_shortname' => $this->disqus_shortname,
             'slack_webhook_url' => $this->slack_webhook_url,

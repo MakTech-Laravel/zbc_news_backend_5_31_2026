@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Authenticable\ForgotPasswordRequest;
 use App\Http\Requests\Api\V1\Authenticable\LoginRequest;
-use App\Http\Requests\Api\V1\Authenticable\LogoutRequest;
 use App\Http\Requests\Api\V1\Authenticable\RegisterRequest;
+use App\Http\Requests\Api\V1\Authenticable\ResendOtpRequest;
 use App\Http\Requests\Api\V1\Authenticable\ResetPasswordRequest;
 use App\Http\Requests\Api\V1\Authenticable\TwoFactorChallengeRequest;
 use App\Http\Requests\Api\V1\Authenticable\VerifyOtpRequest;
@@ -24,6 +24,10 @@ use Symfony\Component\HttpFoundation\Response as HttpStatus;
 
 class AuthenticableController extends Controller
 {
+    private const REGISTRATION_GENERIC_MESSAGE = 'Registration successful. Please check your email for a verification code.';
+
+    private const FORGOT_PASSWORD_GENERIC_MESSAGE = 'If an account exists for that email, a reset code has been sent.';
+
     public function __construct(
         private readonly AuthOtpService $authOtpService,
         private readonly NotificationPreferenceService $notificationPreferenceService,
@@ -31,38 +35,75 @@ class AuthenticableController extends Controller
 
     public function register(RegisterRequest $request): JsonResponse
     {
+        $email = strtolower($request->string('email')->toString());
+        $existing = User::query()->where('email', $email)->first();
+
+        if ($existing) {
+            if ($existing->isPermanentlyDeleted()) {
+                return sendResponse(
+                    false,
+                    'Unable to register with this email.',
+                    null,
+                    HttpStatus::HTTP_UNPROCESSABLE_ENTITY,
+                );
+            }
+
+            if ($existing->isPendingDeletion()) {
+                return sendResponse(
+                    false,
+                    'This email belongs to an account scheduled for deletion. Cancel the deletion request from your email first, or contact support.',
+                    [
+                        'account_pending_deletion' => true,
+                    ],
+                    HttpStatus::HTTP_UNPROCESSABLE_ENTITY,
+                );
+            }
+
+            if (! $existing->email_verified_at) {
+                $this->authOtpService->issue($email, AuthOtpService::PURPOSE_REGISTER);
+            }
+
+            return sendResponse(
+                true,
+                self::REGISTRATION_GENERIC_MESSAGE,
+                [
+                    'requires_email_verification' => true,
+                    'email' => $email,
+                ],
+                HttpStatus::HTTP_OK,
+            );
+        }
+
+        $acceptedAt = now();
+
         $user = User::create([
             'name' => $request->resolvedName(),
-            'email' => strtolower($request->string('email')->toString()),
+            'email' => $email,
             'password' => Hash::make($request->string('password')->toString()),
             'slug' => User::generateUniqueSlug($request->resolvedName()),
-            'email_verified_at' => now(),
+            'email_verified_at' => null,
+            'terms_accepted_at' => $acceptedAt,
+            'privacy_accepted_at' => $acceptedAt,
         ]);
 
         $user->assignRole('user');
-
         $this->notificationPreferenceService->getOrCreate($user);
-
-        $tokenResult = $user->createToken('auth_token');
-
-        $payload = [
-            'access_token' => $tokenResult->accessToken,
-            'token_type' => 'Bearer',
-            'expires_in' => $tokenResult->token->expires_at,
-            'user' => new UserResource($user),
-        ];
+        $this->authOtpService->issue($email, AuthOtpService::PURPOSE_REGISTER);
 
         return sendResponse(
             true,
-            'User registered successfully.',
-            $payload,
-            HttpStatus::HTTP_CREATED,
+            self::REGISTRATION_GENERIC_MESSAGE,
+            [
+                'requires_email_verification' => true,
+                'email' => $email,
+            ],
+            HttpStatus::HTTP_OK,
         );
     }
 
     public function login(LoginRequest $request): JsonResponse
     {
-        if (! Auth::attempt($request->only('email', 'password'))) {
+        if (! Auth::guard('web')->attempt($request->only('email', 'password'))) {
             activity()
                 ->performedOn(new User())
                 ->causedBy($request->user())
@@ -79,8 +120,46 @@ class AuthenticableController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
+        if ($user?->isPermanentlyDeleted()) {
+            Auth::guard('web')->logout();
+
+            return sendResponse(
+                false,
+                'This account has been permanently deleted and cannot be used.',
+                null,
+                HttpStatus::HTTP_FORBIDDEN,
+            );
+        }
+
+        if ($user?->isPendingDeletion()) {
+            Auth::guard('web')->logout();
+
+            return sendResponse(
+                false,
+                'This account is scheduled for deletion. Check your email for instructions to cancel the request before the final deletion date.',
+                [
+                    'account_pending_deletion' => true,
+                    'scheduled_permanent_deletion_at' => optional($user->scheduled_permanent_deletion_at)?->toIso8601String(),
+                ],
+                HttpStatus::HTTP_FORBIDDEN,
+            );
+        }
+
         if (! $user->email_verified_at) {
-            $user->forceFill(['email_verified_at' => now()])->save();
+            $this->authOtpService->issue(
+                strtolower((string) $user->email),
+                AuthOtpService::PURPOSE_REGISTER,
+            );
+
+            return sendResponse(
+                false,
+                'Please verify your email before signing in. A new verification code has been sent.',
+                [
+                    'requires_email_verification' => true,
+                    'email' => strtolower((string) $user->email),
+                ],
+                HttpStatus::HTTP_FORBIDDEN,
+            );
         }
 
         $user->load(['roles', 'permissions']);
@@ -144,6 +223,17 @@ class AuthenticableController extends Controller
         }
         $user = User::find($attemptToken['user_id']);
 
+        if (! $user || $user->isDeletionBlocked()) {
+            session()->forget($request->attempt_token);
+
+            return sendResponse(
+                false,
+                'This account cannot be signed in.',
+                null,
+                HttpStatus::HTTP_FORBIDDEN,
+            );
+        }
+
         if (! $user->validateTwoFactorCode($request->code)) {
             return sendResponse(
                 false,
@@ -175,59 +265,35 @@ class AuthenticableController extends Controller
         $email = strtolower($request->string('email')->toString());
         $user = User::query()->where('email', $email)->first();
 
-        if (! $user) {
-            return sendResponse(
-                false,
-                'No account found with this email address.',
-                null,
-                HttpStatus::HTTP_NOT_FOUND,
-            );
-        }
-
-        $otp = $this->authOtpService->issue($email, AuthOtpService::PURPOSE_PASSWORD_RESET);
-
-        $payload = null;
-        if (config('app.debug')) {
-            $payload = ['otp' => $otp, 'verification_code' => $otp];
+        if ($user && ! $user->isDeletionBlocked()) {
+            $this->authOtpService->issue($email, AuthOtpService::PURPOSE_PASSWORD_RESET);
         }
 
         return sendResponse(
             true,
-            'A reset code has been sent to your email.',
-            $payload,
+            self::FORGOT_PASSWORD_GENERIC_MESSAGE,
+            null,
             HttpStatus::HTTP_OK,
         );
     }
 
-    public function resendOtp(ForgotPasswordRequest $request): JsonResponse
+    public function resendOtp(ResendOtpRequest $request): JsonResponse
     {
         $email = strtolower($request->string('email')->toString());
         $user = User::query()->where('email', $email)->first();
 
-        if (! $user) {
-            return sendResponse(
-                true,
-                'If that email exists, a verification code has been sent.',
-                null,
-                HttpStatus::HTTP_OK,
-            );
-        }
+        if ($user && ! $user->isDeletionBlocked()) {
+            $purpose = $user->email_verified_at
+                ? AuthOtpService::PURPOSE_PASSWORD_RESET
+                : AuthOtpService::PURPOSE_REGISTER;
 
-        $purpose = $user->email_verified_at
-            ? AuthOtpService::PURPOSE_PASSWORD_RESET
-            : AuthOtpService::PURPOSE_REGISTER;
-
-        $otp = $this->authOtpService->issue($email, $purpose);
-
-        $payload = null;
-        if (config('app.debug')) {
-            $payload = ['otp' => $otp, 'verification_code' => $otp];
+            $this->authOtpService->issue($email, $purpose);
         }
 
         return sendResponse(
             true,
-            'Verification code sent.',
-            $payload,
+            'If that email exists, a verification code has been sent.',
+            null,
             HttpStatus::HTTP_OK,
         );
     }
@@ -247,22 +313,29 @@ class AuthenticableController extends Controller
         }
 
         $user = User::query()->where('email', $email)->first();
-        if (! $user) {
+        if (! $user || $user->isDeletionBlocked()) {
             return sendResponse(
                 false,
-                'User not found.',
+                'Invalid or expired verification code.',
                 null,
-                HttpStatus::HTTP_NOT_FOUND,
+                HttpStatus::HTTP_UNPROCESSABLE_ENTITY,
             );
         }
 
         $user->forceFill(['email_verified_at' => now()])->save();
         $user->load(['roles', 'permissions']);
 
+        $tokenResult = $user->createToken('auth_token');
+
         return sendResponse(
             true,
             'Email verified successfully.',
-            new UserResource($user),
+            [
+                'access_token' => $tokenResult->accessToken,
+                'token_type' => 'Bearer',
+                'expires_in' => $tokenResult->token->expires_at,
+                'user' => new UserResource($user),
+            ],
             HttpStatus::HTTP_OK,
         );
     }
@@ -282,12 +355,12 @@ class AuthenticableController extends Controller
         }
 
         $user = User::query()->where('email', $email)->first();
-        if (! $user) {
+        if (! $user || $user->isDeletionBlocked()) {
             return sendResponse(
                 false,
-                'User not found.',
+                'Invalid or expired reset code.',
                 null,
-                HttpStatus::HTTP_NOT_FOUND,
+                HttpStatus::HTTP_UNPROCESSABLE_ENTITY,
             );
         }
 
@@ -312,6 +385,18 @@ class AuthenticableController extends Controller
         return sendResponse(
             true,
             'Logout successful',
+            null,
+            HttpStatus::HTTP_OK,
+        );
+    }
+
+    public function logoutAll(Request $request): JsonResponse
+    {
+        $request->user()->tokens()->delete();
+
+        return sendResponse(
+            true,
+            'Logged out from all devices successfully.',
             null,
             HttpStatus::HTTP_OK,
         );
