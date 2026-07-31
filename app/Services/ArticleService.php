@@ -28,6 +28,7 @@ class ArticleService
         private readonly StoredImageService $storedImageService,
         private readonly MediaService $mediaService,
         private readonly BreakingNewsService $breakingNewsService,
+        private readonly SubMenuService $subMenuService,
     ) {}
 
     public function getAllArticles(bool $excludeLiveBlogs = false)
@@ -353,7 +354,7 @@ class ArticleService
                 $featuredMediaUuid,
                 $posterMediaUuid,
                 $data,
-                preserveTimestamp: $isAutoSave,
+                preserveTimestamp: true,
             );
 
             if (! empty($tags)) {
@@ -361,9 +362,20 @@ class ArticleService
                 $article->tags()->sync($tagIds);
             }
 
+            // Create must not surface an "Updated" time until a later editorial save.
+            $article->timestamps = false;
+            try {
+                $article->forceFill([
+                    'updated_at' => $article->created_at,
+                    'pending_editorial_timestamp' => false,
+                ])->save();
+            } finally {
+                $article->timestamps = true;
+            }
+
             if ($breakingPayload !== null) {
                 $this->breakingNewsService->syncForArticle(
-                    $article,
+                    $article->fresh(),
                     $breakingPayload,
                     auth()->id(),
                 );
@@ -440,6 +452,10 @@ class ArticleService
         }
 
         return DB::transaction(function () use ($article, $data, $isAutoSave) {
+            // Never accept this from the client — set only by auto-save / manual-save flow.
+            unset($data['pending_editorial_timestamp']);
+
+            $tagsProvided = array_key_exists('tags', $data);
             $tags = $data['tags'] ?? null;
             unset($data['tags']);
 
@@ -470,6 +486,10 @@ class ArticleService
             $categoryId = $data['article_category_id'] ?? $article->article_category_id;
             $categoryTitle = ArticleCategory::query()->whereKey($categoryId)->value('title');
 
+            // Keys present before SEO autofill — meta_* filled by SeoMetaService must not
+            // alone count as an editorial bump.
+            $requestKeys = array_keys($data);
+
             $data = $this->seoMetaService->applyArticleMeta($data, $tagNames, $categoryTitle);
 
             $data['slug'] = $this->resolveSlug($data, $article->id);
@@ -493,25 +513,47 @@ class ArticleService
 
             $previousStatus = $article->status;
 
+            $editorialChanged = $this->manualUpdateTouchesEditorialTimestamp(
+                $article,
+                $data,
+                $featuredMediaUuid,
+                $posterMediaUuid,
+                $tagsProvided ? $tagNames : null,
+                $requestKeys,
+            );
+
+            // Auto-save may already have written editorial content without bumping updated_at.
+            // Manual Save must still bump when that pending flag is set.
             $shouldBumpUpdatedAt = ! $isAutoSave
-                && $this->manualUpdateTouchesEditorialTimestamp($article, $data);
+                && ($editorialChanged || (bool) $article->pending_editorial_timestamp);
 
-            // Auto-save and non-editorial edits must not bump updated_at.
-            if (! $shouldBumpUpdatedAt) {
-                $this->updateWithoutTouchingTimestamp($article, $data);
-            } else {
-                $article->update($data);
-            }
-
-            $this->syncArticleFeaturedMedia($article, $featuredMediaUuid, $posterMediaUuid, $data);
-
+            // Never bump during attribute write; touch once after media/tags when editorial.
+            $this->updateWithoutTouchingTimestamp($article, $data);
             $contentChanged = $article->wasChanged(['title', 'article_description', 'excerpt', 'sub_title']);
             $becamePublished = $previousStatus !== ArticleStatus::PUBLISHED
                 && $article->status === ArticleStatus::PUBLISHED;
 
+            $this->syncArticleFeaturedMedia($article, $featuredMediaUuid, $posterMediaUuid, $data, true);
+
             // Always sync tags when is_breaking may have changed the tag set.
             $tagIds = $this->resolveTags($tagNames);
             $article->tags()->sync($tagIds);
+
+            if ($isAutoSave && $editorialChanged) {
+                $this->updateWithoutTouchingTimestamp($article, [
+                    'pending_editorial_timestamp' => true,
+                ]);
+            }
+
+            if ($shouldBumpUpdatedAt) {
+                $article->touch();
+            }
+
+            if (! $isAutoSave && (bool) $article->pending_editorial_timestamp) {
+                $this->updateWithoutTouchingTimestamp($article, [
+                    'pending_editorial_timestamp' => false,
+                ]);
+            }
 
             if ($breakingPayload !== null) {
                 $this->breakingNewsService->syncForArticle(
@@ -548,6 +590,13 @@ class ArticleService
                     $this->broadcastPublishedArticle($article);
                 } elseif ($article->status === ArticleStatus::PUBLISHED && $contentChanged) {
                     DispatchArticlePublishedNotifications::dispatch($article->id, 'updated');
+                }
+
+                if (
+                    $article->status === ArticleStatus::PUBLISHED
+                    && ($shouldBumpUpdatedAt || $becamePublished)
+                ) {
+                    $this->subMenuService->flushPublicCache();
                 }
             }
 
@@ -1065,11 +1114,12 @@ class ArticleService
             return null;
         }
 
-        if (! empty($data['published_at'])) {
-            return Carbon::parse($data['published_at']);
+        // Once set, published_at is immutable — ignore request body on later saves.
+        if ($existing?->published_at) {
+            return Carbon::parse($existing->published_at);
         }
 
-        // When a due/past schedule is promoted to published, keep that instant.
+        // First publish: due/past schedule wins when present.
         if (! empty($data['scheduled_publishing'])) {
             $scheduledAt = Carbon::parse($data['scheduled_publishing']);
             if ($scheduledAt->lessThanOrEqualTo(now())) {
@@ -1077,7 +1127,11 @@ class ArticleService
             }
         }
 
-        return $existing?->published_at ?? now();
+        if (! empty($data['published_at'])) {
+            return Carbon::parse($data['published_at']);
+        }
+
+        return now();
     }
 
     private function resolveImage(
@@ -1313,33 +1367,131 @@ class ArticleService
      * Manual update should bump updated_at only when editorial fields change.
      *
      * @param  array<string, mixed>  $attributes
+     * @param  list<string>|null  $incomingTagNames  null when tags were not in the request
+     * @param  list<string>  $requestKeys  payload keys before SEO autofill
      */
-    private function manualUpdateTouchesEditorialTimestamp(Article $article, array $attributes): bool
+    private function manualUpdateTouchesEditorialTimestamp(
+        Article $article,
+        array $attributes,
+        ?string $featuredMediaUuid = null,
+        ?string $posterMediaUuid = null,
+        ?array $incomingTagNames = null,
+        array $requestKeys = [],
+    ): bool {
+        $requestKeySet = array_flip($requestKeys);
+
+        $stringFields = [
+            'title',
+            'sub_title',
+            'article_description',
+            'excerpt',
+            'slug',
+            'live_video_url',
+        ];
+
+        foreach ($stringFields as $field) {
+            if ($this->nullableStringAttributeChanged($article, $attributes, $field)) {
+                return true;
+            }
+        }
+
+        // SEO meta only counts when the client explicitly sent those fields.
+        foreach (['meta_title', 'meta_description', 'meta_keywords'] as $metaField) {
+            if (! isset($requestKeySet[$metaField])) {
+                continue;
+            }
+            if ($this->nullableStringAttributeChanged($article, $attributes, $metaField)) {
+                return true;
+            }
+        }
+
+        foreach (['featured_image', 'open_graph_image'] as $imageField) {
+            if ($this->nullableStringAttributeChanged($article, $attributes, $imageField)) {
+                return true;
+            }
+        }
+
+        if (array_key_exists('article_category_id', $attributes)) {
+            $incoming = $attributes['article_category_id'] !== null
+                ? (int) $attributes['article_category_id']
+                : null;
+            $current = $article->article_category_id !== null
+                ? (int) $article->article_category_id
+                : null;
+            if ($incoming !== $current) {
+                return true;
+            }
+        }
+
+        if ($this->featuredMediaUuidChanged($article, $featuredMediaUuid, $posterMediaUuid)) {
+            return true;
+        }
+
+        if ($incomingTagNames !== null && $this->tagSetChanged($article, $incomingTagNames)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function nullableStringAttributeChanged(Article $article, array $attributes, string $field): bool
     {
-        if (array_key_exists('title', $attributes)) {
-            $incoming = (string) $attributes['title'];
-            if ($incoming !== (string) $article->title) {
+        if (! array_key_exists($field, $attributes)) {
+            return false;
+        }
+
+        $incoming = $attributes[$field];
+        $normalizedIncoming = is_string($incoming) ? $incoming : ($incoming === null ? null : (string) $incoming);
+        $current = $article->{$field};
+        $normalizedCurrent = is_string($current) ? $current : ($current === null ? null : (string) $current);
+
+        return $normalizedIncoming !== $normalizedCurrent;
+    }
+
+    private function featuredMediaUuidChanged(
+        Article $article,
+        ?string $featuredMediaUuid,
+        ?string $posterMediaUuid,
+    ): bool {
+        if ($featuredMediaUuid !== null) {
+            $currentFeatured = $article->featuredMedia()?->uuid;
+            $incomingFeatured = $featuredMediaUuid === '' ? null : $featuredMediaUuid;
+            if ($incomingFeatured !== $currentFeatured) {
                 return true;
             }
         }
 
-        if (array_key_exists('article_description', $attributes)) {
-            $incoming = (string) $attributes['article_description'];
-            if ($incoming !== (string) $article->article_description) {
-                return true;
-            }
-        }
-
-        if (array_key_exists('featured_image', $attributes)) {
-            $incoming = $attributes['featured_image'];
-            $normalizedIncoming = is_string($incoming) ? $incoming : null;
-            $normalizedCurrent = is_string($article->featured_image) ? $article->featured_image : null;
-            if ($normalizedIncoming !== $normalizedCurrent) {
+        if ($posterMediaUuid !== null) {
+            $currentPoster = $article->posterMedia()?->uuid;
+            $incomingPoster = $posterMediaUuid === '' ? null : $posterMediaUuid;
+            if ($incomingPoster !== $currentPoster) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * @param  list<string>  $incomingTagNames
+     */
+    private function tagSetChanged(Article $article, array $incomingTagNames): bool
+    {
+        $normalize = static fn (array $tags): array => collect($tags)
+            ->map(fn ($tag) => strtolower(trim((string) $tag)))
+            ->filter()
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+
+        $current = $normalize($article->tags()->pluck('tag')->all());
+        $incoming = $normalize($incomingTagNames);
+
+        return $current !== $incoming;
     }
 
 }

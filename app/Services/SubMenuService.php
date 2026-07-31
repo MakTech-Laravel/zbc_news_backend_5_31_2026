@@ -252,10 +252,16 @@ class SubMenuService
 
     public function startLiveCoverage(Article $article): Article
     {
-        $article->is_live = true;
-        $article->live_started_at = now();
-        $article->live_ended_at = null;
-        $article->save();
+        $article->timestamps = false;
+
+        try {
+            $article->is_live = true;
+            $article->live_started_at = now();
+            $article->live_ended_at = null;
+            $article->save();
+        } finally {
+            $article->timestamps = true;
+        }
 
         $this->flushPublicCache();
 
@@ -264,9 +270,15 @@ class SubMenuService
 
     public function endLiveCoverage(Article $article): Article
     {
-        $article->is_live = false;
-        $article->live_ended_at = now();
-        $article->save();
+        $article->timestamps = false;
+
+        try {
+            $article->is_live = false;
+            $article->live_ended_at = now();
+            $article->save();
+        } finally {
+            $article->timestamps = true;
+        }
 
         $this->flushPublicCache();
 
