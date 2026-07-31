@@ -14,7 +14,7 @@ use Laravel\Passport\HasApiTokens;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use App\Traits\HasMedia;
 use Spatie\Permission\Traits\HasRoles;
-#[Fillable(['name', 'email', 'password', 'slug'])]
+#[Fillable(['name', 'email', 'password', 'slug', 'email_verified_at', 'terms_accepted_at', 'privacy_accepted_at'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -33,6 +33,8 @@ class User extends Authenticatable
         'slug',
         'email',
         'email_verified_at',
+        'terms_accepted_at',
+        'privacy_accepted_at',
         'password',
         'remember_token',
         'created_at',
@@ -43,6 +45,8 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'terms_accepted_at' => 'datetime',
+            'privacy_accepted_at' => 'datetime',
             'password' => 'hashed',
         ];
     }

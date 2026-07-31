@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Api\V1\Authenticable;
 
+use App\Rules\TurnstileToken;
+use App\Services\TurnstileService;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -22,9 +24,15 @@ class LoginRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        $rules = [
             'email' => 'required|email',
             'password' => 'required',
         ];
+
+        if (app(TurnstileService::class)->isEnabled()) {
+            $rules['captcha_token'] = ['required', 'string', new TurnstileToken];
+        }
+
+        return $rules;
     }
 }
