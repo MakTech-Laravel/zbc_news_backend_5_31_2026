@@ -41,6 +41,7 @@ class RolePermisionDefaultUser extends Seeder
                     'name' => $data['name'],
                     'password' => Hash::make($data['email']),
                     'slug' => User::generateUniqueSlug($data['name']),
+                    'email_verified_at' => now(),
                 ]
             );
 
