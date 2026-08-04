@@ -13,7 +13,8 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'ZBC News'),
+    // 'name' => env('APP_NAME', 'ZBC News'),
+    'name' => 'ZBC News',
 
     /*
     |--------------------------------------------------------------------------
