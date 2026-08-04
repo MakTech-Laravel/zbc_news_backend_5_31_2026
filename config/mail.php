@@ -112,8 +112,9 @@ return [
 
     'from' => [
         'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
-        // 'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'ZBC News')),
-        'name' => 'ZBC News',
+        // Brand display name for every outbound email (OTP, deletion, contact, newsletter).
+        // Do not fall back to APP_NAME — that is often "Laravel" in local .env files.
+        'name' => env('MAIL_FROM_NAME') ?: 'ZBC News',
     ],
 
 ];

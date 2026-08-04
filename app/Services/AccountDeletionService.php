@@ -7,6 +7,7 @@ use App\Models\NewsletterSubscriber;
 use App\Models\User;
 use App\Models\UserInformation;
 use App\Services\Newsletter\BrevoContactService;
+use App\Support\MailSender;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
@@ -186,7 +187,7 @@ class AccountDeletionService
     public function sendDeletionRequestedEmail(User $user): void
     {
         $frontendUrl = rtrim((string) config('app.frontend_url', config('app.url')), '/');
-        $siteName = (string) config('mail.from.name', config('app.name', 'ZBC News'));
+        $siteName = MailSender::name();
         $finalDate = $user->scheduled_permanent_deletion_at
             ? $user->scheduled_permanent_deletion_at->timezone(config('app.timezone'))->toFormattedDateString()
             : now()->addDays(self::GRACE_DAYS)->toFormattedDateString();
@@ -208,7 +209,7 @@ class AccountDeletionService
             $message->to((string) $user->email, (string) $user->name)
                 ->subject($subject)
                 ->from(
-                    (string) config('mail.from.address'),
+                    MailSender::address(),
                     $siteName,
                 );
         });

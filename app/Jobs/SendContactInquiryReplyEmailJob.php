@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Mail\ContactInquiryReplyMail;
 use App\Models\ContactInquiryReply;
+use App\Support\MailSender;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Mail;
@@ -28,6 +29,8 @@ class SendContactInquiryReplyEmailJob implements ShouldQueue
             return;
         }
 
-        Mail::to($reply->inquiry->email)->send(new ContactInquiryReplyMail($reply));
+        Mail::to($reply->inquiry->email)->send(
+            new ContactInquiryReplyMail($reply, MailSender::name()),
+        );
     }
 }

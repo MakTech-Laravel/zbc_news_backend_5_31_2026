@@ -87,7 +87,7 @@ class NewsletterService
             .'/newsletter/verify?token='.$subscriber->verification_token;
 
         $from = $this->providerFactory->fromAddress();
-        $siteName = $from['name'] ?: 'ZBC News';
+        $siteName = $from['name'] !== '' ? $from['name'] : 'ZBC News';
         $subject = "Verify your {$siteName} newsletter subscription";
         $html = view('emails.newsletter-verification', [
             'subjectLine' => $subject,
@@ -102,7 +102,7 @@ class NewsletterService
                 'subject' => $subject,
                 'html' => $html,
                 'from_email' => $from['email'],
-                'from_name' => $from['name'],
+                'from_name' => $siteName,
             ]);
         } catch (\Throwable $exception) {
             Log::warning('Newsletter verification email could not be sent.', [
@@ -157,7 +157,7 @@ class NewsletterService
     {
         $frontendUrl = rtrim((string) config('app.frontend_url', config('app.url')), '/');
         $from = $this->providerFactory->fromAddress();
-        $siteName = $from['name'] ?: 'ZBC News';
+        $siteName = $from['name'] !== '' ? $from['name'] : 'ZBC News';
         $subject = "Welcome to the {$siteName} newsletter";
         $html = view('emails.newsletter-welcome', [
             'subjectLine' => $subject,
@@ -175,7 +175,7 @@ class NewsletterService
                 'subject' => $subject,
                 'html' => $html,
                 'from_email' => $from['email'],
-                'from_name' => $from['name'],
+                'from_name' => $siteName,
             ]);
         } catch (\Throwable $exception) {
             Log::warning('Newsletter welcome email could not be sent.', [
@@ -201,7 +201,7 @@ class NewsletterService
         }
 
         $from = $this->providerFactory->fromAddress();
-        $siteName = $from['name'] ?: 'ZBC News';
+        $siteName = $from['name'] !== '' ? $from['name'] : 'ZBC News';
         $adminUrl = rtrim((string) config('app.frontend_url', config('app.url')), '/')
             .'/admin/newsletters';
         $categories = $this->formatSubscriberCategories($subscriber);
@@ -229,7 +229,7 @@ class NewsletterService
                     'subject' => $subject,
                     'html' => $html,
                     'from_email' => $from['email'],
-                    'from_name' => $from['name'],
+                    'from_name' => $siteName,
                 ]);
             } catch (\Throwable) {
                 // Keep subscription flow running if admin mail transport fails.
@@ -774,6 +774,7 @@ class NewsletterService
     {
         $from = $this->providerFactory->fromAddress();
         $provider = $this->providerFactory->make();
+        $fromName = $from['name'] !== '' ? $from['name'] : 'ZBC News';
 
         $provider->send([
             'to' => $subscriber->email,
@@ -781,7 +782,7 @@ class NewsletterService
             'subject' => $campaign->subject,
             'html' => $this->buildEmailHtml($campaign, $subscriber),
             'from_email' => $from['email'],
-            'from_name' => $from['name'],
+            'from_name' => $fromName,
         ]);
 
         $this->trackingService->recordSent($campaign, $subscriber);
@@ -809,6 +810,7 @@ class NewsletterService
         }
 
         $from = $this->providerFactory->fromAddress();
+        $fromName = $from['name'] !== '' ? $from['name'] : 'ZBC News';
         $html = $this->buildEmailHtml($campaign, $subscriber);
 
         $this->providerFactory->make()->send([
@@ -817,7 +819,7 @@ class NewsletterService
             'subject' => '[TEST] '.$campaign->subject,
             'html' => $html,
             'from_email' => $from['email'],
-            'from_name' => $from['name'],
+            'from_name' => $fromName,
         ]);
     }
 

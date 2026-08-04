@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Models\ContactInquiryReply;
+use App\Support\MailSender;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
@@ -19,12 +20,14 @@ class ContactInquiryReplyMail extends Mailable
     public function build(): self
     {
         $inquiry = $this->reply->inquiry;
+        $siteName = $this->siteName !== '' ? $this->siteName : MailSender::name();
 
         return $this
+            ->from(MailSender::address(), MailSender::name())
             ->subject($this->reply->subject)
-            ->replyTo(config('mail.from.address'), $this->siteName)
+            ->replyTo(MailSender::address(), $siteName)
             ->view('emails.contact-inquiry-reply', [
-                'siteName' => $this->siteName,
+                'siteName' => $siteName,
                 'recipientName' => $inquiry->name,
                 'originalSubject' => $inquiry->subject,
                 'originalMessage' => $inquiry->message,

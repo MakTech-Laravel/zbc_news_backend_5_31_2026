@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Support\MailSender;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
@@ -17,13 +18,15 @@ class NewsletterVerificationMail extends Mailable
 
     public function build(): self
     {
-        $subject = "Verify your {$this->siteName} newsletter subscription";
+        $siteName = $this->siteName !== '' ? $this->siteName : MailSender::name();
+        $subject = "Verify your {$siteName} newsletter subscription";
 
         return $this
+            ->from(MailSender::address(), MailSender::name())
             ->subject($subject)
             ->view('emails.newsletter-verification', [
                 'subjectLine' => $subject,
-                'siteName' => $this->siteName,
+                'siteName' => $siteName,
                 'verifyUrl' => $this->verifyUrl,
             ]);
     }
