@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Mail\AuthOtpMail;
 use App\Models\AuthOtpCode;
+use App\Support\MailSender;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -47,7 +48,7 @@ class AuthOtpService
 
     private function sendOtpEmail(string $email, string $otp, string $purpose): void
     {
-        $siteName = (string) config('mail.from.name', config('app.name', 'ZBC News'));
+        $siteName = MailSender::name();
 
         try {
             Mail::to($email)->send(new AuthOtpMail($otp, $purpose, $siteName));

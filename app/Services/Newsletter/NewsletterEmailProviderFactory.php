@@ -8,6 +8,7 @@ use App\Services\Newsletter\EmailProviders\MailchimpEmailProvider;
 use App\Services\Newsletter\EmailProviders\ResendEmailProvider;
 use App\Services\Newsletter\EmailProviders\SmtpEmailProvider;
 use App\Services\SiteSettingsService;
+use App\Support\MailSender;
 
 class NewsletterEmailProviderFactory
 {
@@ -41,9 +42,17 @@ class NewsletterEmailProviderFactory
     {
         $settings = $this->siteSettingsService->getOrDefault();
 
+        $email = filled($settings->getAttribute('newsletter_from_email'))
+            ? (string) $settings->getAttribute('newsletter_from_email')
+            : (string) config('newsletter.default_from_email');
+
+        $name = filled($settings->getAttribute('newsletter_from_name'))
+            ? (string) $settings->getAttribute('newsletter_from_name')
+            : (string) config('newsletter.default_from_name');
+
         return [
-            'email' => (string) ($settings->getAttribute('newsletter_from_email') ?: config('newsletter.default_from_email')),
-            'name' => (string) ($settings->getAttribute('newsletter_from_name') ?: config('newsletter.default_from_name')),
+            'email' => $email !== '' ? $email : MailSender::address(),
+            'name' => $name !== '' ? $name : MailSender::name(),
         ];
     }
 }

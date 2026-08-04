@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Services\AuthOtpService;
+use App\Support\MailSender;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
@@ -20,21 +21,23 @@ class AuthOtpMail extends Mailable
     public function build(): self
     {
         $isPasswordReset = $this->purpose === AuthOtpService::PURPOSE_PASSWORD_RESET;
+        $siteName = $this->siteName !== '' ? $this->siteName : MailSender::name();
 
         $subject = $isPasswordReset
-            ? "Reset your {$this->siteName} password"
-            : "Verify your {$this->siteName} email";
+            ? "Reset your {$siteName} password"
+            : "Verify your {$siteName} email";
 
         return $this
+            ->from(MailSender::address(), MailSender::name())
             ->subject($subject)
             ->view('emails.auth-otp', [
                 'subjectLine' => $subject,
-                'siteName' => $this->siteName,
+                'siteName' => $siteName,
                 'otp' => $this->otp,
                 'heading' => $isPasswordReset ? 'Password Reset' : 'Email Verification',
                 'intro' => $isPasswordReset
-                    ? "We received a request to reset your password for {$this->siteName}. Use the code below to continue."
-                    : "Thank you for registering with {$this->siteName}. Verify your email address using the code below.",
+                    ? "We received a request to reset your password for {$siteName}. Use the code below to continue."
+                    : "Thank you for registering with {$siteName}. Verify your email address using the code below.",
                 'codeLabel' => $isPasswordReset ? 'password reset code' : 'verification code',
             ]);
     }

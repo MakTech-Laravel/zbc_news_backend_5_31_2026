@@ -11,6 +11,10 @@ return [
     'mailchimp',
   ],
 
-  'default_from_email' => env('NEWSLETTER_FROM_EMAIL', env('MAIL_FROM_ADDRESS', 'newsletter@example.com')),
-  'default_from_name' => env('NEWSLETTER_FROM_NAME', env('MAIL_FROM_NAME', 'ZBC News')),
+  'default_from_email' => env('NEWSLETTER_FROM_EMAIL')
+      ?: env('MAIL_FROM_ADDRESS')
+      ?: 'newsletter@example.com',
+  'default_from_name' => env('NEWSLETTER_FROM_NAME')
+      ?: env('MAIL_FROM_NAME')
+      ?: 'ZBC News',
 ];
