@@ -3,7 +3,9 @@
 namespace App\Jobs;
 
 use App\Models\NewsletterCampaign;
+use App\Models\NewsletterEvent;
 use App\Models\NewsletterSubscriber;
+use App\Services\Newsletter\NewsletterDeliveryStatusAdminNotifier;
 use App\Services\Newsletter\NewsletterService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -22,12 +24,14 @@ class SendNewsletterEmailJob implements ShouldQueue
         public int $subscriberId,
     ) {}
 
-    public function handle(NewsletterService $newsletterService): void
-    {
+    public function handle(
+        NewsletterService $newsletterService,
+        NewsletterDeliveryStatusAdminNotifier $deliveryStatusAdminNotifier,
+    ): void {
         $campaign = NewsletterCampaign::query()->find($this->campaignId);
         $subscriber = NewsletterSubscriber::query()->find($this->subscriberId);
 
-        if (!$campaign || !$subscriber || $subscriber->status === 'unsubscribed') {
+        if (! $campaign || ! $subscriber || $subscriber->status === 'unsubscribed') {
             return;
         }
 
@@ -39,6 +43,26 @@ class SendNewsletterEmailJob implements ShouldQueue
             $newsletterService->sendCampaignEmail($campaign, $subscriber);
         } catch (\Throwable $exception) {
             $newsletterService->incrementFailed($campaign);
+
+            if ($this->attempts() >= $this->tries) {
+                $event = NewsletterEvent::query()->create([
+                    'newsletter_campaign_id' => $campaign->id,
+                    'newsletter_subscriber_id' => $subscriber->id,
+                    'event_type' => 'failed',
+                    'meta' => [
+                        'source' => 'send_job',
+                        'message' => $exception->getMessage(),
+                    ],
+                ]);
+
+                $deliveryStatusAdminNotifier->notify(
+                    $subscriber,
+                    'failed',
+                    $event->id,
+                    'send_job',
+                );
+            }
+
             throw $exception;
         }
 

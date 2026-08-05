@@ -849,4 +849,71 @@ class UserNotificationService
 
         return $sent;
     }
+
+    public function dispatchNewsletterDeliveryStatusAdminNotifications(
+        NewsletterSubscriber $subscriber,
+        string $status,
+        ?int $eventId = null,
+        ?string $rawEvent = null,
+    ): int {
+        $adminIds = User::query()
+            ->role(['admin', 'super_admin'])
+            ->pluck('id');
+
+        if ($adminIds->isEmpty()) {
+            return 0;
+        }
+
+        $label = match ($status) {
+            'delivered' => 'delivered',
+            'failed' => 'failed',
+            'bounced' => 'bounced',
+            'unsubscribed' => 'unsubscribed',
+            default => $status,
+        };
+
+        $subscriberLabel = $subscriber->name ?: $subscriber->email;
+        $title = 'Newsletter '.$label;
+        $body = "{$subscriberLabel} ({$subscriber->email}) — newsletter email {$label}.";
+        if (filled($rawEvent)) {
+            $body .= " Provider event: {$rawEvent}.";
+        }
+
+        $dedupeKey = $eventId
+            ? "newsletter:delivery:{$status}:event:{$eventId}"
+            : 'newsletter:delivery:'.$status.':subscriber:'.$subscriber->id.':'.now()->timestamp;
+
+        $sent = 0;
+
+        foreach ($adminIds as $adminId) {
+            $admin = User::query()->find($adminId);
+
+            if (! $admin) {
+                continue;
+            }
+
+            $created = $this->notifyUser(
+                $admin,
+                NotificationCategory::SYSTEM,
+                NotificationIcon::ANNOUNCEMENT,
+                $title,
+                $body,
+                null,
+                "{$dedupeKey}:user:{$adminId}",
+            );
+
+            if ($created) {
+                $sent++;
+            }
+        }
+
+        Log::info('Newsletter delivery status admin notifications dispatched', [
+            'subscriber_id' => $subscriber->id,
+            'status' => $status,
+            'event_id' => $eventId,
+            'sent' => $sent,
+        ]);
+
+        return $sent;
+    }
 }

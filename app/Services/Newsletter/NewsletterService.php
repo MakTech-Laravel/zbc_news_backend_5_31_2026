@@ -33,6 +33,7 @@ class NewsletterService
         private readonly NewsletterContentFormatter $contentFormatter,
         private readonly UserNotificationService $userNotificationService,
         private readonly BrevoContactService $brevoContactService,
+        private readonly NewsletterDeliveryStatusAdminNotifier $deliveryStatusAdminNotifier,
     ) {}
 
     public function subscribe(array $data, ?User $user = null): NewsletterSubscriber
@@ -312,18 +313,29 @@ class NewsletterService
             return null;
         }
 
+        $wasUnsubscribed = $subscriber->status === 'unsubscribed';
+
         $subscriber->update([
             'status' => 'unsubscribed',
             'unsubscribed_at' => now(),
         ]);
 
-        NewsletterEvent::query()->create([
+        $event = NewsletterEvent::query()->create([
             'newsletter_subscriber_id' => $subscriber->id,
             'event_type' => 'unsubscribe',
             'meta' => ['source' => 'link'],
         ]);
 
         $this->brevoContactService->markUnsubscribed($subscriber);
+
+        if (! $wasUnsubscribed) {
+            $this->deliveryStatusAdminNotifier->notify(
+                $subscriber->fresh() ?? $subscriber,
+                'unsubscribed',
+                $event->id,
+                'link',
+            );
+        }
 
         return $subscriber;
     }
@@ -390,6 +402,7 @@ class NewsletterService
         }
 
         $updates = ['status' => $status];
+        $wasUnsubscribed = $subscriber->status === 'unsubscribed';
 
         if ($status === 'verified') {
             $updates['verified_at'] = now();
@@ -407,11 +420,20 @@ class NewsletterService
         $subscriber->update($updates);
 
         if ($status === 'unsubscribed') {
-            NewsletterEvent::query()->create([
+            $event = NewsletterEvent::query()->create([
                 'newsletter_subscriber_id' => $subscriber->id,
                 'event_type' => 'unsubscribe',
                 'meta' => ['source' => 'admin'],
             ]);
+
+            if (! $wasUnsubscribed) {
+                $this->deliveryStatusAdminNotifier->notify(
+                    $subscriber->fresh() ?? $subscriber,
+                    'unsubscribed',
+                    $event->id,
+                    'admin',
+                );
+            }
         }
 
         return $subscriber->fresh();
@@ -451,16 +473,27 @@ class NewsletterService
             $subscriber = NewsletterSubscriber::query()->where('email', $email)->first();
 
             if ($subscriber) {
+                $wasUnsubscribed = $subscriber->status === 'unsubscribed';
+
                 $subscriber->update([
                     'status' => 'unsubscribed',
                     'unsubscribed_at' => now(),
                 ]);
 
-                NewsletterEvent::query()->create([
+                $event = NewsletterEvent::query()->create([
                     'newsletter_subscriber_id' => $subscriber->id,
                     'event_type' => 'unsubscribe',
                     'meta' => ['source' => 'profile'],
                 ]);
+
+                if (! $wasUnsubscribed) {
+                    $this->deliveryStatusAdminNotifier->notify(
+                        $subscriber->fresh() ?? $subscriber,
+                        'unsubscribed',
+                        $event->id,
+                        'profile',
+                    );
+                }
             }
 
             return $subscriber ?? NewsletterSubscriber::query()->make(['email' => $email, 'status' => 'unsubscribed']);
