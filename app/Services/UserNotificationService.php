@@ -11,6 +11,7 @@ use App\Models\Announcement;
 use App\Models\Article;
 use App\Models\ArticleComment;
 use App\Models\ArticleHistroy;
+use App\Models\ContactInquiry;
 use App\Models\NewsletterCampaign;
 use App\Models\NewsletterSubscriber;
 use App\Models\NotificationPreference;
@@ -745,6 +746,54 @@ class UserNotificationService
 
         Log::info('Comment pending moderation admin notifications dispatched', [
             'comment_id' => $comment->id,
+            'sent' => $sent,
+        ]);
+
+        return $sent;
+    }
+
+    public function dispatchContactInquiryAdminNotifications(ContactInquiry $inquiry): int
+    {
+        $adminIds = User::query()
+            ->role(['admin', 'super_admin'])
+            ->pluck('id');
+
+        if ($adminIds->isEmpty()) {
+            return 0;
+        }
+
+        $label = $inquiry->name ?: $inquiry->email;
+        $title = 'New contact message';
+        $subjectPart = filled($inquiry->subject) ? " Subject: {$inquiry->subject}." : '';
+        $body = "{$label} ({$inquiry->email}) submitted the contact form.{$subjectPart}";
+        $dedupeKey = "contact:inquiry:admin:{$inquiry->id}";
+
+        $sent = 0;
+
+        foreach ($adminIds as $adminId) {
+            $admin = User::query()->find($adminId);
+
+            if (! $admin) {
+                continue;
+            }
+
+            $created = $this->notifyUser(
+                $admin,
+                NotificationCategory::SYSTEM,
+                NotificationIcon::ANNOUNCEMENT,
+                $title,
+                $body,
+                null,
+                "{$dedupeKey}:user:{$adminId}",
+            );
+
+            if ($created) {
+                $sent++;
+            }
+        }
+
+        Log::info('Contact inquiry admin notifications dispatched', [
+            'inquiry_id' => $inquiry->id,
             'sent' => $sent,
         ]);
 
