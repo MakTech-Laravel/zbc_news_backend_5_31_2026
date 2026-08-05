@@ -6,11 +6,15 @@ use App\Events\MediaUploadCompleted;
 use App\Events\MediaUploadFailed;
 use App\Listeners\LogFailedUpload;
 use App\Listeners\NotifyUserOnUploadComplete;
+use App\Listeners\RecordFailedQueueJob;
+use App\Listeners\RecordScheduledTaskFailure;
 use App\Models\Article;
 use App\Models\Client;
 use App\Models\Media;
 use App\Observers\ArticleObserver;
 use App\Policies\MediaPolicy;
+use Illuminate\Console\Events\ScheduledTaskFailed;
+use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -45,6 +49,8 @@ class AppServiceProvider extends ServiceProvider
 
         Event::listen(MediaUploadCompleted::class, NotifyUserOnUploadComplete::class);
         Event::listen(MediaUploadFailed::class, LogFailedUpload::class);
+        Event::listen(ScheduledTaskFailed::class, RecordScheduledTaskFailure::class);
+        Event::listen(JobFailed::class, RecordFailedQueueJob::class);
 
         Article::observe(ArticleObserver::class);
 

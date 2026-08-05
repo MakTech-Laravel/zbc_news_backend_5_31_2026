@@ -6,14 +6,18 @@ use App\Enums\NotificationCategory;
 use App\Enums\NotificationIcon;
 use App\Events\UserNotificationCreated;
 use App\Jobs\NotifyBreakingNewsBatch;
+use App\Jobs\SendCommentReplyEmailJob;
 use App\Models\Announcement;
 use App\Models\Article;
 use App\Models\ArticleComment;
 use App\Models\ArticleHistroy;
+use App\Models\CareerApplication;
+use App\Models\ContactInquiry;
 use App\Models\NewsletterCampaign;
 use App\Models\NewsletterSubscriber;
 use App\Models\NotificationPreference;
 use App\Models\SaveArticle;
+use App\Models\ScheduledTaskFailure;
 use App\Models\User;
 use App\Models\UserNotification;
 use App\Support\BreakingTag;
@@ -24,6 +28,10 @@ use Illuminate\Support\Facades\Log;
 class UserNotificationService
 {
     private const BREAKING_BATCH_SIZE = 200;
+
+    public function __construct(
+        private readonly AdminNotificationPreferenceService $adminNotificationPreferences,
+    ) {}
 
     public function listForUser(User $user, ?string $category = null, int $limit = 50): Collection
     {
@@ -228,9 +236,9 @@ class UserNotificationService
         NewsletterSubscriber $subscriber,
         bool $verified = false,
     ): int {
-        $adminIds = User::query()
-            ->role(['admin', 'super_admin'])
-            ->pluck('id');
+        $adminIds = $this->adminNotificationPreferences->dashboardRecipientIds(
+            AdminNotificationPreferenceService::EVENT_NEWSLETTER_SUBSCRIPTION,
+        );
 
         if ($adminIds->isEmpty()) {
             return 0;
@@ -276,6 +284,106 @@ class UserNotificationService
         Log::info('Newsletter subscription admin notifications dispatched', [
             'subscriber_id' => $subscriber->id,
             'verified' => $verified,
+            'sent' => $sent,
+        ]);
+
+        return $sent;
+    }
+
+    public function dispatchAccountDeletionAdminNotifications(User $user): int
+    {
+        $adminIds = $this->adminNotificationPreferences->dashboardRecipientIds(
+            AdminNotificationPreferenceService::EVENT_ACCOUNT_ACTIVITY,
+        );
+
+        if ($adminIds->isEmpty()) {
+            return 0;
+        }
+
+        $label = $user->name ?: $user->email;
+        $finalDate = $user->scheduled_permanent_deletion_at
+            ? $user->scheduled_permanent_deletion_at->timezone(config('app.timezone'))->toFormattedDateString()
+            : 'N/A';
+
+        $title = 'Account deletion requested';
+        $body = "{$label} ({$user->email}) requested account deletion. Permanent deletion scheduled for {$finalDate}.";
+        $dedupeKey = "account:deletion:admin:{$user->id}";
+
+        $sent = 0;
+
+        foreach ($adminIds as $adminId) {
+            $admin = User::query()->find($adminId);
+
+            if (! $admin) {
+                continue;
+            }
+
+            $created = $this->notifyUser(
+                $admin,
+                NotificationCategory::SYSTEM,
+                NotificationIcon::ANNOUNCEMENT,
+                $title,
+                $body,
+                null,
+                "{$dedupeKey}:user:{$adminId}",
+            );
+
+            if ($created) {
+                $sent++;
+            }
+        }
+
+        Log::info('Account deletion admin notifications dispatched', [
+            'user_id' => $user->id,
+            'sent' => $sent,
+        ]);
+
+        return $sent;
+    }
+
+    public function dispatchNewsletterCampaignSentAdminNotifications(NewsletterCampaign $campaign): int
+    {
+        $adminIds = $this->adminNotificationPreferences->dashboardRecipientIds(
+            AdminNotificationPreferenceService::EVENT_NEWSLETTER_CAMPAIGN,
+        );
+
+        if ($adminIds->isEmpty()) {
+            return 0;
+        }
+
+        $title = 'Newsletter campaign sent';
+        $subject = $campaign->subject ?: $campaign->title;
+        $recipientCount = (int) ($campaign->subscriber_count ?? 0);
+        $failedCount = (int) ($campaign->failed_count ?? 0);
+        $body = "\"{$subject}\" finished sending to {$recipientCount} recipients ({$failedCount} failed).";
+        $dedupeKey = "newsletter:campaign:sent:admin:{$campaign->id}";
+
+        $sent = 0;
+
+        foreach ($adminIds as $adminId) {
+            $admin = User::query()->find($adminId);
+
+            if (! $admin) {
+                continue;
+            }
+
+            $created = $this->notifyUser(
+                $admin,
+                NotificationCategory::SYSTEM,
+                NotificationIcon::RECOMMENDED,
+                $title,
+                $body,
+                null,
+                "{$dedupeKey}:user:{$adminId}",
+            );
+
+            if ($created) {
+                $sent++;
+            }
+        }
+
+        Log::info('Newsletter campaign sent admin notifications dispatched', [
+            'campaign_id' => $campaign->id,
             'sent' => $sent,
         ]);
 
@@ -478,9 +586,438 @@ class UserNotificationService
             "comment-reply:{$reply->id}",
         );
 
+        SendCommentReplyEmailJob::dispatch($reply->id);
+
         Log::info('Comment reply notification dispatched', [
             'reply_id' => $reply->id,
             'recipient_id' => $parentUser->id,
         ]);
+    }
+
+    public function dispatchAccountDeletionCancelAdminNotifications(User $user): int
+    {
+        $adminIds = $this->adminNotificationPreferences->dashboardRecipientIds(
+            AdminNotificationPreferenceService::EVENT_ACCOUNT_ACTIVITY,
+        );
+
+        if ($adminIds->isEmpty()) {
+            return 0;
+        }
+
+        $label = $user->name ?: $user->email;
+        $title = 'Deletion cancellation requested';
+        $body = "{$label} ({$user->email}) asked to cancel their account deletion. Review and restore if appropriate.";
+        $dedupeKey = "account:deletion-cancel:admin:{$user->id}";
+
+        $sent = 0;
+
+        foreach ($adminIds as $adminId) {
+            $admin = User::query()->find($adminId);
+
+            if (! $admin) {
+                continue;
+            }
+
+            $created = $this->notifyUser(
+                $admin,
+                NotificationCategory::SYSTEM,
+                NotificationIcon::ANNOUNCEMENT,
+                $title,
+                $body,
+                null,
+                "{$dedupeKey}:user:{$adminId}",
+            );
+
+            if ($created) {
+                $sent++;
+            }
+        }
+
+        Log::info('Account deletion cancel admin notifications dispatched', [
+            'user_id' => $user->id,
+            'sent' => $sent,
+        ]);
+
+        return $sent;
+    }
+
+    public function dispatchAccountRestoredUserNotification(User $user): ?UserNotification
+    {
+        $siteName = config('app.name', 'ZBC News');
+        $created = $this->notifyUser(
+            $user,
+            NotificationCategory::SYSTEM,
+            NotificationIcon::ANNOUNCEMENT,
+            'Account restored',
+            "An administrator restored your {$siteName} account. You can sign in again.",
+            null,
+            'account:restored:user:'.$user->id.':'.now()->timestamp,
+        );
+
+        Log::info('Account restored user notification dispatched', [
+            'user_id' => $user->id,
+            'created' => (bool) $created,
+        ]);
+
+        return $created;
+    }
+
+    public function dispatchAccountRestoredAdminNotifications(User $user): int
+    {
+        $adminIds = $this->adminNotificationPreferences->dashboardRecipientIds(
+            AdminNotificationPreferenceService::EVENT_ACCOUNT_ACTIVITY,
+        );
+
+        if ($adminIds->isEmpty()) {
+            return 0;
+        }
+
+        $label = $user->name ?: $user->email;
+        $title = 'Account restored';
+        $body = "{$label} ({$user->email}) was restored by an administrator and can sign in again.";
+        $dedupeKey = 'account:restored:admin:'.$user->id.':'.now()->timestamp;
+
+        $sent = 0;
+
+        foreach ($adminIds as $adminId) {
+            $admin = User::query()->find($adminId);
+
+            if (! $admin) {
+                continue;
+            }
+
+            $created = $this->notifyUser(
+                $admin,
+                NotificationCategory::SYSTEM,
+                NotificationIcon::ANNOUNCEMENT,
+                $title,
+                $body,
+                null,
+                "{$dedupeKey}:user:{$adminId}",
+            );
+
+            if ($created) {
+                $sent++;
+            }
+        }
+
+        Log::info('Account restored admin notifications dispatched', [
+            'user_id' => $user->id,
+            'sent' => $sent,
+        ]);
+
+        return $sent;
+    }
+
+    public function dispatchCommentPendingModerationAdminNotifications(ArticleComment $comment): int
+    {
+        $adminIds = $this->adminNotificationPreferences->dashboardRecipientIds(
+            AdminNotificationPreferenceService::EVENT_COMMENT_MODERATION,
+        );
+
+        if ($adminIds->isEmpty()) {
+            return 0;
+        }
+
+        $comment->loadMissing(['user', 'article']);
+        $authorName = $comment->authorName();
+        $articleTitle = $comment->article?->title ?? 'an article';
+        $title = 'Comment awaiting moderation';
+        $body = "{$authorName} commented on '{$articleTitle}' and is awaiting moderation.";
+        $dedupeKey = "comment:pending:admin:{$comment->id}";
+
+        $sent = 0;
+
+        foreach ($adminIds as $adminId) {
+            $admin = User::query()->find($adminId);
+
+            if (! $admin) {
+                continue;
+            }
+
+            $created = $this->notifyUser(
+                $admin,
+                NotificationCategory::SYSTEM,
+                NotificationIcon::ANNOUNCEMENT,
+                $title,
+                $body,
+                $comment->article?->slug,
+                "{$dedupeKey}:user:{$adminId}",
+            );
+
+            if ($created) {
+                $sent++;
+            }
+        }
+
+        Log::info('Comment pending moderation admin notifications dispatched', [
+            'comment_id' => $comment->id,
+            'sent' => $sent,
+        ]);
+
+        return $sent;
+    }
+
+    public function dispatchContactInquiryAdminNotifications(ContactInquiry $inquiry): int
+    {
+        $adminIds = $this->adminNotificationPreferences->dashboardRecipientIds(
+            AdminNotificationPreferenceService::EVENT_CONTACT_INQUIRY,
+        );
+
+        if ($adminIds->isEmpty()) {
+            return 0;
+        }
+
+        $label = $inquiry->name ?: $inquiry->email;
+        $title = 'New contact message';
+        $subjectPart = filled($inquiry->subject) ? " Subject: {$inquiry->subject}." : '';
+        $body = "{$label} ({$inquiry->email}) submitted the contact form.{$subjectPart}";
+        $dedupeKey = "contact:inquiry:admin:{$inquiry->id}";
+
+        $sent = 0;
+
+        foreach ($adminIds as $adminId) {
+            $admin = User::query()->find($adminId);
+
+            if (! $admin) {
+                continue;
+            }
+
+            $created = $this->notifyUser(
+                $admin,
+                NotificationCategory::SYSTEM,
+                NotificationIcon::ANNOUNCEMENT,
+                $title,
+                $body,
+                null,
+                "{$dedupeKey}:user:{$adminId}",
+            );
+
+            if ($created) {
+                $sent++;
+            }
+        }
+
+        Log::info('Contact inquiry admin notifications dispatched', [
+            'inquiry_id' => $inquiry->id,
+            'sent' => $sent,
+        ]);
+
+        return $sent;
+    }
+
+    public function dispatchCareerApplicationAdminNotifications(CareerApplication $application): int
+    {
+        $adminIds = $this->adminNotificationPreferences->dashboardRecipientIds(
+            AdminNotificationPreferenceService::EVENT_CAREER_APPLICATION,
+        );
+
+        if ($adminIds->isEmpty()) {
+            return 0;
+        }
+
+        $application->loadMissing('job');
+        $label = $application->name ?: $application->email;
+        $jobTitle = $application->job?->title ?? 'a position';
+        $title = 'New career application';
+        $body = "{$label} ({$application->email}) applied for '{$jobTitle}'.";
+        $dedupeKey = "career:application:admin:{$application->id}";
+
+        $sent = 0;
+
+        foreach ($adminIds as $adminId) {
+            $admin = User::query()->find($adminId);
+
+            if (! $admin) {
+                continue;
+            }
+
+            $created = $this->notifyUser(
+                $admin,
+                NotificationCategory::SYSTEM,
+                NotificationIcon::ANNOUNCEMENT,
+                $title,
+                $body,
+                null,
+                "{$dedupeKey}:user:{$adminId}",
+            );
+
+            if ($created) {
+                $sent++;
+            }
+        }
+
+        Log::info('Career application admin notifications dispatched', [
+            'application_id' => $application->id,
+            'sent' => $sent,
+        ]);
+
+        return $sent;
+    }
+
+    public function dispatchNewsletterDeliveryStatusAdminNotifications(
+        NewsletterSubscriber $subscriber,
+        string $status,
+        ?int $eventId = null,
+        ?string $rawEvent = null,
+    ): int {
+        $adminIds = $this->adminNotificationPreferences->dashboardRecipientIds(
+            AdminNotificationPreferenceService::EVENT_NEWSLETTER_DELIVERY,
+        );
+
+        if ($adminIds->isEmpty()) {
+            return 0;
+        }
+
+        $label = match ($status) {
+            'delivered' => 'delivered',
+            'failed' => 'failed',
+            'bounced' => 'bounced',
+            'unsubscribed' => 'unsubscribed',
+            default => $status,
+        };
+
+        $subscriberLabel = $subscriber->name ?: $subscriber->email;
+        $title = 'Newsletter '.$label;
+        $body = "{$subscriberLabel} ({$subscriber->email}) — newsletter email {$label}.";
+        if (filled($rawEvent)) {
+            $body .= " Provider event: {$rawEvent}.";
+        }
+
+        $dedupeKey = $eventId
+            ? "newsletter:delivery:{$status}:event:{$eventId}"
+            : 'newsletter:delivery:'.$status.':subscriber:'.$subscriber->id.':'.now()->timestamp;
+
+        $sent = 0;
+
+        foreach ($adminIds as $adminId) {
+            $admin = User::query()->find($adminId);
+
+            if (! $admin) {
+                continue;
+            }
+
+            $created = $this->notifyUser(
+                $admin,
+                NotificationCategory::SYSTEM,
+                NotificationIcon::ANNOUNCEMENT,
+                $title,
+                $body,
+                null,
+                "{$dedupeKey}:user:{$adminId}",
+            );
+
+            if ($created) {
+                $sent++;
+            }
+        }
+
+        Log::info('Newsletter delivery status admin notifications dispatched', [
+            'subscriber_id' => $subscriber->id,
+            'status' => $status,
+            'event_id' => $eventId,
+            'sent' => $sent,
+        ]);
+
+        return $sent;
+    }
+
+    public function dispatchScheduledTaskFailedAdminNotifications(ScheduledTaskFailure $failure): int
+    {
+        $adminIds = $this->adminNotificationPreferences->dashboardRecipientIds(
+            AdminNotificationPreferenceService::EVENT_TASK_FAILURE,
+        );
+
+        if ($adminIds->isEmpty()) {
+            return 0;
+        }
+
+        $title = $failure->task_type === 'queue' ? 'Queue job failed' : 'Scheduled task failed';
+        $body = "{$failure->task_name} failed: {$failure->exception_message}";
+        $dedupeKey = 'schedule:failed:'.$failure->id.':'.$failure->occurrence_count;
+
+        $sent = 0;
+
+        foreach ($adminIds as $adminId) {
+            $admin = User::query()->find($adminId);
+
+            if (! $admin) {
+                continue;
+            }
+
+            $created = $this->notifyUser(
+                $admin,
+                NotificationCategory::SYSTEM,
+                NotificationIcon::ANNOUNCEMENT,
+                $title,
+                mb_substr($body, 0, 500),
+                null,
+                "{$dedupeKey}:user:{$adminId}",
+            );
+
+            if ($created) {
+                $sent++;
+            }
+        }
+
+        Log::info('Scheduled task failed admin notifications dispatched', [
+            'failure_id' => $failure->id,
+            'task_key' => $failure->task_key,
+            'sent' => $sent,
+        ]);
+
+        return $sent;
+    }
+
+    public function dispatchFailedLoginAdminNotifications(
+        string $email,
+        ?string $ipAddress,
+        int $attempts,
+        string $alertKey,
+    ): int {
+        $adminIds = $this->adminNotificationPreferences->dashboardRecipientIds(
+            AdminNotificationPreferenceService::EVENT_SECURITY_ALERT,
+        );
+
+        if ($adminIds->isEmpty()) {
+            return 0;
+        }
+
+        $title = 'Security alert: failed logins';
+        $body = "{$attempts} failed login attempts were made for {$email}"
+            .($ipAddress ? " from IP {$ipAddress}." : '.');
+        $dedupeKey = 'security:failed-login:'.$alertKey;
+        $sent = 0;
+
+        foreach ($adminIds as $adminId) {
+            $admin = User::query()->find($adminId);
+
+            if (! $admin) {
+                continue;
+            }
+
+            $created = $this->notifyUser(
+                $admin,
+                NotificationCategory::SYSTEM,
+                NotificationIcon::ANNOUNCEMENT,
+                $title,
+                $body,
+                null,
+                "{$dedupeKey}:user:{$adminId}",
+            );
+
+            if ($created) {
+                $sent++;
+            }
+        }
+
+        Log::warning('Failed login threshold admin notifications dispatched', [
+            'attempted_email' => $email,
+            'ip_address' => $ipAddress,
+            'attempts' => $attempts,
+            'sent' => $sent,
+        ]);
+
+        return $sent;
     }
 }

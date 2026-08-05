@@ -2,13 +2,19 @@
 
 namespace App\Services;
 
+use App\Jobs\SendAccountDeletionAdminEmailJob;
+use App\Jobs\SendAccountDeletionCancelAdminEmailJob;
+use App\Jobs\SendAccountDeletionCancelRequestedEmailJob;
 use App\Jobs\SendAccountDeletionRequestedEmailJob;
+use App\Jobs\SendAccountRestoredAdminEmailJob;
+use App\Jobs\SendAccountRestoredEmailJob;
 use App\Models\NewsletterSubscriber;
 use App\Models\User;
 use App\Models\UserInformation;
 use App\Services\Newsletter\BrevoContactService;
 use App\Support\MailSender;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class AccountDeletionService
@@ -16,7 +22,9 @@ class AccountDeletionService
     public const GRACE_DAYS = 30;
 
     public function __construct(
+        private readonly AdminNotificationPreferenceService $adminNotificationPreferences,
         private readonly BrevoContactService $brevoContactService,
+        private readonly UserNotificationService $userNotificationService,
     ) {}
 
     /**
@@ -57,6 +65,8 @@ class AccountDeletionService
         $this->unsubscribeNewsletterForEmail($originalEmail);
 
         SendAccountDeletionRequestedEmailJob::dispatch($user->id);
+        $this->userNotificationService->dispatchAccountDeletionAdminNotifications($user->fresh());
+        SendAccountDeletionAdminEmailJob::dispatch($user->id);
 
         return [
             'user' => $user->fresh(),
@@ -101,7 +111,13 @@ class AccountDeletionService
             'deletion_cancel_requested_at' => now(),
         ])->save();
 
-        return $user->fresh();
+        $user = $user->fresh();
+
+        SendAccountDeletionCancelRequestedEmailJob::dispatch($user->id);
+        $this->userNotificationService->dispatchAccountDeletionCancelAdminNotifications($user);
+        SendAccountDeletionCancelAdminEmailJob::dispatch($user->id);
+
+        return $user;
     }
 
     public function adminRestore(User $user): User
@@ -114,7 +130,14 @@ class AccountDeletionService
             throw new \InvalidArgumentException('This account does not have a pending deletion request.');
         }
 
-        return $this->clearDeletionFlags($user);
+        $restored = $this->clearDeletionFlags($user);
+
+        $this->userNotificationService->dispatchAccountRestoredUserNotification($restored);
+        SendAccountRestoredEmailJob::dispatch($restored->id);
+        $this->userNotificationService->dispatchAccountRestoredAdminNotifications($restored);
+        SendAccountRestoredAdminEmailJob::dispatch($restored->id);
+
+        return $restored;
     }
 
     public function permanentlyAnonymize(User $user): User
@@ -213,6 +236,165 @@ class AccountDeletionService
                     $siteName,
                 );
         });
+    }
+
+    public function sendDeletionRequestedAdminEmail(User $user): void
+    {
+        $admins = $this->adminNotificationPreferences->emailRecipients(
+            AdminNotificationPreferenceService::EVENT_ACCOUNT_ACTIVITY,
+        );
+
+        if ($admins->isEmpty()) {
+            return;
+        }
+
+        $siteName = MailSender::name();
+        $frontendUrl = rtrim((string) config('app.frontend_url', config('app.url')), '/');
+        $adminUrl = $frontendUrl.'/admin/account-deletions';
+        $finalDate = $user->scheduled_permanent_deletion_at
+            ? $user->scheduled_permanent_deletion_at->timezone(config('app.timezone'))->toFormattedDateString()
+            : now()->addDays(self::GRACE_DAYS)->toFormattedDateString();
+
+        $subject = "Account deletion requested — {$user->email}";
+        $html = view('emails.account-deletion-admin', [
+            'subjectLine' => $subject,
+            'siteName' => $siteName,
+            'userName' => $user->name,
+            'userEmail' => $user->email,
+            'finalDeletionDate' => $finalDate,
+            'graceDays' => self::GRACE_DAYS,
+            'adminUrl' => $adminUrl,
+        ])->render();
+
+        foreach ($admins as $admin) {
+            try {
+                Mail::html($html, function ($message) use ($admin, $subject, $siteName): void {
+                    $message->to((string) $admin->email, (string) $admin->name)
+                        ->subject($subject)
+                        ->from(MailSender::address(), $siteName);
+                });
+            } catch (\Throwable) {
+                // Keep deletion flow running if admin mail transport fails.
+            }
+        }
+    }
+
+    public function sendDeletionCancelRequestedEmail(User $user): void
+    {
+        if (! filled($user->email)) {
+            return;
+        }
+
+        $siteName = MailSender::name();
+        $subject = 'Account deletion cancellation request received';
+
+        $html = view('emails.account-deletion-cancel-requested', [
+            'subjectLine' => $subject,
+            'siteName' => $siteName,
+            'userName' => $user->name,
+        ])->render();
+
+        Mail::html($html, function ($message) use ($user, $subject, $siteName): void {
+            $message->to((string) $user->email, (string) $user->name)
+                ->subject($subject)
+                ->from(MailSender::address(), $siteName);
+        });
+    }
+
+    public function sendDeletionCancelAdminEmail(User $user): void
+    {
+        $admins = $this->adminNotificationPreferences->emailRecipients(
+            AdminNotificationPreferenceService::EVENT_ACCOUNT_ACTIVITY,
+        );
+
+        if ($admins->isEmpty()) {
+            return;
+        }
+
+        $siteName = MailSender::name();
+        $frontendUrl = rtrim((string) config('app.frontend_url', config('app.url')), '/');
+        $adminUrl = $frontendUrl.'/admin/account-deletions';
+
+        $subject = "Deletion cancel requested — {$user->email}";
+        $html = view('emails.account-deletion-cancel-admin', [
+            'subjectLine' => $subject,
+            'siteName' => $siteName,
+            'userName' => $user->name,
+            'userEmail' => $user->email,
+            'adminUrl' => $adminUrl,
+        ])->render();
+
+        foreach ($admins as $admin) {
+            try {
+                Mail::html($html, function ($message) use ($admin, $subject, $siteName): void {
+                    $message->to((string) $admin->email, (string) $admin->name)
+                        ->subject($subject)
+                        ->from(MailSender::address(), $siteName);
+                });
+            } catch (\Throwable) {
+                // Keep cancel flow running if admin mail transport fails.
+            }
+        }
+    }
+
+    public function sendAccountRestoredEmail(User $user): void
+    {
+        if (! filled($user->email)) {
+            return;
+        }
+
+        $frontendUrl = rtrim((string) config('app.frontend_url', config('app.url')), '/');
+        $siteName = MailSender::name();
+        $subject = 'Your account has been restored';
+
+        $html = view('emails.account-restored', [
+            'subjectLine' => $subject,
+            'siteName' => $siteName,
+            'userName' => $user->name,
+            'loginUrl' => $frontendUrl.'/login',
+        ])->render();
+
+        Mail::html($html, function ($message) use ($user, $subject, $siteName): void {
+            $message->to((string) $user->email, (string) $user->name)
+                ->subject($subject)
+                ->from(MailSender::address(), $siteName);
+        });
+    }
+
+    public function sendAccountRestoredAdminEmail(User $user): void
+    {
+        $admins = $this->adminNotificationPreferences->emailRecipients(
+            AdminNotificationPreferenceService::EVENT_ACCOUNT_ACTIVITY,
+        );
+
+        if ($admins->isEmpty()) {
+            return;
+        }
+
+        $siteName = MailSender::name();
+        $frontendUrl = rtrim((string) config('app.frontend_url', config('app.url')), '/');
+        $adminUrl = $frontendUrl.'/admin/account-deletions';
+
+        $subject = "Account restored — {$user->email}";
+        $html = view('emails.account-restored-admin', [
+            'subjectLine' => $subject,
+            'siteName' => $siteName,
+            'userName' => $user->name,
+            'userEmail' => $user->email,
+            'adminUrl' => $adminUrl,
+        ])->render();
+
+        foreach ($admins as $admin) {
+            try {
+                Mail::html($html, function ($message) use ($admin, $subject, $siteName): void {
+                    $message->to((string) $admin->email, (string) $admin->name)
+                        ->subject($subject)
+                        ->from(MailSender::address(), $siteName);
+                });
+            } catch (\Throwable) {
+                // Keep restore flow running if admin mail transport fails.
+            }
+        }
     }
 
     private function clearDeletionFlags(User $user): User

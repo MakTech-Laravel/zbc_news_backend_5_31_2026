@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\V1\backend\AdminTermsOfServiceController;
 use App\Http\Controllers\Api\V1\backend\AdminCommentController;
 use App\Http\Controllers\Api\V1\backend\AdminContactInquiryController;
 use App\Http\Controllers\Api\V1\backend\AdminDashboardController;
+use App\Http\Controllers\Api\V1\backend\AdminNotificationSettingsController;
 use App\Http\Controllers\Api\V1\backend\AdminSearchController;
 use App\Http\Controllers\Api\V1\backend\AdSlotController;
 use App\Http\Controllers\Api\V1\backend\AnnouncementController;
@@ -31,6 +32,7 @@ use App\Http\Controllers\Api\V1\backend\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\backend\PermissionController;
 use App\Http\Controllers\Api\V1\backend\RoleController;
 use App\Http\Controllers\Api\V1\backend\SaveArticleController;
+use App\Http\Controllers\Api\V1\backend\ScheduledTaskFailureController;
 use App\Http\Controllers\Api\V1\backend\SeoPageController;
 use App\Http\Controllers\Api\V1\backend\SeoSitemapAdminController;
 use App\Http\Controllers\Api\V1\backend\SubMenuController;
@@ -185,6 +187,13 @@ Route::controller(SiteSettingsController::class)->prefix('site-settings')->group
     Route::post('/update', 'createOrUpdate')->name('api.v1.site-settings.update')
         ->middleware('permission:'.PermissionEnum::SITE_SETTINGS_UPDATE->value);
 });
+
+Route::controller(AdminNotificationSettingsController::class)
+    ->prefix('admin-notification-settings')
+    ->group(function () {
+        Route::get('/', 'index')->name('api.v1.admin-notification-settings.index');
+        Route::put('/', 'update')->name('api.v1.admin-notification-settings.update');
+    });
 
 Route::controller(SeoPageController::class)->prefix('seo-pages')->group(function () {
     Route::get('/', 'index')->name('api.v1.seo-pages.index')
@@ -517,6 +526,15 @@ Route::get('/monetization/overview', [MonetizationController::class, 'overview']
 
 Route::get('/dashboard/overview', [AdminDashboardController::class, 'overview'])
     ->name('api.v1.admin.dashboard.overview');
+
+Route::controller(ScheduledTaskFailureController::class)->prefix('scheduled-task-failures')->group(function () {
+    Route::get('/', 'index')->name('api.v1.scheduled-task-failures.index')
+        ->middleware('permission:'.PermissionEnum::SCHEDULED_TASKS_LIST->value);
+    Route::post('/{id}/rerun', 'rerun')->name('api.v1.scheduled-task-failures.rerun')
+        ->middleware('permission:'.PermissionEnum::SCHEDULED_TASKS_RERUN->value);
+    Route::post('/{id}/resolve', 'resolve')->name('api.v1.scheduled-task-failures.resolve')
+        ->middleware('permission:'.PermissionEnum::SCHEDULED_TASKS_RERUN->value);
+});
 
 Route::get('/search', [AdminSearchController::class, 'index'])
     ->name('api.v1.admin.search');

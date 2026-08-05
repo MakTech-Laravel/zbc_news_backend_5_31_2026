@@ -14,6 +14,7 @@ use App\Http\Resources\Api\V1\UserResource;
 use App\Http\Resources\TokenResource;
 use App\Models\User;
 use App\Services\AuthOtpService;
+use App\Services\LoginSecurityAlertService;
 use App\Services\NotificationPreferenceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -30,6 +31,7 @@ class AuthenticableController extends Controller
 
     public function __construct(
         private readonly AuthOtpService $authOtpService,
+        private readonly LoginSecurityAlertService $loginSecurityAlertService,
         private readonly NotificationPreferenceService $notificationPreferenceService,
     ) {}
 
@@ -103,12 +105,27 @@ class AuthenticableController extends Controller
 
     public function login(LoginRequest $request): JsonResponse
     {
-        if (! Auth::guard('web')->attempt($request->only('email', 'password'))) {
+        $email = strtolower(trim($request->string('email')->toString()));
+
+        if (! Auth::guard('web')->attempt([
+            'email' => $email,
+            'password' => $request->string('password')->toString(),
+        ])) {
             activity()
                 ->performedOn(new User())
                 ->causedBy($request->user())
-                ->withProperties(['email' => $request->email, 'ip_address' => $request->ip(), 'user_agent' => $request->userAgent()])
+                ->withProperties(['email' => $email, 'ip_address' => $request->ip(), 'user_agent' => $request->userAgent()])
                 ->log('Login failed');
+
+            try {
+                $this->loginSecurityAlertService->recordFailure(
+                    $email,
+                    $request->ip(),
+                    $request->userAgent(),
+                );
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
 
             return sendResponse(
                 false,
@@ -118,7 +135,13 @@ class AuthenticableController extends Controller
             );
         }
 
-        $user = User::where('email', $request->email)->first();
+        try {
+            $this->loginSecurityAlertService->clear($email);
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+
+        $user = User::where('email', $email)->first();
 
         if ($user?->isPermanentlyDeleted()) {
             Auth::guard('web')->logout();

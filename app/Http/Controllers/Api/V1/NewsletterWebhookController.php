@@ -6,12 +6,17 @@ use App\Http\Controllers\Controller;
 use App\Models\NewsletterEvent;
 use App\Models\NewsletterSubscriber;
 use App\Models\SiteSettings;
+use App\Services\Newsletter\NewsletterDeliveryStatusAdminNotifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
 
 class NewsletterWebhookController extends Controller
 {
+    public function __construct(
+        private readonly NewsletterDeliveryStatusAdminNotifier $deliveryStatusAdminNotifier,
+    ) {}
+
     public function brevo(Request $request)
     {
         $settings = SiteSettings::query()->first();
@@ -86,7 +91,9 @@ class NewsletterWebhookController extends Controller
             return;
         }
 
-        NewsletterEvent::query()->create([
+        $wasUnsubscribed = $subscriber->status === 'unsubscribed';
+
+        $newsletterEvent = NewsletterEvent::query()->create([
             'newsletter_subscriber_id' => $subscriber->id,
             'event_type' => $mappedType,
             'meta' => [
@@ -102,6 +109,29 @@ class NewsletterWebhookController extends Controller
                 'unsubscribed_at' => $subscriber->unsubscribed_at ?? now(),
             ]);
         }
+
+        $adminStatus = match ($mappedType) {
+            'sent' => 'delivered',
+            'failed' => 'failed',
+            'bounce' => 'bounced',
+            'unsubscribe' => 'unsubscribed',
+            default => null,
+        };
+
+        if ($adminStatus === null) {
+            return;
+        }
+
+        if ($adminStatus === 'unsubscribed' && $wasUnsubscribed) {
+            return;
+        }
+
+        $this->deliveryStatusAdminNotifier->notify(
+            $subscriber->fresh() ?? $subscriber,
+            $adminStatus,
+            $newsletterEvent->id,
+            $eventName,
+        );
     }
 
     private function isAssoc(array $value): bool

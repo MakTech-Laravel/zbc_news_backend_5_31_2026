@@ -3,9 +3,15 @@
 namespace Tests\Feature\Auth;
 
 use App\Jobs\PurgeDeletedAccounts;
+use App\Jobs\SendAccountDeletionAdminEmailJob;
+use App\Jobs\SendAccountDeletionCancelAdminEmailJob;
+use App\Jobs\SendAccountDeletionCancelRequestedEmailJob;
 use App\Jobs\SendAccountDeletionRequestedEmailJob;
+use App\Jobs\SendAccountRestoredAdminEmailJob;
+use App\Jobs\SendAccountRestoredEmailJob;
 use App\Models\NewsletterSubscriber;
 use App\Models\User;
+use App\Models\UserNotification;
 use App\Services\AccountDeletionService;
 use App\Services\Newsletter\NewsletterService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -43,7 +49,14 @@ class AccountDeletionTest extends TestCase
 
     public function test_reader_can_request_deletion_with_password_and_confirm(): void
     {
-        Bus::fake([SendAccountDeletionRequestedEmailJob::class]);
+        Bus::fake([
+            SendAccountDeletionRequestedEmailJob::class,
+            SendAccountDeletionAdminEmailJob::class,
+            SendAccountDeletionCancelRequestedEmailJob::class,
+            SendAccountDeletionCancelAdminEmailJob::class,
+            SendAccountRestoredEmailJob::class,
+            SendAccountRestoredAdminEmailJob::class,
+        ]);
         Passport::actingAs($this->reader);
 
         $response = $this->postJson('/api/v1/auth/account/delete', [
@@ -64,6 +77,7 @@ class AccountDeletionTest extends TestCase
         );
 
         Bus::assertDispatched(SendAccountDeletionRequestedEmailJob::class);
+        Bus::assertDispatched(SendAccountDeletionAdminEmailJob::class);
     }
 
     public function test_deletion_requires_correct_password_and_confirm(): void
@@ -101,7 +115,14 @@ class AccountDeletionTest extends TestCase
 
     public function test_login_blocked_during_grace_period(): void
     {
-        Bus::fake([SendAccountDeletionRequestedEmailJob::class]);
+        Bus::fake([
+            SendAccountDeletionRequestedEmailJob::class,
+            SendAccountDeletionAdminEmailJob::class,
+            SendAccountDeletionCancelRequestedEmailJob::class,
+            SendAccountDeletionCancelAdminEmailJob::class,
+            SendAccountRestoredEmailJob::class,
+            SendAccountRestoredAdminEmailJob::class,
+        ]);
 
         app(AccountDeletionService::class)->requestDeletion($this->reader, 'Password1!');
 
@@ -114,7 +135,14 @@ class AccountDeletionTest extends TestCase
 
     public function test_cancel_request_goes_to_admin_and_does_not_restore_login(): void
     {
-        Bus::fake([SendAccountDeletionRequestedEmailJob::class]);
+        Bus::fake([
+            SendAccountDeletionRequestedEmailJob::class,
+            SendAccountDeletionAdminEmailJob::class,
+            SendAccountDeletionCancelRequestedEmailJob::class,
+            SendAccountDeletionCancelAdminEmailJob::class,
+            SendAccountRestoredEmailJob::class,
+            SendAccountRestoredAdminEmailJob::class,
+        ]);
 
         app(AccountDeletionService::class)->requestDeletion($this->reader, 'Password1!');
 
@@ -128,6 +156,9 @@ class AccountDeletionTest extends TestCase
         $this->assertTrue($this->reader->isPendingDeletion());
         $this->assertTrue($this->reader->hasDeletionCancelRequest());
 
+        Bus::assertDispatched(SendAccountDeletionCancelRequestedEmailJob::class);
+        Bus::assertDispatched(SendAccountDeletionCancelAdminEmailJob::class);
+
         $this->postJson('/api/v1/auth/login', [
             'email' => 'reader@example.com',
             'password' => 'Password1!',
@@ -136,7 +167,14 @@ class AccountDeletionTest extends TestCase
 
     public function test_admin_can_restore_after_cancel_request(): void
     {
-        Bus::fake([SendAccountDeletionRequestedEmailJob::class]);
+        Bus::fake([
+            SendAccountDeletionRequestedEmailJob::class,
+            SendAccountDeletionAdminEmailJob::class,
+            SendAccountDeletionCancelRequestedEmailJob::class,
+            SendAccountDeletionCancelAdminEmailJob::class,
+            SendAccountRestoredEmailJob::class,
+            SendAccountRestoredAdminEmailJob::class,
+        ]);
 
         app(AccountDeletionService::class)->requestDeletion($this->reader, 'Password1!');
         app(AccountDeletionService::class)->requestCancelDeletion(
@@ -154,6 +192,18 @@ class AccountDeletionTest extends TestCase
         $this->assertFalse($this->reader->isPendingDeletion());
         $this->assertFalse($this->reader->hasDeletionCancelRequest());
 
+        Bus::assertDispatched(SendAccountRestoredEmailJob::class);
+        Bus::assertDispatched(SendAccountRestoredAdminEmailJob::class);
+
+        $this->assertDatabaseHas('user_notifications', [
+            'user_id' => $this->reader->id,
+            'title' => 'Account restored',
+        ]);
+        $this->assertDatabaseHas('user_notifications', [
+            'user_id' => $admin->id,
+            'title' => 'Account restored',
+        ]);
+
         $this->assertTrue(
             Auth::guard('web')->attempt([
                 'email' => 'reader@example.com',
@@ -165,7 +215,14 @@ class AccountDeletionTest extends TestCase
 
     public function test_admin_can_restore_pending_deletion(): void
     {
-        Bus::fake([SendAccountDeletionRequestedEmailJob::class]);
+        Bus::fake([
+            SendAccountDeletionRequestedEmailJob::class,
+            SendAccountDeletionAdminEmailJob::class,
+            SendAccountDeletionCancelRequestedEmailJob::class,
+            SendAccountDeletionCancelAdminEmailJob::class,
+            SendAccountRestoredEmailJob::class,
+            SendAccountRestoredAdminEmailJob::class,
+        ]);
 
         app(AccountDeletionService::class)->requestDeletion($this->reader, 'Password1!');
 
@@ -177,11 +234,33 @@ class AccountDeletionTest extends TestCase
             ->assertOk();
 
         $this->assertFalse($this->reader->fresh()->isPendingDeletion());
+        Bus::assertDispatched(SendAccountRestoredEmailJob::class);
+        Bus::assertDispatched(SendAccountRestoredAdminEmailJob::class);
+
+        $this->assertTrue(
+            UserNotification::query()
+                ->where('user_id', $this->reader->id)
+                ->where('title', 'Account restored')
+                ->exists()
+        );
+        $this->assertTrue(
+            UserNotification::query()
+                ->where('user_id', $admin->id)
+                ->where('title', 'Account restored')
+                ->exists()
+        );
     }
 
     public function test_newsletter_excludes_pending_deletion_users_and_unsubscribes(): void
     {
-        Bus::fake([SendAccountDeletionRequestedEmailJob::class]);
+        Bus::fake([
+            SendAccountDeletionRequestedEmailJob::class,
+            SendAccountDeletionAdminEmailJob::class,
+            SendAccountDeletionCancelRequestedEmailJob::class,
+            SendAccountDeletionCancelAdminEmailJob::class,
+            SendAccountRestoredEmailJob::class,
+            SendAccountRestoredAdminEmailJob::class,
+        ]);
 
         NewsletterSubscriber::query()->create([
             'email' => 'reader@example.com',
@@ -208,7 +287,14 @@ class AccountDeletionTest extends TestCase
 
     public function test_purge_anonymizes_accounts_after_grace_period(): void
     {
-        Bus::fake([SendAccountDeletionRequestedEmailJob::class]);
+        Bus::fake([
+            SendAccountDeletionRequestedEmailJob::class,
+            SendAccountDeletionAdminEmailJob::class,
+            SendAccountDeletionCancelRequestedEmailJob::class,
+            SendAccountDeletionCancelAdminEmailJob::class,
+            SendAccountRestoredEmailJob::class,
+            SendAccountRestoredAdminEmailJob::class,
+        ]);
         Mail::fake();
 
         app(AccountDeletionService::class)->requestDeletion($this->reader, 'Password1!');
@@ -232,7 +318,14 @@ class AccountDeletionTest extends TestCase
 
     public function test_purge_skips_accounts_with_cancel_request_even_after_grace_period(): void
     {
-        Bus::fake([SendAccountDeletionRequestedEmailJob::class]);
+        Bus::fake([
+            SendAccountDeletionRequestedEmailJob::class,
+            SendAccountDeletionAdminEmailJob::class,
+            SendAccountDeletionCancelRequestedEmailJob::class,
+            SendAccountDeletionCancelAdminEmailJob::class,
+            SendAccountRestoredEmailJob::class,
+            SendAccountRestoredAdminEmailJob::class,
+        ]);
         Mail::fake();
 
         app(AccountDeletionService::class)->requestDeletion($this->reader, 'Password1!');
@@ -255,7 +348,14 @@ class AccountDeletionTest extends TestCase
 
     public function test_admin_can_list_pending_account_deletions(): void
     {
-        Bus::fake([SendAccountDeletionRequestedEmailJob::class]);
+        Bus::fake([
+            SendAccountDeletionRequestedEmailJob::class,
+            SendAccountDeletionAdminEmailJob::class,
+            SendAccountDeletionCancelRequestedEmailJob::class,
+            SendAccountDeletionCancelAdminEmailJob::class,
+            SendAccountRestoredEmailJob::class,
+            SendAccountRestoredAdminEmailJob::class,
+        ]);
 
         app(AccountDeletionService::class)->requestDeletion($this->reader, 'Password1!');
         app(AccountDeletionService::class)->requestCancelDeletion(

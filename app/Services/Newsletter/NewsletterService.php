@@ -14,6 +14,7 @@ use App\Models\NewsletterEvent;
 use App\Models\NewsletterSubscriber;
 use App\Models\User;
 use App\Enums\ArticleStatus;
+use App\Services\AdminNotificationPreferenceService;
 use App\Services\UserNotificationService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -28,11 +29,13 @@ class NewsletterService
     private static array $columnCache = [];
 
     public function __construct(
+        private readonly AdminNotificationPreferenceService $adminNotificationPreferences,
         private readonly NewsletterEmailProviderFactory $providerFactory,
         private readonly NewsletterTrackingService $trackingService,
         private readonly NewsletterContentFormatter $contentFormatter,
         private readonly UserNotificationService $userNotificationService,
         private readonly BrevoContactService $brevoContactService,
+        private readonly NewsletterDeliveryStatusAdminNotifier $deliveryStatusAdminNotifier,
     ) {}
 
     public function subscribe(array $data, ?User $user = null): NewsletterSubscriber
@@ -192,9 +195,9 @@ class NewsletterService
         NewsletterSubscriber $subscriber,
         bool $verified = false,
     ): void {
-        $admins = User::query()
-            ->role(['admin', 'super_admin'])
-            ->get(['id', 'email', 'name']);
+        $admins = $this->adminNotificationPreferences->emailRecipients(
+            AdminNotificationPreferenceService::EVENT_NEWSLETTER_SUBSCRIPTION,
+        );
 
         if ($admins->isEmpty()) {
             return;
@@ -237,6 +240,52 @@ class NewsletterService
         }
     }
 
+    public function sendCampaignSentAdminEmail(NewsletterCampaign $campaign): void
+    {
+        $admins = $this->adminNotificationPreferences->emailRecipients(
+            AdminNotificationPreferenceService::EVENT_NEWSLETTER_CAMPAIGN,
+        );
+
+        if ($admins->isEmpty()) {
+            return;
+        }
+
+        $from = $this->providerFactory->fromAddress();
+        $siteName = $from['name'] !== '' ? $from['name'] : 'ZBC News';
+        $adminUrl = rtrim((string) config('app.frontend_url', config('app.url')), '/')
+            .'/admin/newsletters';
+
+        $subject = 'Newsletter campaign sent — '.($campaign->subject ?: $campaign->title);
+        $html = view('emails.newsletter-campaign-sent-admin', [
+            'subjectLine' => $subject,
+            'siteName' => $siteName,
+            'campaignTitle' => $campaign->title,
+            'campaignSubject' => $campaign->subject ?: $campaign->title,
+            'subscriberCount' => (int) ($campaign->subscriber_count ?? 0),
+            'failedCount' => (int) ($campaign->failed_count ?? 0),
+            'sentAt' => optional($campaign->sent_at)?->timezone(config('app.timezone'))->toDayDateTimeString()
+                ?? now()->timezone(config('app.timezone'))->toDayDateTimeString(),
+            'adminUrl' => $adminUrl,
+        ])->render();
+
+        $provider = $this->providerFactory->make();
+
+        foreach ($admins as $admin) {
+            try {
+                $provider->send([
+                    'to' => $admin->email,
+                    'to_name' => $admin->name,
+                    'subject' => $subject,
+                    'html' => $html,
+                    'from_email' => $from['email'],
+                    'from_name' => $siteName,
+                ]);
+            } catch (\Throwable) {
+                // Keep campaign finalize flow running if admin mail transport fails.
+            }
+        }
+    }
+
     /**
      * @return array{email: string, status: string}|null
      */
@@ -266,18 +315,29 @@ class NewsletterService
             return null;
         }
 
+        $wasUnsubscribed = $subscriber->status === 'unsubscribed';
+
         $subscriber->update([
             'status' => 'unsubscribed',
             'unsubscribed_at' => now(),
         ]);
 
-        NewsletterEvent::query()->create([
+        $event = NewsletterEvent::query()->create([
             'newsletter_subscriber_id' => $subscriber->id,
             'event_type' => 'unsubscribe',
             'meta' => ['source' => 'link'],
         ]);
 
         $this->brevoContactService->markUnsubscribed($subscriber);
+
+        if (! $wasUnsubscribed) {
+            $this->deliveryStatusAdminNotifier->notify(
+                $subscriber->fresh() ?? $subscriber,
+                'unsubscribed',
+                $event->id,
+                'link',
+            );
+        }
 
         return $subscriber;
     }
@@ -344,6 +404,7 @@ class NewsletterService
         }
 
         $updates = ['status' => $status];
+        $wasUnsubscribed = $subscriber->status === 'unsubscribed';
 
         if ($status === 'verified') {
             $updates['verified_at'] = now();
@@ -361,11 +422,20 @@ class NewsletterService
         $subscriber->update($updates);
 
         if ($status === 'unsubscribed') {
-            NewsletterEvent::query()->create([
+            $event = NewsletterEvent::query()->create([
                 'newsletter_subscriber_id' => $subscriber->id,
                 'event_type' => 'unsubscribe',
                 'meta' => ['source' => 'admin'],
             ]);
+
+            if (! $wasUnsubscribed) {
+                $this->deliveryStatusAdminNotifier->notify(
+                    $subscriber->fresh() ?? $subscriber,
+                    'unsubscribed',
+                    $event->id,
+                    'admin',
+                );
+            }
         }
 
         return $subscriber->fresh();
@@ -405,16 +475,27 @@ class NewsletterService
             $subscriber = NewsletterSubscriber::query()->where('email', $email)->first();
 
             if ($subscriber) {
+                $wasUnsubscribed = $subscriber->status === 'unsubscribed';
+
                 $subscriber->update([
                     'status' => 'unsubscribed',
                     'unsubscribed_at' => now(),
                 ]);
 
-                NewsletterEvent::query()->create([
+                $event = NewsletterEvent::query()->create([
                     'newsletter_subscriber_id' => $subscriber->id,
                     'event_type' => 'unsubscribe',
                     'meta' => ['source' => 'profile'],
                 ]);
+
+                if (! $wasUnsubscribed) {
+                    $this->deliveryStatusAdminNotifier->notify(
+                        $subscriber->fresh() ?? $subscriber,
+                        'unsubscribed',
+                        $event->id,
+                        'profile',
+                    );
+                }
             }
 
             return $subscriber ?? NewsletterSubscriber::query()->make(['email' => $email, 'status' => 'unsubscribed']);
@@ -447,6 +528,7 @@ class NewsletterService
             $subscriber,
             verified: true,
         );
+        $this->queueAdminSubscriptionNotificationEmail($subscriber, verified: true);
 
         return $subscriber;
     }

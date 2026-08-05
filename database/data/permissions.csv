@@ -140,3 +140,5 @@ newsletter.show,api,Newsletter
 newsletter.update,api,Newsletter
 newsletter.delete,api,Newsletter
 newsletter.send,api,Newsletter
+scheduled-tasks.list,api,Scheduled Tasks
+scheduled-tasks.rerun,api,Scheduled Tasks

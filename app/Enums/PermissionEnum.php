@@ -172,4 +172,7 @@ enum PermissionEnum: string
     case NEWSLETTER_UPDATE = 'newsletter.update';
     case NEWSLETTER_DELETE = 'newsletter.delete';
     case NEWSLETTER_SEND = 'newsletter.send';
+
+    case SCHEDULED_TASKS_LIST = 'scheduled-tasks.list';
+    case SCHEDULED_TASKS_RERUN = 'scheduled-tasks.rerun';
 }

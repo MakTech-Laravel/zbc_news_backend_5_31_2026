@@ -48,6 +48,7 @@ class SiteSettings extends Model
         'disqus_shortname',
         'slack_webhook_url',
         'enable_comments',
+        'admin_notification_channels',
     ];
 
     protected $casts = [
@@ -61,6 +62,7 @@ class SiteSettings extends Model
         'require_featured_image' => 'boolean',
         'enable_ai_writing' => 'boolean',
         'enable_comments' => 'boolean',
+        'admin_notification_channels' => 'array',
     ];
 
     public function defaultCategory()

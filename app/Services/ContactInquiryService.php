@@ -3,22 +3,27 @@
 namespace App\Services;
 
 use App\Enums\ContactInquiryStatus;
+use App\Jobs\SendContactInquiryAdminEmailJob;
 use App\Jobs\SendContactInquiryReplyEmailJob;
 use App\Models\ContactInquiry;
 use App\Models\ContactInquiryReply;
 use App\Models\User;
 use App\Services\Newsletter\NewsletterService;
+use App\Support\MailSender;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
 class ContactInquiryService
 {
     public function __construct(
+        private readonly AdminNotificationPreferenceService $adminNotificationPreferences,
         private readonly NewsletterService $newsletterService,
+        private readonly UserNotificationService $userNotificationService,
     ) {}
 
     public function store(array $data, Request $request): ContactInquiry
@@ -48,6 +53,9 @@ class ContactInquiryService
                 report($exception);
             }
         }
+
+        $this->userNotificationService->dispatchContactInquiryAdminNotifications($inquiry);
+        SendContactInquiryAdminEmailJob::dispatch($inquiry->id);
 
         return $inquiry;
     }
@@ -225,5 +233,45 @@ class ContactInquiryService
         }
 
         return $query;
+    }
+
+    public function sendAdminEmail(ContactInquiry $inquiry): void
+    {
+        $admins = $this->adminNotificationPreferences->emailRecipients(
+            AdminNotificationPreferenceService::EVENT_CONTACT_INQUIRY,
+        );
+
+        if ($admins->isEmpty()) {
+            return;
+        }
+
+        $siteName = MailSender::name();
+        $frontendUrl = rtrim((string) config('app.frontend_url', config('app.url')), '/');
+        $adminUrl = $frontendUrl.'/admin/contact-messages/'.$inquiry->id;
+        $messageExcerpt = mb_substr(trim(strip_tags((string) $inquiry->message)), 0, 200);
+
+        $subject = "New contact message — {$inquiry->email}";
+        $html = view('emails.contact-inquiry-admin', [
+            'subjectLine' => $subject,
+            'siteName' => $siteName,
+            'name' => $inquiry->name,
+            'email' => $inquiry->email,
+            'phone' => $inquiry->phone,
+            'inquirySubject' => $inquiry->subject,
+            'messageExcerpt' => $messageExcerpt,
+            'adminUrl' => $adminUrl,
+        ])->render();
+
+        foreach ($admins as $admin) {
+            try {
+                Mail::html($html, function ($message) use ($admin, $subject, $siteName): void {
+                    $message->to((string) $admin->email, (string) $admin->name)
+                        ->subject($subject)
+                        ->from(MailSender::address(), $siteName);
+                });
+            } catch (\Throwable) {
+                // Keep contact flow running if admin mail transport fails.
+            }
+        }
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\NewsletterCampaign;
+use App\Jobs\SendNewsletterCampaignSentAdminEmailJob;
 use App\Services\Newsletter\NewsletterService;
 use App\Services\UserNotificationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -31,6 +32,9 @@ class FinalizeNewsletterCampaignJob implements ShouldQueue
 
         $newsletterService->markCampaignSent($campaign);
 
-        $notificationService->dispatchNewsletterCampaignNotifications($campaign->fresh());
+        $fresh = $campaign->fresh();
+        $notificationService->dispatchNewsletterCampaignNotifications($fresh);
+        $notificationService->dispatchNewsletterCampaignSentAdminNotifications($fresh);
+        SendNewsletterCampaignSentAdminEmailJob::dispatch($fresh->id);
     }
 }
