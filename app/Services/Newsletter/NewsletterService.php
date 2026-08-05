@@ -237,6 +237,52 @@ class NewsletterService
         }
     }
 
+    public function sendCampaignSentAdminEmail(NewsletterCampaign $campaign): void
+    {
+        $admins = User::query()
+            ->role(['admin', 'super_admin'])
+            ->get(['id', 'email', 'name']);
+
+        if ($admins->isEmpty()) {
+            return;
+        }
+
+        $from = $this->providerFactory->fromAddress();
+        $siteName = $from['name'] !== '' ? $from['name'] : 'ZBC News';
+        $adminUrl = rtrim((string) config('app.frontend_url', config('app.url')), '/')
+            .'/admin/newsletters';
+
+        $subject = 'Newsletter campaign sent — '.($campaign->subject ?: $campaign->title);
+        $html = view('emails.newsletter-campaign-sent-admin', [
+            'subjectLine' => $subject,
+            'siteName' => $siteName,
+            'campaignTitle' => $campaign->title,
+            'campaignSubject' => $campaign->subject ?: $campaign->title,
+            'subscriberCount' => (int) ($campaign->subscriber_count ?? 0),
+            'failedCount' => (int) ($campaign->failed_count ?? 0),
+            'sentAt' => optional($campaign->sent_at)?->timezone(config('app.timezone'))->toDayDateTimeString()
+                ?? now()->timezone(config('app.timezone'))->toDayDateTimeString(),
+            'adminUrl' => $adminUrl,
+        ])->render();
+
+        $provider = $this->providerFactory->make();
+
+        foreach ($admins as $admin) {
+            try {
+                $provider->send([
+                    'to' => $admin->email,
+                    'to_name' => $admin->name,
+                    'subject' => $subject,
+                    'html' => $html,
+                    'from_email' => $from['email'],
+                    'from_name' => $siteName,
+                ]);
+            } catch (\Throwable) {
+                // Keep campaign finalize flow running if admin mail transport fails.
+            }
+        }
+    }
+
     /**
      * @return array{email: string, status: string}|null
      */

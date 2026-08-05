@@ -6,6 +6,7 @@ use App\Enums\NotificationCategory;
 use App\Enums\NotificationIcon;
 use App\Events\UserNotificationCreated;
 use App\Jobs\NotifyBreakingNewsBatch;
+use App\Jobs\SendCommentReplyEmailJob;
 use App\Models\Announcement;
 use App\Models\Article;
 use App\Models\ArticleComment;
@@ -282,6 +283,106 @@ class UserNotificationService
         return $sent;
     }
 
+    public function dispatchAccountDeletionAdminNotifications(User $user): int
+    {
+        $adminIds = User::query()
+            ->role(['admin', 'super_admin'])
+            ->pluck('id');
+
+        if ($adminIds->isEmpty()) {
+            return 0;
+        }
+
+        $label = $user->name ?: $user->email;
+        $finalDate = $user->scheduled_permanent_deletion_at
+            ? $user->scheduled_permanent_deletion_at->timezone(config('app.timezone'))->toFormattedDateString()
+            : 'N/A';
+
+        $title = 'Account deletion requested';
+        $body = "{$label} ({$user->email}) requested account deletion. Permanent deletion scheduled for {$finalDate}.";
+        $dedupeKey = "account:deletion:admin:{$user->id}";
+
+        $sent = 0;
+
+        foreach ($adminIds as $adminId) {
+            $admin = User::query()->find($adminId);
+
+            if (! $admin) {
+                continue;
+            }
+
+            $created = $this->notifyUser(
+                $admin,
+                NotificationCategory::SYSTEM,
+                NotificationIcon::ANNOUNCEMENT,
+                $title,
+                $body,
+                null,
+                "{$dedupeKey}:user:{$adminId}",
+            );
+
+            if ($created) {
+                $sent++;
+            }
+        }
+
+        Log::info('Account deletion admin notifications dispatched', [
+            'user_id' => $user->id,
+            'sent' => $sent,
+        ]);
+
+        return $sent;
+    }
+
+    public function dispatchNewsletterCampaignSentAdminNotifications(NewsletterCampaign $campaign): int
+    {
+        $adminIds = User::query()
+            ->role(['admin', 'super_admin'])
+            ->pluck('id');
+
+        if ($adminIds->isEmpty()) {
+            return 0;
+        }
+
+        $title = 'Newsletter campaign sent';
+        $subject = $campaign->subject ?: $campaign->title;
+        $recipientCount = (int) ($campaign->subscriber_count ?? 0);
+        $failedCount = (int) ($campaign->failed_count ?? 0);
+        $body = "\"{$subject}\" finished sending to {$recipientCount} recipients ({$failedCount} failed).";
+        $dedupeKey = "newsletter:campaign:sent:admin:{$campaign->id}";
+
+        $sent = 0;
+
+        foreach ($adminIds as $adminId) {
+            $admin = User::query()->find($adminId);
+
+            if (! $admin) {
+                continue;
+            }
+
+            $created = $this->notifyUser(
+                $admin,
+                NotificationCategory::SYSTEM,
+                NotificationIcon::RECOMMENDED,
+                $title,
+                $body,
+                null,
+                "{$dedupeKey}:user:{$adminId}",
+            );
+
+            if ($created) {
+                $sent++;
+            }
+        }
+
+        Log::info('Newsletter campaign sent admin notifications dispatched', [
+            'campaign_id' => $campaign->id,
+            'sent' => $sent,
+        ]);
+
+        return $sent;
+    }
+
     private function isBreakingArticle(Article $article): bool
     {
         $article->loadMissing('breakingNewsItem');
@@ -478,9 +579,126 @@ class UserNotificationService
             "comment-reply:{$reply->id}",
         );
 
+        SendCommentReplyEmailJob::dispatch($reply->id);
+
         Log::info('Comment reply notification dispatched', [
             'reply_id' => $reply->id,
             'recipient_id' => $parentUser->id,
         ]);
+    }
+
+    public function dispatchAccountDeletionCancelAdminNotifications(User $user): int
+    {
+        $adminIds = User::query()
+            ->role(['admin', 'super_admin'])
+            ->pluck('id');
+
+        if ($adminIds->isEmpty()) {
+            return 0;
+        }
+
+        $label = $user->name ?: $user->email;
+        $title = 'Deletion cancellation requested';
+        $body = "{$label} ({$user->email}) asked to cancel their account deletion. Review and restore if appropriate.";
+        $dedupeKey = "account:deletion-cancel:admin:{$user->id}";
+
+        $sent = 0;
+
+        foreach ($adminIds as $adminId) {
+            $admin = User::query()->find($adminId);
+
+            if (! $admin) {
+                continue;
+            }
+
+            $created = $this->notifyUser(
+                $admin,
+                NotificationCategory::SYSTEM,
+                NotificationIcon::ANNOUNCEMENT,
+                $title,
+                $body,
+                null,
+                "{$dedupeKey}:user:{$adminId}",
+            );
+
+            if ($created) {
+                $sent++;
+            }
+        }
+
+        Log::info('Account deletion cancel admin notifications dispatched', [
+            'user_id' => $user->id,
+            'sent' => $sent,
+        ]);
+
+        return $sent;
+    }
+
+    public function dispatchAccountRestoredUserNotification(User $user): ?UserNotification
+    {
+        $siteName = config('app.name', 'ZBC News');
+        $created = $this->notifyUser(
+            $user,
+            NotificationCategory::SYSTEM,
+            NotificationIcon::ANNOUNCEMENT,
+            'Account restored',
+            "An administrator restored your {$siteName} account. You can sign in again.",
+            null,
+            'account:restored:user:'.$user->id.':'.now()->timestamp,
+        );
+
+        Log::info('Account restored user notification dispatched', [
+            'user_id' => $user->id,
+            'created' => (bool) $created,
+        ]);
+
+        return $created;
+    }
+
+    public function dispatchAccountRestoredAdminNotifications(User $user): int
+    {
+        $adminIds = User::query()
+            ->role(['admin', 'super_admin'])
+            ->pluck('id');
+
+        if ($adminIds->isEmpty()) {
+            return 0;
+        }
+
+        $label = $user->name ?: $user->email;
+        $title = 'Account restored';
+        $body = "{$label} ({$user->email}) was restored by an administrator and can sign in again.";
+        $dedupeKey = 'account:restored:admin:'.$user->id.':'.now()->timestamp;
+
+        $sent = 0;
+
+        foreach ($adminIds as $adminId) {
+            $admin = User::query()->find($adminId);
+
+            if (! $admin) {
+                continue;
+            }
+
+            $created = $this->notifyUser(
+                $admin,
+                NotificationCategory::SYSTEM,
+                NotificationIcon::ANNOUNCEMENT,
+                $title,
+                $body,
+                null,
+                "{$dedupeKey}:user:{$adminId}",
+            );
+
+            if ($created) {
+                $sent++;
+            }
+        }
+
+        Log::info('Account restored admin notifications dispatched', [
+            'user_id' => $user->id,
+            'sent' => $sent,
+        ]);
+
+        return $sent;
     }
 }
