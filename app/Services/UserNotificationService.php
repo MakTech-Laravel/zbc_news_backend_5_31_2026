@@ -17,6 +17,7 @@ use App\Models\NewsletterCampaign;
 use App\Models\NewsletterSubscriber;
 use App\Models\NotificationPreference;
 use App\Models\SaveArticle;
+use App\Models\ScheduledTaskFailure;
 use App\Models\User;
 use App\Models\UserNotification;
 use App\Support\BreakingTag;
@@ -911,6 +912,53 @@ class UserNotificationService
             'subscriber_id' => $subscriber->id,
             'status' => $status,
             'event_id' => $eventId,
+            'sent' => $sent,
+        ]);
+
+        return $sent;
+    }
+
+    public function dispatchScheduledTaskFailedAdminNotifications(ScheduledTaskFailure $failure): int
+    {
+        $adminIds = User::query()
+            ->role(['admin', 'super_admin'])
+            ->pluck('id');
+
+        if ($adminIds->isEmpty()) {
+            return 0;
+        }
+
+        $title = $failure->task_type === 'queue' ? 'Queue job failed' : 'Scheduled task failed';
+        $body = "{$failure->task_name} failed: {$failure->exception_message}";
+        $dedupeKey = 'schedule:failed:'.$failure->id.':'.$failure->occurrence_count;
+
+        $sent = 0;
+
+        foreach ($adminIds as $adminId) {
+            $admin = User::query()->find($adminId);
+
+            if (! $admin) {
+                continue;
+            }
+
+            $created = $this->notifyUser(
+                $admin,
+                NotificationCategory::SYSTEM,
+                NotificationIcon::ANNOUNCEMENT,
+                $title,
+                mb_substr($body, 0, 500),
+                null,
+                "{$dedupeKey}:user:{$adminId}",
+            );
+
+            if ($created) {
+                $sent++;
+            }
+        }
+
+        Log::info('Scheduled task failed admin notifications dispatched', [
+            'failure_id' => $failure->id,
+            'task_key' => $failure->task_key,
             'sent' => $sent,
         ]);
 

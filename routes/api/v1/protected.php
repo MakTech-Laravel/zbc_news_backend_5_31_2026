@@ -31,6 +31,7 @@ use App\Http\Controllers\Api\V1\backend\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\backend\PermissionController;
 use App\Http\Controllers\Api\V1\backend\RoleController;
 use App\Http\Controllers\Api\V1\backend\SaveArticleController;
+use App\Http\Controllers\Api\V1\backend\ScheduledTaskFailureController;
 use App\Http\Controllers\Api\V1\backend\SeoPageController;
 use App\Http\Controllers\Api\V1\backend\SeoSitemapAdminController;
 use App\Http\Controllers\Api\V1\backend\SubMenuController;
@@ -517,6 +518,15 @@ Route::get('/monetization/overview', [MonetizationController::class, 'overview']
 
 Route::get('/dashboard/overview', [AdminDashboardController::class, 'overview'])
     ->name('api.v1.admin.dashboard.overview');
+
+Route::controller(ScheduledTaskFailureController::class)->prefix('scheduled-task-failures')->group(function () {
+    Route::get('/', 'index')->name('api.v1.scheduled-task-failures.index')
+        ->middleware('permission:'.PermissionEnum::SCHEDULED_TASKS_LIST->value);
+    Route::post('/{id}/rerun', 'rerun')->name('api.v1.scheduled-task-failures.rerun')
+        ->middleware('permission:'.PermissionEnum::SCHEDULED_TASKS_RERUN->value);
+    Route::post('/{id}/resolve', 'resolve')->name('api.v1.scheduled-task-failures.resolve')
+        ->middleware('permission:'.PermissionEnum::SCHEDULED_TASKS_RERUN->value);
+});
 
 Route::get('/search', [AdminSearchController::class, 'index'])
     ->name('api.v1.admin.search');
