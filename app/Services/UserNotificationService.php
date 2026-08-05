@@ -29,6 +29,10 @@ class UserNotificationService
 {
     private const BREAKING_BATCH_SIZE = 200;
 
+    public function __construct(
+        private readonly AdminNotificationPreferenceService $adminNotificationPreferences,
+    ) {}
+
     public function listForUser(User $user, ?string $category = null, int $limit = 50): Collection
     {
         $query = UserNotification::query()
@@ -232,9 +236,9 @@ class UserNotificationService
         NewsletterSubscriber $subscriber,
         bool $verified = false,
     ): int {
-        $adminIds = User::query()
-            ->role(['admin', 'super_admin'])
-            ->pluck('id');
+        $adminIds = $this->adminNotificationPreferences->dashboardRecipientIds(
+            AdminNotificationPreferenceService::EVENT_NEWSLETTER_SUBSCRIPTION,
+        );
 
         if ($adminIds->isEmpty()) {
             return 0;
@@ -288,9 +292,9 @@ class UserNotificationService
 
     public function dispatchAccountDeletionAdminNotifications(User $user): int
     {
-        $adminIds = User::query()
-            ->role(['admin', 'super_admin'])
-            ->pluck('id');
+        $adminIds = $this->adminNotificationPreferences->dashboardRecipientIds(
+            AdminNotificationPreferenceService::EVENT_ACCOUNT_ACTIVITY,
+        );
 
         if ($adminIds->isEmpty()) {
             return 0;
@@ -339,9 +343,9 @@ class UserNotificationService
 
     public function dispatchNewsletterCampaignSentAdminNotifications(NewsletterCampaign $campaign): int
     {
-        $adminIds = User::query()
-            ->role(['admin', 'super_admin'])
-            ->pluck('id');
+        $adminIds = $this->adminNotificationPreferences->dashboardRecipientIds(
+            AdminNotificationPreferenceService::EVENT_NEWSLETTER_CAMPAIGN,
+        );
 
         if ($adminIds->isEmpty()) {
             return 0;
@@ -592,9 +596,9 @@ class UserNotificationService
 
     public function dispatchAccountDeletionCancelAdminNotifications(User $user): int
     {
-        $adminIds = User::query()
-            ->role(['admin', 'super_admin'])
-            ->pluck('id');
+        $adminIds = $this->adminNotificationPreferences->dashboardRecipientIds(
+            AdminNotificationPreferenceService::EVENT_ACCOUNT_ACTIVITY,
+        );
 
         if ($adminIds->isEmpty()) {
             return 0;
@@ -660,9 +664,9 @@ class UserNotificationService
 
     public function dispatchAccountRestoredAdminNotifications(User $user): int
     {
-        $adminIds = User::query()
-            ->role(['admin', 'super_admin'])
-            ->pluck('id');
+        $adminIds = $this->adminNotificationPreferences->dashboardRecipientIds(
+            AdminNotificationPreferenceService::EVENT_ACCOUNT_ACTIVITY,
+        );
 
         if ($adminIds->isEmpty()) {
             return 0;
@@ -707,9 +711,9 @@ class UserNotificationService
 
     public function dispatchCommentPendingModerationAdminNotifications(ArticleComment $comment): int
     {
-        $adminIds = User::query()
-            ->role(['admin', 'super_admin'])
-            ->pluck('id');
+        $adminIds = $this->adminNotificationPreferences->dashboardRecipientIds(
+            AdminNotificationPreferenceService::EVENT_COMMENT_MODERATION,
+        );
 
         if ($adminIds->isEmpty()) {
             return 0;
@@ -756,9 +760,9 @@ class UserNotificationService
 
     public function dispatchContactInquiryAdminNotifications(ContactInquiry $inquiry): int
     {
-        $adminIds = User::query()
-            ->role(['admin', 'super_admin'])
-            ->pluck('id');
+        $adminIds = $this->adminNotificationPreferences->dashboardRecipientIds(
+            AdminNotificationPreferenceService::EVENT_CONTACT_INQUIRY,
+        );
 
         if ($adminIds->isEmpty()) {
             return 0;
@@ -804,9 +808,9 @@ class UserNotificationService
 
     public function dispatchCareerApplicationAdminNotifications(CareerApplication $application): int
     {
-        $adminIds = User::query()
-            ->role(['admin', 'super_admin'])
-            ->pluck('id');
+        $adminIds = $this->adminNotificationPreferences->dashboardRecipientIds(
+            AdminNotificationPreferenceService::EVENT_CAREER_APPLICATION,
+        );
 
         if ($adminIds->isEmpty()) {
             return 0;
@@ -857,9 +861,9 @@ class UserNotificationService
         ?int $eventId = null,
         ?string $rawEvent = null,
     ): int {
-        $adminIds = User::query()
-            ->role(['admin', 'super_admin'])
-            ->pluck('id');
+        $adminIds = $this->adminNotificationPreferences->dashboardRecipientIds(
+            AdminNotificationPreferenceService::EVENT_NEWSLETTER_DELIVERY,
+        );
 
         if ($adminIds->isEmpty()) {
             return 0;
@@ -920,9 +924,9 @@ class UserNotificationService
 
     public function dispatchScheduledTaskFailedAdminNotifications(ScheduledTaskFailure $failure): int
     {
-        $adminIds = User::query()
-            ->role(['admin', 'super_admin'])
-            ->pluck('id');
+        $adminIds = $this->adminNotificationPreferences->dashboardRecipientIds(
+            AdminNotificationPreferenceService::EVENT_TASK_FAILURE,
+        );
 
         if ($adminIds->isEmpty()) {
             return 0;
@@ -971,9 +975,9 @@ class UserNotificationService
         int $attempts,
         string $alertKey,
     ): int {
-        $adminIds = User::query()
-            ->role(['admin', 'super_admin'])
-            ->pluck('id');
+        $adminIds = $this->adminNotificationPreferences->dashboardRecipientIds(
+            AdminNotificationPreferenceService::EVENT_SECURITY_ALERT,
+        );
 
         if ($adminIds->isEmpty()) {
             return 0;

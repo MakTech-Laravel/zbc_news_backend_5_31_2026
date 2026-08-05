@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Jobs\SendFailedLoginAdminEmailJob;
-use App\Models\User;
 use App\Support\MailSender;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
@@ -15,6 +14,7 @@ class LoginSecurityAlertService
     public const DECAY_SECONDS = 300;
 
     public function __construct(
+        private readonly AdminNotificationPreferenceService $adminNotificationPreferences,
         private readonly UserNotificationService $userNotificationService,
     ) {}
 
@@ -58,9 +58,9 @@ class LoginSecurityAlertService
         ?string $userAgent,
         int $attempts,
     ): void {
-        $admins = User::query()
-            ->role(['admin', 'super_admin'])
-            ->get(['id', 'email', 'name']);
+        $admins = $this->adminNotificationPreferences->emailRecipients(
+            AdminNotificationPreferenceService::EVENT_SECURITY_ALERT,
+        );
 
         if ($admins->isEmpty()) {
             return;

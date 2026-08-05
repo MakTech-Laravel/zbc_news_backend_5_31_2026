@@ -7,7 +7,6 @@ use App\Enums\CareerJobStatus;
 use App\Jobs\SendCareerApplicationAdminEmailJob;
 use App\Models\CareerApplication;
 use App\Models\CareerJob;
-use App\Models\User;
 use App\Support\MailSender;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -23,6 +22,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class CareerApplicationService
 {
     public function __construct(
+        private readonly AdminNotificationPreferenceService $adminNotificationPreferences,
         private readonly UserNotificationService $userNotificationService,
     ) {}
 
@@ -65,9 +65,9 @@ class CareerApplicationService
     {
         $application->loadMissing('job');
 
-        $admins = User::query()
-            ->role(['admin', 'super_admin'])
-            ->get(['id', 'email', 'name']);
+        $admins = $this->adminNotificationPreferences->emailRecipients(
+            AdminNotificationPreferenceService::EVENT_CAREER_APPLICATION,
+        );
 
         if ($admins->isEmpty()) {
             return;

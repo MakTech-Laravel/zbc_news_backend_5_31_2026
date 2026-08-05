@@ -4,7 +4,7 @@ namespace App\Services\Newsletter;
 
 use App\Jobs\SendNewsletterDeliveryStatusAdminEmailJob;
 use App\Models\NewsletterSubscriber;
-use App\Models\User;
+use App\Services\AdminNotificationPreferenceService;
 use App\Services\UserNotificationService;
 use App\Support\MailSender;
 use Illuminate\Support\Facades\Mail;
@@ -15,6 +15,7 @@ class NewsletterDeliveryStatusAdminNotifier
     public const ALERTABLE = ['delivered', 'failed', 'bounced', 'unsubscribed'];
 
     public function __construct(
+        private readonly AdminNotificationPreferenceService $adminNotificationPreferences,
         private readonly UserNotificationService $userNotificationService,
     ) {}
 
@@ -53,9 +54,9 @@ class NewsletterDeliveryStatusAdminNotifier
             return;
         }
 
-        $admins = User::query()
-            ->role(['admin', 'super_admin'])
-            ->get(['id', 'email', 'name']);
+        $admins = $this->adminNotificationPreferences->emailRecipients(
+            AdminNotificationPreferenceService::EVENT_NEWSLETTER_DELIVERY,
+        );
 
         if ($admins->isEmpty()) {
             return;

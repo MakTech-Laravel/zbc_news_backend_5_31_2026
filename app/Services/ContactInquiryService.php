@@ -21,6 +21,7 @@ use Illuminate\Validation\ValidationException;
 class ContactInquiryService
 {
     public function __construct(
+        private readonly AdminNotificationPreferenceService $adminNotificationPreferences,
         private readonly NewsletterService $newsletterService,
         private readonly UserNotificationService $userNotificationService,
     ) {}
@@ -236,9 +237,9 @@ class ContactInquiryService
 
     public function sendAdminEmail(ContactInquiry $inquiry): void
     {
-        $admins = User::query()
-            ->role(['admin', 'super_admin'])
-            ->get(['id', 'email', 'name']);
+        $admins = $this->adminNotificationPreferences->emailRecipients(
+            AdminNotificationPreferenceService::EVENT_CONTACT_INQUIRY,
+        );
 
         if ($admins->isEmpty()) {
             return;

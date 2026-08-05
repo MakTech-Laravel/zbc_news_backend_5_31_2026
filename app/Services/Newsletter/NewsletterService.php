@@ -14,6 +14,7 @@ use App\Models\NewsletterEvent;
 use App\Models\NewsletterSubscriber;
 use App\Models\User;
 use App\Enums\ArticleStatus;
+use App\Services\AdminNotificationPreferenceService;
 use App\Services\UserNotificationService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -28,6 +29,7 @@ class NewsletterService
     private static array $columnCache = [];
 
     public function __construct(
+        private readonly AdminNotificationPreferenceService $adminNotificationPreferences,
         private readonly NewsletterEmailProviderFactory $providerFactory,
         private readonly NewsletterTrackingService $trackingService,
         private readonly NewsletterContentFormatter $contentFormatter,
@@ -193,9 +195,9 @@ class NewsletterService
         NewsletterSubscriber $subscriber,
         bool $verified = false,
     ): void {
-        $admins = User::query()
-            ->role(['admin', 'super_admin'])
-            ->get(['id', 'email', 'name']);
+        $admins = $this->adminNotificationPreferences->emailRecipients(
+            AdminNotificationPreferenceService::EVENT_NEWSLETTER_SUBSCRIPTION,
+        );
 
         if ($admins->isEmpty()) {
             return;
@@ -240,9 +242,9 @@ class NewsletterService
 
     public function sendCampaignSentAdminEmail(NewsletterCampaign $campaign): void
     {
-        $admins = User::query()
-            ->role(['admin', 'super_admin'])
-            ->get(['id', 'email', 'name']);
+        $admins = $this->adminNotificationPreferences->emailRecipients(
+            AdminNotificationPreferenceService::EVENT_NEWSLETTER_CAMPAIGN,
+        );
 
         if ($admins->isEmpty()) {
             return;
@@ -526,6 +528,7 @@ class NewsletterService
             $subscriber,
             verified: true,
         );
+        $this->queueAdminSubscriptionNotificationEmail($subscriber, verified: true);
 
         return $subscriber;
     }

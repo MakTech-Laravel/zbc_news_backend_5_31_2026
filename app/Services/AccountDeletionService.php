@@ -22,6 +22,7 @@ class AccountDeletionService
     public const GRACE_DAYS = 30;
 
     public function __construct(
+        private readonly AdminNotificationPreferenceService $adminNotificationPreferences,
         private readonly BrevoContactService $brevoContactService,
         private readonly UserNotificationService $userNotificationService,
     ) {}
@@ -239,9 +240,9 @@ class AccountDeletionService
 
     public function sendDeletionRequestedAdminEmail(User $user): void
     {
-        $admins = User::query()
-            ->role(['admin', 'super_admin'])
-            ->get(['id', 'email', 'name']);
+        $admins = $this->adminNotificationPreferences->emailRecipients(
+            AdminNotificationPreferenceService::EVENT_ACCOUNT_ACTIVITY,
+        );
 
         if ($admins->isEmpty()) {
             return;
@@ -302,9 +303,9 @@ class AccountDeletionService
 
     public function sendDeletionCancelAdminEmail(User $user): void
     {
-        $admins = User::query()
-            ->role(['admin', 'super_admin'])
-            ->get(['id', 'email', 'name']);
+        $admins = $this->adminNotificationPreferences->emailRecipients(
+            AdminNotificationPreferenceService::EVENT_ACCOUNT_ACTIVITY,
+        );
 
         if ($admins->isEmpty()) {
             return;
@@ -362,9 +363,9 @@ class AccountDeletionService
 
     public function sendAccountRestoredAdminEmail(User $user): void
     {
-        $admins = User::query()
-            ->role(['admin', 'super_admin'])
-            ->get(['id', 'email', 'name']);
+        $admins = $this->adminNotificationPreferences->emailRecipients(
+            AdminNotificationPreferenceService::EVENT_ACCOUNT_ACTIVITY,
+        );
 
         if ($admins->isEmpty()) {
             return;

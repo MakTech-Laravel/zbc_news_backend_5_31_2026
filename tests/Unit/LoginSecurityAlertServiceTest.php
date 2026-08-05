@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Jobs\SendFailedLoginAdminEmailJob;
+use App\Services\AdminNotificationPreferenceService;
 use App\Services\LoginSecurityAlertService;
 use App\Services\UserNotificationService;
 use Illuminate\Support\Facades\Queue;
@@ -26,7 +27,8 @@ class LoginSecurityAlertServiceTest extends TestCase
             )
             ->andReturn(1);
 
-        $service = new LoginSecurityAlertService($notifications);
+        $preferences = Mockery::mock(AdminNotificationPreferenceService::class);
+        $service = new LoginSecurityAlertService($preferences, $notifications);
         $service->clear('person@example.com');
 
         for ($attempt = 1; $attempt <= LoginSecurityAlertService::MAX_FAILED_ATTEMPTS; $attempt++) {
@@ -50,7 +52,8 @@ class LoginSecurityAlertServiceTest extends TestCase
         $notifications = Mockery::mock(UserNotificationService::class);
         $notifications->shouldNotReceive('dispatchFailedLoginAdminNotifications');
 
-        $service = new LoginSecurityAlertService($notifications);
+        $preferences = Mockery::mock(AdminNotificationPreferenceService::class);
+        $service = new LoginSecurityAlertService($preferences, $notifications);
         $service->clear('person@example.com');
 
         $this->assertSame(1, $service->recordFailure('person@example.com', null, null));

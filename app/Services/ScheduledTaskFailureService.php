@@ -24,6 +24,7 @@ class ScheduledTaskFailureService
     ];
 
     public function __construct(
+        private readonly AdminNotificationPreferenceService $adminNotificationPreferences,
         private readonly UserNotificationService $userNotificationService,
     ) {}
 
@@ -202,9 +203,9 @@ class ScheduledTaskFailureService
 
     public function sendAdminEmail(ScheduledTaskFailure $failure): void
     {
-        $admins = User::query()
-            ->role(['admin', 'super_admin'])
-            ->get(['id', 'email', 'name']);
+        $admins = $this->adminNotificationPreferences->emailRecipients(
+            AdminNotificationPreferenceService::EVENT_TASK_FAILURE,
+        );
 
         if ($admins->isEmpty()) {
             return;

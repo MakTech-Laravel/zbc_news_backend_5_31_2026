@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\V1\backend\AdminTermsOfServiceController;
 use App\Http\Controllers\Api\V1\backend\AdminCommentController;
 use App\Http\Controllers\Api\V1\backend\AdminContactInquiryController;
 use App\Http\Controllers\Api\V1\backend\AdminDashboardController;
+use App\Http\Controllers\Api\V1\backend\AdminNotificationSettingsController;
 use App\Http\Controllers\Api\V1\backend\AdminSearchController;
 use App\Http\Controllers\Api\V1\backend\AdSlotController;
 use App\Http\Controllers\Api\V1\backend\AnnouncementController;
@@ -186,6 +187,13 @@ Route::controller(SiteSettingsController::class)->prefix('site-settings')->group
     Route::post('/update', 'createOrUpdate')->name('api.v1.site-settings.update')
         ->middleware('permission:'.PermissionEnum::SITE_SETTINGS_UPDATE->value);
 });
+
+Route::controller(AdminNotificationSettingsController::class)
+    ->prefix('admin-notification-settings')
+    ->group(function () {
+        Route::get('/', 'index')->name('api.v1.admin-notification-settings.index');
+        Route::put('/', 'update')->name('api.v1.admin-notification-settings.update');
+    });
 
 Route::controller(SeoPageController::class)->prefix('seo-pages')->group(function () {
     Route::get('/', 'index')->name('api.v1.seo-pages.index')

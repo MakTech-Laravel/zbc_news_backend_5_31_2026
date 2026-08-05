@@ -17,6 +17,7 @@ use Illuminate\Validation\ValidationException;
 class CommentService
 {
     public function __construct(
+        private readonly AdminNotificationPreferenceService $adminNotificationPreferences,
         private readonly SiteSettingsService $siteSettingsService,
         private readonly UserNotificationService $notificationService,
     ) {}
@@ -137,9 +138,9 @@ class CommentService
     {
         $comment->loadMissing(['user', 'article']);
 
-        $admins = User::query()
-            ->role(['admin', 'super_admin'])
-            ->get(['id', 'email', 'name']);
+        $admins = $this->adminNotificationPreferences->emailRecipients(
+            AdminNotificationPreferenceService::EVENT_COMMENT_MODERATION,
+        );
 
         if ($admins->isEmpty()) {
             return;
