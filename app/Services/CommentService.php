@@ -3,12 +3,15 @@
 namespace App\Services;
 
 use App\Enums\CommentStatus;
+use App\Jobs\SendCommentPendingModerationAdminEmailJob;
 use App\Models\Article;
 use App\Models\ArticleComment;
 use App\Models\User;
+use App\Support\MailSender;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
 class CommentService
@@ -49,13 +52,13 @@ class CommentService
         }
 
         if ($search) {
-            $like = '%'.str_replace(['%', '_'], ['\%', '\_'], trim($search)).'%';
+            $like = '%' . str_replace(['%', '_'], ['\%', '\_'], trim($search)) . '%';
             $query->where(function ($q) use ($like) {
                 $q->where('body', 'like', $like)
                     ->orWhere('guest_name', 'like', $like)
                     ->orWhere('guest_email', 'like', $like)
-                    ->orWhereHas('user', fn ($userQuery) => $userQuery->where('name', 'like', $like))
-                    ->orWhereHas('article', fn ($articleQuery) => $articleQuery->where('title', 'like', $like));
+                    ->orWhereHas('user', fn($userQuery) => $userQuery->where('name', 'like', $like))
+                    ->orWhereHas('article', fn($articleQuery) => $articleQuery->where('title', 'like', $like));
             });
         }
 
@@ -121,7 +124,55 @@ class CommentService
             $this->notificationService->dispatchCommentReplyNotification($comment->load(['user', 'article', 'parent.user']));
         }
 
+        if ($status === CommentStatus::PENDING) {
+            $comment->loadMissing(['user', 'article']);
+            $this->notificationService->dispatchCommentPendingModerationAdminNotifications($comment);
+            SendCommentPendingModerationAdminEmailJob::dispatch($comment->id);
+        }
+
         return $comment->load(['user', 'article']);
+    }
+
+    public function sendPendingModerationAdminEmail(ArticleComment $comment): void
+    {
+        $comment->loadMissing(['user', 'article']);
+
+        $admins = User::query()
+            ->role(['admin', 'super_admin'])
+            ->get(['id', 'email', 'name']);
+
+        if ($admins->isEmpty()) {
+            return;
+        }
+
+        $siteName = MailSender::name();
+        $frontendUrl = rtrim((string) config('app.frontend_url', config('app.url')), '/');
+        $adminUrl = $frontendUrl.'/admin/comments';
+        $authorName = $comment->authorName();
+        $articleTitle = $comment->article?->title ?? 'an article';
+        $excerpt = mb_substr(trim(strip_tags((string) $comment->body)), 0, 200);
+
+        $subject = "Comment awaiting moderation — {$articleTitle}";
+        $html = view('emails.comment-pending-moderation-admin', [
+            'subjectLine' => $subject,
+            'siteName' => $siteName,
+            'authorName' => $authorName,
+            'articleTitle' => $articleTitle,
+            'excerpt' => $excerpt,
+            'adminUrl' => $adminUrl,
+        ])->render();
+
+        foreach ($admins as $admin) {
+            try {
+                Mail::html($html, function ($message) use ($admin, $subject, $siteName): void {
+                    $message->to((string) $admin->email, (string) $admin->name)
+                        ->subject($subject)
+                        ->from(MailSender::address(), $siteName);
+                });
+            } catch (\Throwable) {
+                // Keep comment flow running if admin mail transport fails.
+            }
+        }
     }
 
     public function approve(ArticleComment $comment, User $moderator): ArticleComment

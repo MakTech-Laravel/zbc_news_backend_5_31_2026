@@ -701,4 +701,53 @@ class UserNotificationService
 
         return $sent;
     }
+
+    public function dispatchCommentPendingModerationAdminNotifications(ArticleComment $comment): int
+    {
+        $adminIds = User::query()
+            ->role(['admin', 'super_admin'])
+            ->pluck('id');
+
+        if ($adminIds->isEmpty()) {
+            return 0;
+        }
+
+        $comment->loadMissing(['user', 'article']);
+        $authorName = $comment->authorName();
+        $articleTitle = $comment->article?->title ?? 'an article';
+        $title = 'Comment awaiting moderation';
+        $body = "{$authorName} commented on '{$articleTitle}' and is awaiting moderation.";
+        $dedupeKey = "comment:pending:admin:{$comment->id}";
+
+        $sent = 0;
+
+        foreach ($adminIds as $adminId) {
+            $admin = User::query()->find($adminId);
+
+            if (! $admin) {
+                continue;
+            }
+
+            $created = $this->notifyUser(
+                $admin,
+                NotificationCategory::SYSTEM,
+                NotificationIcon::ANNOUNCEMENT,
+                $title,
+                $body,
+                $comment->article?->slug,
+                "{$dedupeKey}:user:{$adminId}",
+            );
+
+            if ($created) {
+                $sent++;
+            }
+        }
+
+        Log::info('Comment pending moderation admin notifications dispatched', [
+            'comment_id' => $comment->id,
+            'sent' => $sent,
+        ]);
+
+        return $sent;
+    }
 }
