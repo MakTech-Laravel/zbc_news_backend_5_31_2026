@@ -4,20 +4,28 @@ namespace App\Services;
 
 use App\Enums\CareerApplicationStatus;
 use App\Enums\CareerJobStatus;
+use App\Jobs\SendCareerApplicationAdminEmailJob;
 use App\Models\CareerApplication;
 use App\Models\CareerJob;
+use App\Models\User;
+use App\Support\MailSender;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CareerApplicationService
 {
+    public function __construct(
+        private readonly UserNotificationService $userNotificationService,
+    ) {}
+
     public function store(array $data, UploadedFile $resume, Request $request): CareerApplication
     {
         $job = CareerJob::query()->findOrFail($data['career_job_id']);
@@ -30,7 +38,7 @@ class CareerApplicationService
 
         $path = $resume->store('career-resumes', 'local');
 
-        return CareerApplication::query()->create([
+        $application = CareerApplication::query()->create([
             'career_job_id' => $job->id,
             'name' => trim($data['name']),
             'email' => strtolower(trim($data['email'])),
@@ -44,6 +52,58 @@ class CareerApplicationService
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
         ]);
+
+        $application->setRelation('job', $job);
+
+        $this->userNotificationService->dispatchCareerApplicationAdminNotifications($application);
+        SendCareerApplicationAdminEmailJob::dispatch($application->id);
+
+        return $application;
+    }
+
+    public function sendAdminEmail(CareerApplication $application): void
+    {
+        $application->loadMissing('job');
+
+        $admins = User::query()
+            ->role(['admin', 'super_admin'])
+            ->get(['id', 'email', 'name']);
+
+        if ($admins->isEmpty()) {
+            return;
+        }
+
+        $siteName = MailSender::name();
+        $frontendUrl = rtrim((string) config('app.frontend_url', config('app.url')), '/');
+        $adminUrl = $frontendUrl.'/admin/careers/applications/'.$application->id;
+        $jobTitle = $application->job?->title ?? 'Unknown position';
+        $coverLetterExcerpt = filled($application->cover_letter)
+            ? mb_substr(trim(strip_tags((string) $application->cover_letter)), 0, 200)
+            : '';
+
+        $subject = "New career application — {$jobTitle}";
+        $html = view('emails.career-application-admin', [
+            'subjectLine' => $subject,
+            'siteName' => $siteName,
+            'name' => $application->name,
+            'email' => $application->email,
+            'phone' => $application->phone,
+            'jobTitle' => $jobTitle,
+            'coverLetterExcerpt' => $coverLetterExcerpt,
+            'adminUrl' => $adminUrl,
+        ])->render();
+
+        foreach ($admins as $admin) {
+            try {
+                Mail::html($html, function ($message) use ($admin, $subject, $siteName): void {
+                    $message->to((string) $admin->email, (string) $admin->name)
+                        ->subject($subject)
+                        ->from(MailSender::address(), $siteName);
+                });
+            } catch (\Throwable) {
+                // Keep application flow running if admin mail transport fails.
+            }
+        }
     }
 
     public function adminList(

@@ -11,6 +11,7 @@ use App\Models\Announcement;
 use App\Models\Article;
 use App\Models\ArticleComment;
 use App\Models\ArticleHistroy;
+use App\Models\CareerApplication;
 use App\Models\ContactInquiry;
 use App\Models\NewsletterCampaign;
 use App\Models\NewsletterSubscriber;
@@ -794,6 +795,55 @@ class UserNotificationService
 
         Log::info('Contact inquiry admin notifications dispatched', [
             'inquiry_id' => $inquiry->id,
+            'sent' => $sent,
+        ]);
+
+        return $sent;
+    }
+
+    public function dispatchCareerApplicationAdminNotifications(CareerApplication $application): int
+    {
+        $adminIds = User::query()
+            ->role(['admin', 'super_admin'])
+            ->pluck('id');
+
+        if ($adminIds->isEmpty()) {
+            return 0;
+        }
+
+        $application->loadMissing('job');
+        $label = $application->name ?: $application->email;
+        $jobTitle = $application->job?->title ?? 'a position';
+        $title = 'New career application';
+        $body = "{$label} ({$application->email}) applied for '{$jobTitle}'.";
+        $dedupeKey = "career:application:admin:{$application->id}";
+
+        $sent = 0;
+
+        foreach ($adminIds as $adminId) {
+            $admin = User::query()->find($adminId);
+
+            if (! $admin) {
+                continue;
+            }
+
+            $created = $this->notifyUser(
+                $admin,
+                NotificationCategory::SYSTEM,
+                NotificationIcon::ANNOUNCEMENT,
+                $title,
+                $body,
+                null,
+                "{$dedupeKey}:user:{$adminId}",
+            );
+
+            if ($created) {
+                $sent++;
+            }
+        }
+
+        Log::info('Career application admin notifications dispatched', [
+            'application_id' => $application->id,
             'sent' => $sent,
         ]);
 
