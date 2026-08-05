@@ -964,4 +964,56 @@ class UserNotificationService
 
         return $sent;
     }
+
+    public function dispatchFailedLoginAdminNotifications(
+        string $email,
+        ?string $ipAddress,
+        int $attempts,
+        string $alertKey,
+    ): int {
+        $adminIds = User::query()
+            ->role(['admin', 'super_admin'])
+            ->pluck('id');
+
+        if ($adminIds->isEmpty()) {
+            return 0;
+        }
+
+        $title = 'Security alert: failed logins';
+        $body = "{$attempts} failed login attempts were made for {$email}"
+            .($ipAddress ? " from IP {$ipAddress}." : '.');
+        $dedupeKey = 'security:failed-login:'.$alertKey;
+        $sent = 0;
+
+        foreach ($adminIds as $adminId) {
+            $admin = User::query()->find($adminId);
+
+            if (! $admin) {
+                continue;
+            }
+
+            $created = $this->notifyUser(
+                $admin,
+                NotificationCategory::SYSTEM,
+                NotificationIcon::ANNOUNCEMENT,
+                $title,
+                $body,
+                null,
+                "{$dedupeKey}:user:{$adminId}",
+            );
+
+            if ($created) {
+                $sent++;
+            }
+        }
+
+        Log::warning('Failed login threshold admin notifications dispatched', [
+            'attempted_email' => $email,
+            'ip_address' => $ipAddress,
+            'attempts' => $attempts,
+            'sent' => $sent,
+        ]);
+
+        return $sent;
+    }
 }
