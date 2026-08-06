@@ -25,19 +25,25 @@ class AdminNotificationSettingsController extends Controller
         return sendResponse(
             true,
             'Admin notification settings retrieved successfully.',
-            ['settings' => $this->preferences->all()],
+            [
+                'settings' => $this->preferences->all(),
+                'admin_notification_email' => $this->preferences->notificationEmail(),
+            ],
             HttpStatus::HTTP_OK,
         );
     }
 
     public function update(AdminNotificationSettingsRequest $request): JsonResponse
     {
-        $settings = $this->preferences->update($request->validated('settings'));
+        $result = $this->preferences->update(
+            $request->validated('settings'),
+            $request->validated('admin_notification_email'),
+        );
 
         return sendResponse(
             true,
             'Admin notification settings updated successfully.',
-            ['settings' => $settings],
+            $result,
             HttpStatus::HTTP_OK,
         );
     }

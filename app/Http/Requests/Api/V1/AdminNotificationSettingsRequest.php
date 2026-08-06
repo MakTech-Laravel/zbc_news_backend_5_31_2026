@@ -17,6 +17,7 @@ class AdminNotificationSettingsRequest extends FormRequest
         $events = array_keys(AdminNotificationPreferenceService::DEFAULTS);
 
         return [
+            'admin_notification_email' => ['required', 'email', 'max:255'],
             'settings.*' => ['required', 'array:dashboard,email'],
             'settings.*.dashboard' => ['required', 'boolean'],
             'settings.*.email' => ['required', 'boolean'],

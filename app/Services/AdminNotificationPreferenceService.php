@@ -30,6 +30,8 @@ class AdminNotificationPreferenceService
 
     public const EVENT_SECURITY_ALERT = 'security_alert';
 
+    public const DEFAULT_ADMIN_NOTIFICATION_EMAIL = 'newsroom@zbc.news';
+
     public const DEFAULTS = [
         self::EVENT_NEWSLETTER_SUBSCRIPTION => [
             self::CHANNEL_DASHBOARD => true,
@@ -101,6 +103,13 @@ class AdminNotificationPreferenceService
         return $settings;
     }
 
+    public function notificationEmail(): string
+    {
+        $email = strtolower(trim((string) ($this->siteSettingsService->getOrDefault()->admin_notification_email ?? '')));
+
+        return $email !== '' ? $email : self::DEFAULT_ADMIN_NOTIFICATION_EMAIL;
+    }
+
     public function enabled(string $event, string $channel): bool
     {
         return (bool) ($this->all()[$event][$channel] ?? false);
@@ -119,6 +128,8 @@ class AdminNotificationPreferenceService
     }
 
     /**
+     * Primary inbox + admin/super_admin accounts, deduped by email.
+     *
      * @return Collection<int, User>
      */
     public function emailRecipients(string $event): Collection
@@ -127,14 +138,30 @@ class AdminNotificationPreferenceService
             return new Collection();
         }
 
-        return $this->staffQuery()->get(['users.id', 'users.email', 'users.name']);
+        $recipients = $this->adminEmailQuery()->get(['users.id', 'users.email', 'users.name']);
+        $seen = $recipients
+            ->pluck('email')
+            ->map(fn ($email) => strtolower(trim((string) $email)))
+            ->filter()
+            ->all();
+
+        $inbox = $this->notificationEmail();
+        if ($inbox !== '' && ! in_array($inbox, $seen, true)) {
+            $siteName = trim((string) ($this->siteSettingsService->getOrDefault()->site_name ?? ''));
+            $recipients->push(User::make([
+                'email' => $inbox,
+                'name' => $siteName !== '' ? $siteName : 'Newsroom',
+            ]));
+        }
+
+        return $recipients->values();
     }
 
     /**
      * @param  array<string, array{dashboard: bool, email: bool}>  $settings
-     * @return array<string, array{dashboard: bool, email: bool}>
+     * @return array{settings: array<string, array{dashboard: bool, email: bool}>, admin_notification_email: string}
      */
-    public function update(array $settings): array
+    public function update(array $settings, ?string $adminNotificationEmail = null): array
     {
         $normalized = [];
 
@@ -146,16 +173,31 @@ class AdminNotificationPreferenceService
             ];
         }
 
-        $this->siteSettingsService->createOrUpdate([
+        $payload = [
             'admin_notification_channels' => $normalized,
-        ]);
+        ];
 
-        return $normalized;
+        if ($adminNotificationEmail !== null) {
+            $payload['admin_notification_email'] = strtolower(trim($adminNotificationEmail));
+        }
+
+        $this->siteSettingsService->createOrUpdate($payload);
+
+        return [
+            'settings' => $normalized,
+            'admin_notification_email' => $this->notificationEmail(),
+        ];
     }
 
     private function staffQuery()
     {
         return User::query()
             ->whereHas('roles', fn ($query) => $query->where('name', '!=', 'user'));
+    }
+
+    private function adminEmailQuery()
+    {
+        return User::query()
+            ->whereHas('roles', fn ($query) => $query->whereIn('name', ['admin', 'super_admin']));
     }
 }
