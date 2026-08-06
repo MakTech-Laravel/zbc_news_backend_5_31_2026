@@ -49,6 +49,7 @@ class SiteSettings extends Model
         'slack_webhook_url',
         'enable_comments',
         'admin_notification_channels',
+        'admin_notification_email',
     ];
 
     protected $casts = [

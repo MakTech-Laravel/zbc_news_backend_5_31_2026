@@ -51,6 +51,7 @@ class SiteSettingsService
             'enable_auto_save' => true,
             'require_featured_image' => false,
             'enable_ai_writing' => false,
+            'admin_notification_email' => 'newsroom@zbc.news',
         ]);
     }
 
