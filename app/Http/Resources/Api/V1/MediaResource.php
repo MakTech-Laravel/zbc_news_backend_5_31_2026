@@ -12,6 +12,10 @@ class MediaResource extends JsonResource
         return [
             'id' => $this->uuid,
             'original_filename' => $this->original_filename,
+            'alt_text' => $this->alt_text,
+            'caption' => $this->caption,
+            'credit' => $this->credit,
+            'copyright' => $this->copyright,
             'mime_type' => $this->mime_type,
             'extension' => $this->extension,
             'media_type' => $this->media_type,

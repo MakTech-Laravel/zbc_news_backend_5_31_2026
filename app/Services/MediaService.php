@@ -38,13 +38,18 @@ class MediaService
         string $collection = 'default',
         ?string $folder = null,
         ?string $mediableType = null,
-        ?int $mediableId = null
+        ?int $mediableId = null,
+        array $metadata = [],
     ): Media {
-        return DB::transaction(function () use ($file, $userId, $collection, $folder, $mediableType, $mediableId) {
+        return DB::transaction(function () use ($file, $userId, $collection, $folder, $mediableType, $mediableId, $metadata) {
             return Media::create([
                 'uuid' => (string) Str::ulid(),
                 'cloudinary_public_id' => 'pending_' . Str::random(20),
                 'original_filename' => $file->getClientOriginalName(),
+                'alt_text' => $this->nullableString($metadata['alt_text'] ?? null),
+                'caption' => $this->nullableString($metadata['caption'] ?? null),
+                'credit' => $this->nullableString($metadata['credit'] ?? null),
+                'copyright' => $this->nullableString($metadata['copyright'] ?? null),
                 'mime_type' => $file->getMimeType(),
                 'extension' => strtolower($file->getClientOriginalExtension()),
                 'resource_type' => 'auto',
@@ -59,6 +64,40 @@ class MediaService
                 'mediable_type' => $this->resolveMediableType($mediableType),
             ]);
         });
+    }
+
+    /**
+     * @param  array{alt_text?: ?string, caption?: ?string, credit?: ?string, copyright?: ?string}  $data
+     */
+    public function updateMetadata(Media $media, array $data): Media
+    {
+        $media->update([
+            'alt_text' => array_key_exists('alt_text', $data)
+                ? $this->nullableString($data['alt_text'])
+                : $media->alt_text,
+            'caption' => array_key_exists('caption', $data)
+                ? $this->nullableString($data['caption'])
+                : $media->caption,
+            'credit' => array_key_exists('credit', $data)
+                ? $this->nullableString($data['credit'])
+                : $media->credit,
+            'copyright' => array_key_exists('copyright', $data)
+                ? $this->nullableString($data['copyright'])
+                : $media->copyright,
+        ]);
+
+        return $media->fresh();
+    }
+
+    private function nullableString(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+
+        return $trimmed !== '' ? $trimmed : null;
     }
 
     public function uploadSync(Media $media, UploadedFile $file, array $options = []): Media

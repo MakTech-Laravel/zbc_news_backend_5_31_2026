@@ -55,6 +55,35 @@ class ArticleResource extends JsonResource
             'featured_image' => MediaUrl::resolvePublic($this->featured_image),
             'open_graph_image' => MediaUrl::resolvePublic($this->open_graph_image),
             'featured_media' => $this->resolveFeaturedMediaPayload(),
+            'attachments' => $this->whenLoaded('attachments', function () {
+                return $this->attachments
+                    ->filter(fn ($attachment) => $attachment->media && $attachment->media->status === 'ready')
+                    ->values()
+                    ->map(function ($attachment) {
+                        $media = $attachment->media;
+                        $filename = MediaUrl::downloadFilename(
+                            $media->original_filename,
+                            $media->extension ?: MediaUrl::extensionFromMime($media->mime_type),
+                            $attachment->label,
+                        );
+
+                        $viewPath = '/api/v1/articles/'.$this->slug.'/attachments/'.$media->uuid.'?disposition=inline';
+                        $downloadPath = '/api/v1/articles/'.$this->slug.'/attachments/'.$media->uuid.'?disposition=attachment';
+
+                        return [
+                            'id' => $attachment->id,
+                            'label' => $attachment->label ?: $media->original_filename,
+                            'uuid' => $media->uuid,
+                            'url' => url($viewPath),
+                            'download_url' => url($downloadPath),
+                            'filename' => $filename,
+                            'mime_type' => $media->mime_type,
+                            'extension' => $media->extension ?: MediaUrl::extensionFromMime($media->mime_type),
+                            'size' => $media->size,
+                            'human_size' => $media->humanSize(),
+                        ];
+                    });
+            }),
 
             'scheduled_publishing' => $this->scheduled_publishing?->toIso8601String(),
             'published_at' => $this->published_at?->toIso8601String(),
@@ -151,6 +180,10 @@ class ArticleResource extends JsonResource
                 'poster_url' => MediaUrl::resolvePublic($posterUrl),
                 'poster_uuid' => $poster?->uuid,
                 'mime_type' => $featured->mime_type,
+                'alt_text' => $featured->alt_text,
+                'caption' => $featured->caption,
+                'credit' => $featured->credit,
+                'copyright' => $featured->copyright,
             ];
         }
 
@@ -164,6 +197,10 @@ class ArticleResource extends JsonResource
                 'poster_url' => MediaUrl::resolvePublic($this->featured_image),
                 'poster_uuid' => null,
                 'mime_type' => null,
+                'alt_text' => null,
+                'caption' => null,
+                'credit' => null,
+                'copyright' => null,
             ];
         }
 

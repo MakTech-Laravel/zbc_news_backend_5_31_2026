@@ -75,6 +75,7 @@ enum PermissionEnum: string
     case MEDIA_LIST = 'media.list';
     case MEDIA_CREATE = 'media.create';
     case MEDIA_SHOW = 'media.show';
+    case MEDIA_UPDATE = 'media.update';
     case MEDIA_DELETE = 'media.delete';
     case MEDIA_BULK_DELETE = 'media.bulk-delete';
     case MEDIA_SIGNED_PARAMS = 'media.signed-params';

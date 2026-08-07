@@ -8,9 +8,12 @@ use App\Enums\CommentStatus;
 use App\Events\NewsPublished;
 use App\Jobs\DispatchArticlePublishedNotifications;
 use App\Models\Article;
+use App\Models\ArticleAttachment;
 use App\Models\ArticleCategory;
+use App\Models\Media;
 use App\Models\Tag;
 use App\Models\User;
+use App\Support\ArticleAuditLogger;
 use App\Support\BreakingTag;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
@@ -131,6 +134,21 @@ class ArticleService
                 if (! $article) {
                     return;
                 }
+
+                ArticleAuditLogger::log(
+                    $article,
+                    'published',
+                    'Article published (scheduled)',
+                    null,
+                    [
+                        'old' => ['status' => ArticleStatus::SCHEDULED->value],
+                        'new' => [
+                            'status' => ArticleStatus::PUBLISHED->value,
+                            'published_at' => optional($article->published_at)?->toIso8601String(),
+                        ],
+                        'source' => 'scheduler',
+                    ],
+                );
 
                 DispatchArticlePublishedNotifications::dispatch($article->id, 'published');
                 $this->broadcastPublishedArticle($article);
@@ -346,6 +364,7 @@ class ArticleService
 
             $featuredMediaUuid = $this->pullMediaUuid($data, 'featured_media_uuid');
             $posterMediaUuid = $this->pullMediaUuid($data, 'poster_media_uuid');
+            $attachmentsPayload = $this->pullAttachmentsPayload($data);
 
             $article = $this->article->create($data);
 
@@ -356,6 +375,10 @@ class ArticleService
                 $data,
                 preserveTimestamp: true,
             );
+
+            if ($attachmentsPayload !== null) {
+                $this->syncArticleAttachments($article, $attachmentsPayload);
+            }
 
             if (! empty($tags)) {
                 $tagIds = $this->resolveTags($tags);
@@ -381,26 +404,49 @@ class ArticleService
                 );
             }
 
-            activity()
-                ->performedOn($article)
-                ->causedBy(auth()->user())
-                ->withProperties([
-                    'article_title' => $article->title,
-                    'article_slug' => $article->slug,
-                    'status' => $article->status,
+            $causer = auth()->user();
+            ArticleAuditLogger::log(
+                $article,
+                $isAutoSave ? 'auto_saved' : 'created',
+                $isAutoSave ? 'Article auto-saved' : 'Article created',
+                $causer instanceof User ? $causer : null,
+                [
                     'article_category_id' => $article->article_category_id,
                     'is_breaking' => $article->fresh()->is_breaking,
                     'tags' => $tags,
                     'scheduled_publishing' => $article->scheduled_publishing,
                     'published_at' => $article->published_at,
-                    'ip_address' => request()->ip(),
-                    'user_agent' => request()->userAgent(),
-                ])
-                ->log($isAutoSave ? 'Article auto-saved' : 'Article created');
+                ],
+            );
+
+            $statusValue = $article->status instanceof ArticleStatus
+                ? $article->status->value
+                : (string) $article->status;
+
+            if (! $isAutoSave) {
+                foreach (ArticleAuditLogger::statusTransitionEvents(null, $statusValue) as $transition) {
+                    // Skip duplicate "published" when create already implies draft-only create.
+                    if ($transition['event'] === 'published' || $transition['event'] === 'scheduled'
+                        || $transition['event'] === 'submitted_for_review'
+                        || $transition['event'] === 'archived') {
+                        ArticleAuditLogger::log(
+                            $article,
+                            $transition['event'],
+                            $transition['description'],
+                            $causer instanceof User ? $causer : null,
+                            [
+                                'old' => ['status' => null],
+                                'new' => ['status' => $statusValue],
+                            ],
+                        );
+                    }
+                }
+            }
 
             $article = $article->load([
                 'tags',
                 'breakingNewsItem',
+                'attachments.media',
                 'media' => fn ($q) => $q->where('status', 'ready')
                     ->whereIn('collection', ['featured', 'poster']),
             ]);
@@ -415,6 +461,7 @@ class ArticleService
                 'category',
                 'user',
                 'breakingNewsItem',
+                'attachments.media',
                 'media' => fn ($q) => $q->where('status', 'ready')
                     ->whereIn('collection', ['featured', 'poster']),
             ]);
@@ -500,6 +547,7 @@ class ArticleService
 
             $featuredMediaUuid = $this->pullMediaUuid($data, 'featured_media_uuid');
             $posterMediaUuid = $this->pullMediaUuid($data, 'poster_media_uuid');
+            $attachmentsPayload = $this->pullAttachmentsPayload($data);
 
             $old = $article->only([
                 'title',
@@ -511,7 +559,9 @@ class ArticleService
                 'published_at',
             ]);
 
-            $previousStatus = $article->status;
+            $previousStatus = $article->status instanceof ArticleStatus
+                ? $article->status->value
+                : (string) $article->status;
 
             $editorialChanged = $this->manualUpdateTouchesEditorialTimestamp(
                 $article,
@@ -530,10 +580,14 @@ class ArticleService
             // Never bump during attribute write; touch once after media/tags when editorial.
             $this->updateWithoutTouchingTimestamp($article, $data);
             $contentChanged = $article->wasChanged(['title', 'article_description', 'excerpt', 'sub_title']);
-            $becamePublished = $previousStatus !== ArticleStatus::PUBLISHED
+            $becamePublished = $previousStatus !== ArticleStatus::PUBLISHED->value
                 && $article->status === ArticleStatus::PUBLISHED;
 
             $this->syncArticleFeaturedMedia($article, $featuredMediaUuid, $posterMediaUuid, $data, true);
+
+            if ($attachmentsPayload !== null) {
+                $this->syncArticleAttachments($article, $attachmentsPayload);
+            }
 
             // Always sync tags when is_breaking may have changed the tag set.
             $tagIds = $this->resolveTags($tagNames);
@@ -563,23 +617,56 @@ class ArticleService
                 );
             }
 
-            activity()
-                ->performedOn($article)
-                ->causedBy(auth()->user())
-                ->withProperties([
-                    'old' => $old,
-                    'new' => $article->fresh()->only(array_keys($old)),
-                    'tags' => $tagNames,
-                    'ip_address' => request()->ip(),
-                    'user_agent' => request()->userAgent(),
-                ])
-                ->log($isAutoSave ? 'Article auto-saved' : 'Article updated');
+            $fresh = $article->fresh();
+            $newStatus = $fresh->status instanceof ArticleStatus
+                ? $fresh->status->value
+                : (string) $fresh->status;
+            $causer = auth()->user();
+            $causerUser = $causer instanceof User ? $causer : null;
+            $diffProperties = [
+                'old' => $old,
+                'new' => $fresh->only(array_keys($old)),
+                'tags' => $tagNames,
+            ];
+
+            if ($isAutoSave) {
+                ArticleAuditLogger::log(
+                    $fresh,
+                    'auto_saved',
+                    'Article auto-saved',
+                    $causerUser,
+                    $diffProperties,
+                );
+            } else {
+                $statusEvents = ArticleAuditLogger::statusTransitionEvents($previousStatus, $newStatus);
+
+                if ($statusEvents === []) {
+                    ArticleAuditLogger::log(
+                        $fresh,
+                        'edited',
+                        'Article edited',
+                        $causerUser,
+                        $diffProperties,
+                    );
+                } else {
+                    foreach ($statusEvents as $transition) {
+                        ArticleAuditLogger::log(
+                            $fresh,
+                            $transition['event'],
+                            $transition['description'],
+                            $causerUser,
+                            $diffProperties,
+                        );
+                    }
+                }
+            }
 
             $article = $article->fresh([
                 'tags',
                 'category',
                 'user',
                 'breakingNewsItem',
+                'attachments.media',
                 'media' => fn ($q) => $q->where('status', 'ready')
                     ->whereIn('collection', ['featured', 'poster']),
             ]);
@@ -608,17 +695,12 @@ class ArticleService
     {
         $article = $this->article->where('slug', $slug)->firstOrFail();
 
-        activity()
-            ->performedOn($article)
-            ->causedBy(auth()->user())
-            ->withProperties([
-                'article_title' => $article->title,
-                'article_slug' => $article->slug,
-                'status' => $article->status,
-                'ip_address' => request()->ip(),
-                'user_agent' => request()->userAgent(),
-            ])
-            ->log('Article deleted');
+        ArticleAuditLogger::log(
+            $article,
+            'deleted',
+            'Article deleted',
+            auth()->user() instanceof User ? auth()->user() : null,
+        );
 
         $article->delete();
     }
@@ -632,17 +714,12 @@ class ArticleService
 
         $article->restore();
 
-        activity()
-            ->performedOn($article)
-            ->causedBy(auth()->user())
-            ->withProperties([
-                'article_title' => $article->title,
-                'article_slug' => $article->slug,
-                'status' => $article->status,
-                'ip_address' => request()->ip(),
-                'user_agent' => request()->userAgent(),
-            ])
-            ->log('Article restored');
+        ArticleAuditLogger::log(
+            $article,
+            'restored',
+            'Article restored',
+            auth()->user() instanceof User ? auth()->user() : null,
+        );
 
         return $article;
     }
@@ -654,16 +731,12 @@ class ArticleService
             ->where('slug', $slug)
             ->firstOrFail();
 
-        activity()
-            ->performedOn($article)
-            ->causedBy(auth()->user())
-            ->withProperties([
-                'article_title' => $article->title,
-                'article_slug' => $article->slug,
-                'ip_address' => request()->ip(),
-                'user_agent' => request()->userAgent(),
-            ])
-            ->log('Article permanently deleted');
+        ArticleAuditLogger::log(
+            $article,
+            'permanently_deleted',
+            'Article permanently deleted',
+            auth()->user() instanceof User ? auth()->user() : null,
+        );
 
         $this->storedImageService->delete($article->featured_image);
         $this->storedImageService->delete($article->open_graph_image);
@@ -886,7 +959,7 @@ class ArticleService
                     'id' => $activity->id,
                     'description' => $activity->description,
                     'event' => $activity->event,
-                    'causer' => $activity->causer?->name,
+                    'causer' => $activity->causer?->name ?? 'System',
                     'old' => $activity->properties['old'] ?? null,
                     'new' => $activity->properties['new'] ?? null,
                     'tags' => $activity->properties['tags'] ?? null,
@@ -908,6 +981,7 @@ class ArticleService
                 'category',
                 'user',
                 'breakingNewsItem',
+                'attachments.media',
                 'media' => fn ($q) => $q->where('status', 'ready')
                     ->whereIn('collection', ['featured', 'poster']),
             ])
@@ -937,6 +1011,89 @@ class ArticleService
         }
 
         return is_string($value) ? $value : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return list<array{uuid: string, label?: string|null}>|null
+     */
+    private function pullAttachmentsPayload(array &$data): ?array
+    {
+        if (! array_key_exists('attachments', $data)) {
+            return null;
+        }
+
+        $raw = $data['attachments'];
+        unset($data['attachments']);
+
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        $items = [];
+        foreach ($raw as $row) {
+            if (is_string($row) && $row !== '') {
+                $items[] = ['uuid' => $row, 'label' => null];
+                continue;
+            }
+
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $uuid = $row['uuid'] ?? $row['media_uuid'] ?? null;
+            if (! is_string($uuid) || $uuid === '') {
+                continue;
+            }
+
+            $label = $row['label'] ?? null;
+            $items[] = [
+                'uuid' => $uuid,
+                'label' => is_string($label) ? trim($label) : null,
+            ];
+        }
+
+        return $items;
+    }
+
+    /**
+     * @param  list<array{uuid: string, label?: string|null}>  $items
+     */
+    private function syncArticleAttachments(Article $article, array $items): void
+    {
+        $keepIds = [];
+
+        foreach (array_values($items) as $index => $item) {
+            $media = Media::query()
+                ->where('uuid', $item['uuid'])
+                ->where('status', 'ready')
+                ->where('media_type', 'document')
+                ->first();
+
+            if (! $media) {
+                continue;
+            }
+
+            $attachment = ArticleAttachment::query()->updateOrCreate(
+                [
+                    'article_id' => $article->id,
+                    'media_id' => $media->id,
+                ],
+                [
+                    'label' => $item['label'] !== null && $item['label'] !== ''
+                        ? $item['label']
+                        : $media->original_filename,
+                    'sort_order' => $index,
+                ],
+            );
+
+            $keepIds[] = $attachment->id;
+        }
+
+        ArticleAttachment::query()
+            ->where('article_id', $article->id)
+            ->when($keepIds !== [], fn ($q) => $q->whereNotIn('id', $keepIds))
+            ->delete();
     }
 
     /**

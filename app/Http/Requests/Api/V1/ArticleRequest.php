@@ -112,6 +112,9 @@ class ArticleRequest extends FormRequest
             'open_graph_image'      => $openGraphImageRule,
             'featured_media_uuid'   => ['nullable', 'string', 'max:36'],
             'poster_media_uuid'     => ['nullable', 'string', 'max:36'],
+            'attachments'           => ['nullable', 'array', 'max:20'],
+            'attachments.*.uuid'    => ['required_with:attachments', 'string', 'max:36', 'exists:media,uuid'],
+            'attachments.*.label'   => ['nullable', 'string', 'max:255'],
             'article_category_id'   => ['required', 'integer', 'exists:article_categories,id'],
             'scheduled_publishing' => [
                 Rule::requiredIf(fn() => $this->input('status') === ArticleStatus::SCHEDULED->value),

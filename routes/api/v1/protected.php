@@ -405,6 +405,8 @@ Route::controller(MediaController::class)
             ->middleware('permission:'.PermissionEnum::MEDIA_BULK_DELETE->value);
         Route::get('/show/{uuid}', 'show')->name('api.v1.media.show')
             ->middleware('permission:'.PermissionEnum::MEDIA_SHOW->value);
+        Route::put('/update/{uuid}', 'update')->name('api.v1.media.update')
+            ->middleware('permission:'.PermissionEnum::MEDIA_UPDATE->value);
         Route::delete('/delete/{uuid}', 'destroy')->name('api.v1.media.destroy')
             ->middleware('permission:'.PermissionEnum::MEDIA_DELETE->value);
         Route::post('/transform/{uuid}', 'transform')->name('api.v1.media.transform')

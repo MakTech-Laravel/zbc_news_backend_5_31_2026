@@ -96,6 +96,13 @@ class Article extends Model
         return $this->hasMany(ArticleComment::class, 'article_id');
     }
 
+    public function attachments()
+    {
+        return $this->hasMany(ArticleAttachment::class, 'article_id')
+            ->orderBy('sort_order')
+            ->orderBy('id');
+    }
+
     public function histroy()
     {
         return $this->hasMany(ArticleHistroy::class, 'article_id');
