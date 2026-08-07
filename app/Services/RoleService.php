@@ -7,6 +7,7 @@ use App\Support\SystemRoles;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\PermissionRegistrar;
 
 class RoleService
 {
@@ -28,7 +29,7 @@ class RoleService
         ]);
 
         if (!empty($permissions)) {
-            $role->syncPermissions($permissions);
+            $this->syncPermissions($role, $permissions);
         }
 
         activity()
@@ -68,9 +69,8 @@ class RoleService
             ]);
         }
 
-        if (!empty($permissions)) {
-            $this->syncPermissions($role, $permissions);
-        }
+        // Always sync so unchecked permissions are removed (empty array clears all).
+        $this->syncPermissions($role, $permissions);
 
         activity()
             ->performedOn($role)
@@ -104,6 +104,7 @@ class RoleService
         }
 
         $role->syncPermissions($permissions);
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 
     public function delete(Role $role): void

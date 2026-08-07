@@ -401,6 +401,22 @@ class AuthenticableController extends Controller
         );
     }
 
+    /**
+     * Fresh session profile (roles + permissions) for UI `can()` checks.
+     * Auth-only — not gated by users.profile — so RBAC changes apply without re-login.
+     */
+    public function me(Request $request): JsonResponse
+    {
+        $user = $request->user()->load(['roles', 'permissions', 'userInformation']);
+
+        return sendResponse(
+            true,
+            'Authenticated user retrieved successfully',
+            new UserResource($user),
+            HttpStatus::HTTP_OK,
+        );
+    }
+
     public function logout(Request $request): JsonResponse
     {
         $request->user()->currentAccessToken()->delete();

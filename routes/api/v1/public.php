@@ -39,6 +39,8 @@ Route::controller(AuthenticableController::class)->prefix('auth')->group(functio
     Route::post('/otp/verify', 'verifyOtp')->name('api.v1.auth.otp.verify')->middleware('request_limitter');
     Route::post('/otp/resend', 'resendOtp')->name('api.v1.auth.otp.resend')->middleware('request_limitter');
     Route::post('/two-factor-challenge', 'twoFactorChallenge')->name('api.v1.auth.two-factor-challenge')->middleware('request_limitter');
+    Route::get('/me', 'me')->name('api.v1.auth.me')->middleware('auth:api');
+    Route::get('/profile', 'me')->name('api.v1.auth.profile')->middleware('auth:api');
     Route::post('/logout', 'logout')->name('api.v1.auth.logout')->middleware('auth:api');
     Route::post('/logout-all', 'logoutAll')->name('api.v1.auth.logout-all')->middleware('auth:api');
     Route::post('/account/delete', [AccountDeletionController::class, 'requestDeletion'])
