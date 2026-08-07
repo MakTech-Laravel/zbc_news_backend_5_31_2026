@@ -34,6 +34,7 @@ editor,user-notifications.mark-read
 editor,user-notifications.mark-all-read
 editor,media.list
 editor,media.create
+editor,media.update
 editor,media.show
 editor,media.delete
 editor,media.bulk-delete
@@ -56,6 +57,7 @@ sub_editor,user-notifications.mark-read
 sub_editor,user-notifications.mark-all-read
 sub_editor,media.list
 sub_editor,media.create
+sub_editor,media.update
 sub_editor,media.show
 sub_editor,users.profile
 sub_editor,users.profile-update
@@ -79,6 +81,7 @@ author,user-notifications.mark-read
 author,user-notifications.mark-all-read
 author,media.list
 author,media.create
+author,media.update
 author,media.show
 author,media.delete
 author,media.bulk-delete
@@ -103,6 +106,7 @@ journalist,user-notifications.mark-read
 journalist,user-notifications.mark-all-read
 journalist,media.list
 journalist,media.create
+journalist,media.update
 journalist,media.show
 journalist,media.delete
 journalist,media.signed-params
@@ -118,6 +122,7 @@ user,user-notifications.mark-read
 user,user-notifications.mark-all-read
 user,media.list
 user,media.create
+user,media.update
 user,media.show
 user,media.delete
 user,media.bulk-delete
@@ -147,6 +152,7 @@ writer,user-notifications.mark-read
 writer,user-notifications.mark-all-read
 writer,media.list
 writer,media.create
+writer,media.update
 writer,media.show
 writer,media.delete
 writer,media.bulk-delete
@@ -182,6 +188,7 @@ subscriber,user-notifications.mark-read
 subscriber,user-notifications.mark-all-read
 subscriber,media.list
 subscriber,media.create
+subscriber,media.update
 subscriber,media.show
 subscriber,media.delete
 subscriber,media.bulk-delete

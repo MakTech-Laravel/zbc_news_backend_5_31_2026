@@ -58,6 +58,7 @@ permissions.list,api,Permissions
 media.list,api,Media
 media.create,api,Media
 media.show,api,Media
+media.update,api,Media
 media.delete,api,Media
 media.bulk-delete,api,Media
 media.signed-params,api,Media

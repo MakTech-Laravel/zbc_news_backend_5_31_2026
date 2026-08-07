@@ -23,6 +23,12 @@ class MediaPolicy
         return true;
     }
 
+    public function update(User $user, Media $media): bool
+    {
+        return $media->uploaded_by === $user->id
+            || $user->hasRole(['super_admin', 'admin']);
+    }
+
     public function delete(User $user, Media $media): bool
     {
         return $media->uploaded_by === $user->id

@@ -25,6 +25,10 @@ class UploadMediaRequest extends FormRequest
             'mediable_type' => ['nullable', 'string', 'in:user,article'],
             'mediable_id' => ['nullable', 'integer'],
             'async' => ['boolean'],
+            'alt_text' => ['nullable', 'string', 'max:500'],
+            'caption' => ['nullable', 'string', 'max:2000'],
+            'credit' => ['nullable', 'string', 'max:500'],
+            'copyright' => ['nullable', 'string', 'max:500'],
         ];
     }
 
@@ -45,13 +49,13 @@ class UploadMediaRequest extends FormRequest
 
     protected function allowedMimes(): string
     {
+        // Documents + media only — no archives or executables.
         return implode(',', [
             'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'tiff',
             'mp4', 'mov', 'avi', 'mkv', 'webm', 'flv', 'wmv',
             'mp3', 'wav', 'ogg', 'aac',
             'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
-            'txt', 'csv', 'odt', 'ods', 'odp',
-            'zip', 'tar', 'gz',
+            'txt', 'csv',
         ]);
     }
 

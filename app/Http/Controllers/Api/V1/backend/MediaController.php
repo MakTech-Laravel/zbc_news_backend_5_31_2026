@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\backend;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\UpdateMediaRequest;
 use App\Http\Requests\Api\V1\UploadMediaRequest;
 use App\Http\Resources\Api\V1\MediaResource;
 use App\Models\Media;
@@ -59,7 +60,8 @@ class MediaController extends Controller
             $collection,
             $request->input('folder'),
             $request->input('mediable_type'),
-            $request->input('mediable_id')
+            $request->input('mediable_id'),
+            $request->only(['alt_text', 'caption', 'credit', 'copyright']),
         );
 
         if ($async) {
@@ -109,6 +111,25 @@ class MediaController extends Controller
             true,
             'Media retrieved successfully',
             new MediaResource($media),
+            HttpStatus::HTTP_OK
+        );
+    }
+
+    public function update(UpdateMediaRequest $request, string $uuid): JsonResponse
+    {
+        $media = $this->findMedia($uuid);
+        if (! $media) {
+            return $this->mediaNotFoundResponse();
+        }
+
+        $this->authorize('update', $media);
+
+        $media = $this->mediaService->updateMetadata($media, $request->validated());
+
+        return sendResponse(
+            true,
+            'Media updated successfully',
+            new MediaResource($media->load('transformations', 'uploader')),
             HttpStatus::HTTP_OK
         );
     }

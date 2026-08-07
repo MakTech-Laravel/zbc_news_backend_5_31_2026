@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\backend\TagController;
 use App\Http\Controllers\Api\V1\frontend\AdSlotController;
 use App\Http\Controllers\Api\V1\frontend\AdTrackingController;
 use App\Http\Controllers\Api\V1\frontend\ArticleController;
+use App\Http\Controllers\Api\V1\frontend\ArticleAttachmentController;
 use App\Http\Controllers\Api\V1\frontend\AuthorController;
 use App\Http\Controllers\Api\V1\frontend\CareersController;
 use App\Http\Controllers\Api\V1\frontend\CategoryController;
@@ -76,6 +77,10 @@ Route::controller(ArticleController::class)->prefix('articles')->group(function 
     Route::get('/search', [SearchController::class, 'search'])->name('api.v1.articles.search');
     Route::get('/author/{slug}', [AuthorController::class, 'show'])->name('api.v1.articles.author-profile');
 });
+
+Route::get('/articles/{slug}/attachments/{uuid}', ArticleAttachmentController::class)
+    ->middleware('throttle:60,1')
+    ->name('api.v1.articles.attachments.show');
 
 Route::controller(AuthorController::class)->prefix('authors')->group(function () {
     Route::get('/{slug}', 'show')->name('api.v1.authors.show');
