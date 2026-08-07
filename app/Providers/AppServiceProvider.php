@@ -17,6 +17,7 @@ use Illuminate\Console\Events\ScheduledTaskFailed;
 use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Passport\Passport;
 
@@ -35,6 +36,19 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Prefer APP_URL over the incoming request host (Docker often uses "backend").
+        // Only force for real domains (contain a dot) — skip localhost / compose service names.
+        $appUrl = config('app.url');
+        if (is_string($appUrl) && $appUrl !== '') {
+            $host = parse_url($appUrl, PHP_URL_HOST);
+            if (is_string($host) && str_contains($host, '.')) {
+                URL::forceRootUrl(rtrim($appUrl, '/'));
+                if (str_starts_with($appUrl, 'https://')) {
+                    URL::forceScheme('https');
+                }
+            }
+        }
+
         Passport::tokensExpireIn(now()->addDays(30));
 
         Passport::refreshTokensExpireIn(

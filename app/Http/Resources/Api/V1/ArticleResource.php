@@ -67,6 +67,8 @@ class ArticleResource extends JsonResource
                             $attachment->label,
                         );
 
+                        // Relative paths only — never url(). In Docker, url() uses the
+                        // internal request host (e.g. "backend") which browsers cannot resolve.
                         $viewPath = '/api/v1/articles/'.$this->slug.'/attachments/'.$media->uuid.'?disposition=inline';
                         $downloadPath = '/api/v1/articles/'.$this->slug.'/attachments/'.$media->uuid.'?disposition=attachment';
 
@@ -74,8 +76,8 @@ class ArticleResource extends JsonResource
                             'id' => $attachment->id,
                             'label' => $attachment->label ?: $media->original_filename,
                             'uuid' => $media->uuid,
-                            'url' => url($viewPath),
-                            'download_url' => url($downloadPath),
+                            'url' => $viewPath,
+                            'download_url' => $downloadPath,
                             'filename' => $filename,
                             'mime_type' => $media->mime_type,
                             'extension' => $media->extension ?: MediaUrl::extensionFromMime($media->mime_type),
