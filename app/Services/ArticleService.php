@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Support\ArticleAuditLogger;
 use App\Support\BreakingTag;
 use Carbon\Carbon;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -405,17 +406,17 @@ class ArticleService
             }
 
             $causer = auth()->user();
+            $createdSnapshot = ArticleAuditLogger::snapshot($article->fresh());
+
             ArticleAuditLogger::log(
                 $article,
                 $isAutoSave ? 'auto_saved' : 'created',
                 $isAutoSave ? 'Article auto-saved' : 'Article created',
                 $causer instanceof User ? $causer : null,
                 [
-                    'article_category_id' => $article->article_category_id,
-                    'is_breaking' => $article->fresh()->is_breaking,
-                    'tags' => $tags,
-                    'scheduled_publishing' => $article->scheduled_publishing,
-                    'published_at' => $article->published_at,
+                    'old' => [],
+                    'new' => $createdSnapshot,
+                    'tags' => $createdSnapshot['tags'] ?? $tags,
                 ],
             );
 
@@ -549,15 +550,8 @@ class ArticleService
             $posterMediaUuid = $this->pullMediaUuid($data, 'poster_media_uuid');
             $attachmentsPayload = $this->pullAttachmentsPayload($data);
 
-            $old = $article->only([
-                'title',
-                'slug',
-                'status',
-                'article_category_id',
-                'is_breaking',
-                'scheduled_publishing',
-                'published_at',
-            ]);
+            // Captured before any write so image/file/tag changes are diffable.
+            $beforeSnapshot = ArticleAuditLogger::snapshot($article);
 
             $previousStatus = $article->status instanceof ArticleStatus
                 ? $article->status->value
@@ -623,10 +617,9 @@ class ArticleService
                 : (string) $fresh->status;
             $causer = auth()->user();
             $causerUser = $causer instanceof User ? $causer : null;
-            $diffProperties = [
-                'old' => $old,
-                'new' => $fresh->only(array_keys($old)),
-                'tags' => $tagNames,
+            $afterSnapshot = ArticleAuditLogger::snapshot($fresh);
+            $diffProperties = ArticleAuditLogger::diff($beforeSnapshot, $afterSnapshot) + [
+                'tags' => $afterSnapshot['tags'] ?? $tagNames,
             ];
 
             if ($isAutoSave) {
@@ -944,29 +937,49 @@ class ArticleService
             ->get();
     }
 
-    public function getActivities(string $slug)
+    /**
+     * Paginated audit trail for one article.
+     * `withTrashed` so a soft-deleted article still exposes its history.
+     */
+    public function getActivities(string $slug, int $perPage = 15): LengthAwarePaginator
     {
-        $article = Article::where('slug', $slug)->firstOrFail();
+        $article = Article::withTrashed()->where('slug', $slug)->firstOrFail();
 
-        return Activity::query()
+        $perPage = max(1, min($perPage, 100));
+
+        $paginator = Activity::query()
             ->where('subject_type', Article::class)
             ->where('subject_id', $article->id)
             ->with(['causer'])
-            ->latest()
-            ->get()
-            ->map(function ($activity) {
-                return [
-                    'id' => $activity->id,
-                    'description' => $activity->description,
-                    'event' => $activity->event,
-                    'causer' => $activity->causer?->name ?? 'System',
-                    'old' => $activity->properties['old'] ?? null,
-                    'new' => $activity->properties['new'] ?? null,
-                    'tags' => $activity->properties['tags'] ?? null,
-                    'ip_address' => $activity->properties['ip_address'] ?? null,
-                    'created_at' => $activity->created_at,
-                ];
-            });
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate($perPage);
+
+        $paginator->getCollection()->transform(function ($activity) {
+            $properties = $activity->properties ?? collect();
+
+            return [
+                'id' => $activity->id,
+                'description' => $activity->description,
+                'event' => $activity->event,
+                'causer' => $activity->causer?->name ?? 'System',
+                'causer_id' => $activity->causer_id,
+                'old' => $properties['old'] ?? null,
+                'new' => $properties['new'] ?? null,
+                'tags' => $properties['tags'] ?? null,
+                'status' => $properties['status'] ?? null,
+                'ip_address' => $properties['ip_address'] ?? null,
+                'user_agent' => $properties['user_agent'] ?? null,
+                'created_at' => $activity->created_at,
+            ];
+        });
+
+        return $paginator;
+    }
+
+    public function findAnyBySlug(string $slug): Article
+    {
+        return Article::withTrashed()->where('slug', $slug)->firstOrFail();
     }
 
     // =========================================================================
