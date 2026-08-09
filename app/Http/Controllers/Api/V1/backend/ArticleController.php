@@ -138,14 +138,26 @@ class ArticleController extends Controller
         );
     }
 
-    public function activities(string $slug): JsonResponse
+    public function activities(Request $request, string $slug): JsonResponse
     {
-        $activities = $this->articleService->getActivities($slug);
+        $perPage = (int) $request->query('per_page', 15);
+        $activities = $this->articleService->getActivities($slug, $perPage);
+        $article = $this->articleService->findAnyBySlug($slug);
 
         return sendResponse(
             true,
             'Article activities retrieved successfully',
-            $activities
+            $activities->items(),
+            HttpStatus::HTTP_OK,
+            [
+                'article_title' => $article->title,
+                'meta' => [
+                    'current_page' => $activities->currentPage(),
+                    'last_page' => $activities->lastPage(),
+                    'per_page' => $activities->perPage(),
+                    'total' => $activities->total(),
+                ],
+            ],
         );
     }
 

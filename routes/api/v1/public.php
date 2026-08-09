@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\V1\frontend\CareersController;
 use App\Http\Controllers\Api\V1\frontend\CategoryController;
 use App\Http\Controllers\Api\V1\frontend\CommentController;
 use App\Http\Controllers\Api\V1\frontend\ContactController;
+use App\Http\Controllers\Api\V1\frontend\MediaFileController;
 use App\Http\Controllers\Api\V1\frontend\MenuController;
 use App\Http\Controllers\Api\V1\frontend\NavigationController;
 use App\Http\Controllers\Api\V1\frontend\NewsletterController;
@@ -83,6 +84,10 @@ Route::controller(ArticleController::class)->prefix('articles')->group(function 
 Route::get('/articles/{slug}/attachments/{uuid}', ArticleAttachmentController::class)
     ->middleware('throttle:60,1')
     ->name('api.v1.articles.attachments.show');
+
+Route::get('/media/{uuid}/file', MediaFileController::class)
+    ->middleware('throttle:60,1')
+    ->name('api.v1.media.file');
 
 Route::controller(AuthorController::class)->prefix('authors')->group(function () {
     Route::get('/{slug}', 'show')->name('api.v1.authors.show');

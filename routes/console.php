@@ -42,3 +42,9 @@ Schedule::command('sitemap:refresh')
     ->hourly()
     ->name('sitemap-refresh')
     ->withoutOverlapping();
+
+// Offset from the midnight account purge so two batch deletes never overlap.
+Schedule::command('activitylog:purge')
+    ->dailyAt('00:15')
+    ->name('purge-activity-log')
+    ->withoutOverlapping();
