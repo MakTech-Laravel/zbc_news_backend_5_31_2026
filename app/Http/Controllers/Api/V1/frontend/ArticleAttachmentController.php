@@ -7,13 +7,16 @@ use App\Http\Controllers\Controller;
 use App\Models\Article;
 use App\Models\ArticleAttachment;
 use App\Support\MediaUrl;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 class ArticleAttachmentController extends Controller
 {
-    public function __invoke(Request $request, string $slug, string $uuid): StreamedResponse
+    public function __invoke(Request $request, string $slug, string $uuid): RedirectResponse|StreamedResponse
     {
         $disposition = $request->query('disposition', 'inline') === 'attachment'
             ? 'attachment'
@@ -43,18 +46,63 @@ class ArticleAttachmentController extends Controller
             $attachment->label,
         );
 
-        $mime = $media->mime_type ?: 'application/octet-stream';
-        $ext = strtolower((string) ($media->extension ?: MediaUrl::extensionFromMime($mime)));
-        if ($ext === 'pdf') {
-            $mime = 'application/pdf';
+        if ($disposition === 'attachment' && MediaUrl::isRemote($remoteUrl) && str_contains($remoteUrl, '/upload/')) {
+            $cdnDownload = MediaUrl::forceDownloadUrl($remoteUrl, $filename);
+            if (is_string($cdnDownload) && $cdnDownload !== '') {
+                $upstream = $this->fetchUpstream($remoteUrl);
+
+                if ($upstream === null || ! $upstream->successful()) {
+                    Log::warning('Attachment proxy upstream failed; redirecting to CDN download.', [
+                        'uuid' => $uuid,
+                        'status' => $upstream?->status(),
+                    ]);
+
+                    return redirect()->away($cdnDownload);
+                }
+
+                return $this->streamResponse($upstream, $disposition, $filename, $media->mime_type);
+            }
         }
 
-        $upstream = Http::withOptions([
-            'stream' => true,
-            'timeout' => 120,
-        ])->get($remoteUrl);
+        $upstream = $this->fetchUpstream($remoteUrl);
+        abort_unless($upstream !== null && $upstream->successful(), 502, 'Unable to fetch the document.');
 
-        abort_unless($upstream->successful(), 502, 'Unable to fetch the document.');
+        return $this->streamResponse($upstream, $disposition, $filename, $media->mime_type);
+    }
+
+    private function fetchUpstream(string $remoteUrl): ?\Illuminate\Http\Client\Response
+    {
+        try {
+            return Http::withOptions([
+                'stream' => true,
+                'connect_timeout' => 15,
+                'timeout' => 120,
+                'read_timeout' => 120,
+            ])->withHeaders([
+                'Accept' => '*/*',
+                'User-Agent' => 'ZBCNewsMediaProxy/1.0',
+            ])->get($remoteUrl);
+        } catch (Throwable $e) {
+            Log::warning('Attachment proxy request threw.', [
+                'url' => $remoteUrl,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    private function streamResponse(
+        \Illuminate\Http\Client\Response $upstream,
+        string $disposition,
+        string $filename,
+        ?string $mimeType,
+    ): StreamedResponse {
+        $mime = $mimeType ?: 'application/octet-stream';
+        $ext = strtolower((string) (MediaUrl::extensionFromMime($mime) ?? ''));
+        if ($ext === 'pdf' || str_ends_with(strtolower($filename), '.pdf')) {
+            $mime = 'application/pdf';
+        }
 
         $asciiName = preg_replace('/[^\x20-\x7E]/', '_', $filename) ?: 'download';
         $asciiName = str_replace(['"', '\\'], '_', $asciiName);
