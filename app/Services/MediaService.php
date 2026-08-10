@@ -22,8 +22,13 @@ class MediaService
 
     public function listForUser(int $userId, array $filters = []): LengthAwarePaginator
     {
+        // Shared newsroom library: every staff member can browse ready media uploaded
+        // by anyone. Pending/failed items stay private to the uploader.
         return Media::query()
-            ->where('uploaded_by', $userId)
+            ->where(function ($query) use ($userId) {
+                $query->where('status', 'ready')
+                    ->orWhere('uploaded_by', $userId);
+            })
             ->when($filters['media_type'] ?? null, fn ($q, $v) => $q->ofType($v))
             ->when($filters['collection'] ?? null, fn ($q, $v) => $q->inCollection($v))
             ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
