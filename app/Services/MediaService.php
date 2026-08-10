@@ -149,8 +149,11 @@ class MediaService
             'resource_type' => $result['resource_type'] ?? 'raw',
             'media_type' => $result['_media_type'],
             'url' => $result['secure_url'],
+            // Use the original delivery URL as the thumbnail for images. Derived
+            // Cloudinary transforms have been 404ing on live and blanking featured
+            // previews across home + article editor.
             'thumbnail_url' => $isImage
-                ? $this->cloudinary->thumbnail($result['public_id'])
+                ? $result['secure_url']
                 : ($isVideo ? $this->cloudinary->videoThumbnail($result['public_id']) : null),
             'preview_url' => ($result['_extension'] ?? '') === 'pdf'
                 ? $this->cloudinary->pdfPreview($result['public_id'])
