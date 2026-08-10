@@ -30,6 +30,7 @@ enum PermissionEnum: string
     case ARTICLES_RESTORE = 'articles.restore';
     case ARTICLES_FORCE_DELETE = 'articles.force-delete';
     case ARTICLES_ACTIVITIES = 'articles.activities';
+    case ARTICLES_REVISIONS = 'articles.revisions';
     case ARTICLES_STATS = 'articles.stats';
 
     case USER_READ_HISTORY = 'user.read-history';

@@ -452,6 +452,14 @@ class ArticleService
                     ->whereIn('collection', ['featured', 'poster']),
             ]);
 
+            if (! $isAutoSave) {
+                app(ArticleRevisionService::class)->record(
+                    $article,
+                    'created',
+                    $causer instanceof User ? $causer : null,
+                );
+            }
+
             if (! $isAutoSave && $article->status === ArticleStatus::PUBLISHED) {
                 DispatchArticlePublishedNotifications::dispatch($article->id, 'published');
                 $this->broadcastPublishedArticle($article);
@@ -663,6 +671,10 @@ class ArticleService
                 'media' => fn ($q) => $q->where('status', 'ready')
                     ->whereIn('collection', ['featured', 'poster']),
             ]);
+
+            if (! $isAutoSave) {
+                app(ArticleRevisionService::class)->record($article, 'edited', $causerUser);
+            }
 
             if (! $isAutoSave) {
                 if ($becamePublished) {

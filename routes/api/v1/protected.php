@@ -105,6 +105,14 @@ Route::controller(ArticleController::class)->prefix('articles')->group(function 
         ->middleware('permission:'.PermissionEnum::ARTICLES_FORCE_DELETE->value);
     Route::get('/{slug}/activities', 'activities')->name('api.v1.articles.activities')
         ->middleware('permission:'.PermissionEnum::ARTICLES_ACTIVITIES->value);
+    Route::get('/{slug}/revisions', 'revisions')->name('api.v1.articles.revisions')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_REVISIONS->value);
+    Route::get('/{slug}/revisions/compare', 'compareRevisions')->name('api.v1.articles.revisions.compare')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_REVISIONS->value);
+    Route::get('/{slug}/revisions/{revisionId}', 'showRevision')->name('api.v1.articles.revisions.show')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_REVISIONS->value);
+    Route::post('/{slug}/revisions/{revisionId}/restore', 'restoreRevision')->name('api.v1.articles.revisions.restore')
+        ->middleware('permission:'.PermissionEnum::ARTICLES_REVISIONS->value);
     Route::get('/{id}/stats', [ArticleTrackingController::class, 'stats'])->name('api.v1.articles.stats')
         ->middleware('permission:'.PermissionEnum::ARTICLES_STATS->value);
     Route::get('/{tagSlug}/articles', 'articlesByTag')->name('api.v1.articles.articles-by-tag');

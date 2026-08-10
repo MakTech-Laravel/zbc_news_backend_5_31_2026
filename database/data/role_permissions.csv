@@ -9,6 +9,7 @@ editor,articles.update
 editor,articles.delete
 editor,articles.restore
 editor,articles.activities
+editor,articles.revisions
 editor,articles.stats
 editor,user.read-history
 editor,tags.list
@@ -67,6 +68,7 @@ author,articles.create
 author,articles.show
 author,articles.update
 author,articles.activities
+author,articles.revisions
 author,user.read-history
 author,categories.list
 author,categories.show
@@ -138,6 +140,7 @@ writer,articles.create
 writer,articles.show
 writer,articles.update
 writer,articles.activities
+writer,articles.revisions
 writer,user.read-history
 writer,categories.list
 writer,categories.show
@@ -165,6 +168,7 @@ moderator,articles.list
 moderator,articles.show
 moderator,articles.update
 moderator,articles.activities
+moderator,articles.revisions
 moderator,categories.list
 moderator,categories.show
 moderator,tags.list
