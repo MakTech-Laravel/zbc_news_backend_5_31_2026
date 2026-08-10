@@ -48,3 +48,8 @@ Schedule::command('activitylog:purge')
     ->dailyAt('00:15')
     ->name('purge-activity-log')
     ->withoutOverlapping();
+
+Schedule::command('article-revisions:purge')
+    ->dailyAt('00:20')
+    ->name('purge-article-revisions')
+    ->withoutOverlapping();
