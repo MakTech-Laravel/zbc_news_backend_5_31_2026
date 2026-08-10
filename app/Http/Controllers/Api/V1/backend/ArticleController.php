@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\ArticleAutoSaveRequest;
 use App\Http\Requests\Api\V1\ArticleRequest;
 use App\Http\Resources\Api\V1\ArticleResource;
+use App\Services\ArticleRevisionService;
 use App\Services\ArticleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,7 +15,8 @@ use Symfony\Component\HttpFoundation\Response as HttpStatus;
 class ArticleController extends Controller
 {
     public function __construct(
-        private readonly ArticleService $articleService
+        private readonly ArticleService $articleService,
+        private readonly ArticleRevisionService $articleRevisionService,
     ) {}
 
     public function index()
@@ -158,6 +160,77 @@ class ArticleController extends Controller
                     'total' => $activities->total(),
                 ],
             ],
+        );
+    }
+
+    public function revisions(Request $request, string $slug): JsonResponse
+    {
+        $perPage = (int) $request->query('per_page', 15);
+        $revisions = $this->articleRevisionService->listForSlug($slug, $perPage);
+        $article = $this->articleService->findAnyBySlug($slug);
+
+        return sendResponse(
+            true,
+            'Article revisions retrieved successfully',
+            $revisions->items(),
+            HttpStatus::HTTP_OK,
+            [
+                'article_title' => $article->title,
+                'meta' => [
+                    'current_page' => $revisions->currentPage(),
+                    'last_page' => $revisions->lastPage(),
+                    'per_page' => $revisions->perPage(),
+                    'total' => $revisions->total(),
+                ],
+            ],
+        );
+    }
+
+    public function showRevision(string $slug, int $revisionId): JsonResponse
+    {
+        $revision = $this->articleRevisionService->findForSlug($slug, $revisionId);
+
+        return sendResponse(
+            true,
+            'Article revision retrieved successfully',
+            $revision,
+            HttpStatus::HTTP_OK,
+        );
+    }
+
+    public function compareRevisions(Request $request, string $slug): JsonResponse
+    {
+        $leftId = $request->query('left');
+        $rightId = $request->query('right');
+
+        $comparison = $this->articleRevisionService->compare(
+            $slug,
+            $leftId !== null && $leftId !== '' ? (int) $leftId : null,
+            $rightId !== null && $rightId !== '' ? (int) $rightId : null,
+        );
+
+        return sendResponse(
+            true,
+            'Article revision comparison retrieved successfully',
+            $comparison,
+            HttpStatus::HTTP_OK,
+        );
+    }
+
+    public function restoreRevision(string $slug, int $revisionId): JsonResponse
+    {
+        $causer = auth()->user();
+        $article = $this->articleRevisionService->restore(
+            $slug,
+            $revisionId,
+            $causer instanceof \App\Models\User ? $causer : null,
+        );
+
+        return sendResponse(
+            true,
+            'Article restored from revision successfully',
+            new ArticleResource($article),
+            HttpStatus::HTTP_OK,
         );
     }
 

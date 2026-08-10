@@ -90,7 +90,7 @@ class AdminDashboardService
                 ],
                 [
                     'label' => 'Revenue (MTD)',
-                    'value' => '$'.number_format($revenueMtd / 100, 0),
+                    'value' => (int) round($revenueMtd / 100),
                     'trend' => ($revenuePct >= 0 ? '+' : '').number_format($revenuePct, 1).'%',
                     'iconTone' => 'orange',
                 ],
@@ -108,7 +108,7 @@ class AdminDashboardService
                 ],
                 [
                     'label' => 'Engagement Rate',
-                    'value' => round($engagementRate).'%',
+                    'value' => (int) round($engagementRate),
                     'trend' => $this->pct((int) $engagementRate, (int) $engagementLast),
                     'iconTone' => 'red',
                 ],

@@ -96,6 +96,12 @@ class Article extends Model
         return $this->hasMany(ArticleComment::class, 'article_id');
     }
 
+    public function revisions(string $slug)
+    {
+        return $this->hasMany(ArticleRevision::class, 'article_id')
+            ->orderByDesc('version');
+    }
+
     public function attachments()
     {
         return $this->hasMany(ArticleAttachment::class, 'article_id')
