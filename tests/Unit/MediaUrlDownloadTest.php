@@ -25,48 +25,35 @@ class MediaUrlDownloadTest extends TestCase
         );
     }
 
-    public function test_force_download_url_injects_cloudinary_attachment_flag(): void
+    public function test_force_download_url_uses_short_safe_attachment_name(): void
+    {
+        $url = 'https://res.cloudinary.com/demo/image/upload/v1/folder/pic.jpg';
+
+        $download = MediaUrl::forceDownloadUrl(
+            $url,
+            'Canada-Carney-Infantino-0_1786093292415_a00a6554-76ed-41ad-9284_1_.webp',
+        );
+
+        $this->assertNotNull($download);
+        // Prefer CDN path extension (.jpg), never embed UUID/hyphen-heavy names.
+        $this->assertStringContainsString('/upload/fl_attachment:file.jpg/', $download);
+        $this->assertStringNotContainsString('Canada-Carney', $download);
+        $this->assertStringNotContainsString('a00a6554-76ed', $download);
+        $this->assertStringContainsString('folder/pic.jpg', $download);
+    }
+
+    public function test_force_download_url_bare_flag_when_no_extension(): void
     {
         $url = 'https://res.cloudinary.com/demo/raw/upload/v1/docs/file';
 
-        $download = MediaUrl::forceDownloadUrl($url, 'briefing.pdf');
-
-        $this->assertNotNull($download);
-        $this->assertStringContainsString('/upload/fl_attachment:briefing.pdf/', $download);
-        $this->assertStringContainsString('docs/file', $download);
-    }
-
-    public function test_force_download_url_strips_spaces_and_parens_that_break_cloudinary(): void
-    {
-        $url = 'https://res.cloudinary.com/demo/image/upload/v1/folder/pic.jpg';
-        $messy = 'Canada-Carney-Infantino-0.1786093392415_a00a6554 (2).jpg';
-
-        $download = MediaUrl::forceDownloadUrl($url, $messy);
-
-        $this->assertNotNull($download);
-        $this->assertStringNotContainsString('%20', $download);
-        $this->assertStringNotContainsString('%28', $download);
-        $this->assertStringNotContainsString('(', $download);
-        $this->assertStringContainsString(
-            'fl_attachment:Canada-Carney-Infantino-0.1786093392415_a00a6554_2_.jpg',
-            $download,
-        );
-    }
-
-    public function test_force_download_url_uses_bare_flag_when_name_empty(): void
-    {
-        $url = 'https://res.cloudinary.com/demo/image/upload/v1/folder/pic.jpg';
-
-        $download = MediaUrl::forceDownloadUrl($url, '   ');
+        $download = MediaUrl::forceDownloadUrl($url, '');
 
         $this->assertNotNull($download);
         $this->assertStringContainsString('/upload/fl_attachment/', $download);
-        $this->assertStringNotContainsString('fl_attachment:', $download);
     }
 
-    public function test_can_redirect_cdn_upload_urls(): void
+    public function test_is_remote_helper(): void
     {
-        // Kept for MediaUrl CDN helpers used by public article attachments.
         $this->assertTrue(
             MediaUrl::isRemote(
                 'https://res.cloudinary.com/demo/image/upload/v1/folder/pic.jpg',

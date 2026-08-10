@@ -14,7 +14,9 @@ class MediaPolicy
 
     public function view(User $user, Media $media): bool
     {
-        return $media->uploaded_by === $user->id
+        // Ready assets are shared across the newsroom; drafts stay with the uploader.
+        return $media->status === 'ready'
+            || $media->uploaded_by === $user->id
             || $user->hasRole(['super_admin', 'admin']);
     }
 

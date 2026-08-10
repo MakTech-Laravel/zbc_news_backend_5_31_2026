@@ -28,13 +28,14 @@ class MediaUrl
     }
 
     /**
-     * Build a Cloudinary (or passthrough) URL that forces download with the given filename.
-     * Cross-origin <a download> alone often saves CDN assets as .tmp — fl_attachment fixes that.
+     * Build a Cloudinary URL that forces download.
      *
-     * Cloudinary returns HTTP 400 when fl_attachment names include spaces / parentheses
-     * (even URL-encoded as %20 / %28). Only ASCII [A-Za-z0-9._-] is injected into the path.
+     * IMPORTANT: Do not put long / hyphenated names into fl_attachment:… —
+     * Cloudinary treats hyphens inside that segment as transformation separators
+     * and returns HTTP 400 (common with UUID-heavy original filenames).
+     * A bare fl_attachment (or a tiny ASCII name) is reliable on local + live.
      */
-    public static function forceDownloadUrl(?string $url, ?string $filename): ?string
+    public static function forceDownloadUrl(?string $url, ?string $filename = null): ?string
     {
         $resolved = self::resolvePublic($url);
         if (! $resolved) {
@@ -49,12 +50,36 @@ class MediaUrl
             return $resolved;
         }
 
-        $safeName = self::sanitizeCloudinaryAttachmentFilename($filename);
-
-        // Bare fl_attachment still forces download when no safe name is available.
-        $flag = $safeName !== '' ? 'fl_attachment:'.$safeName : 'fl_attachment';
+        // Prefer a tiny name derived only from extension (no hyphens/UUIDs).
+        $ext = self::safeAttachmentExtension($filename, $resolved);
+        $flag = $ext !== '' ? 'fl_attachment:file.'.$ext : 'fl_attachment';
 
         return preg_replace('#/upload/#', '/upload/'.$flag.'/', $resolved, 1) ?: $resolved;
+    }
+
+    /**
+     * Extension safe for Cloudinary fl_attachment:file.{ext} (no dots/hyphens beyond the ext).
+     */
+    public static function safeAttachmentExtension(?string $filename, ?string $url = null): string
+    {
+        // Prefer the CDN asset extension — original upload names often disagree
+        // (e.g. ".webp" label on a ".jpg" Cloudinary object) and break fl_attachment.
+        if (is_string($url) && $url !== '') {
+            $path = parse_url($url, PHP_URL_PATH) ?: '';
+            $fromUrl = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+            if ($fromUrl !== '' && preg_match('/^[a-z0-9]{1,8}$/', $fromUrl)) {
+                return $fromUrl;
+            }
+        }
+
+        if (is_string($filename) && $filename !== '') {
+            $fromName = strtolower(pathinfo(self::sanitizeDownloadFilename($filename), PATHINFO_EXTENSION));
+            if ($fromName !== '' && preg_match('/^[a-z0-9]{1,8}$/', $fromName)) {
+                return $fromName;
+            }
+        }
+
+        return '';
     }
 
     public static function sanitizeDownloadFilename(?string $filename): string
@@ -72,33 +97,13 @@ class MediaUrl
     }
 
     /**
-     * Filename segment safe for Cloudinary's fl_attachment:name transformation.
+     * @deprecated Kept for tests/callers; Cloudinary download URLs no longer embed full names.
      */
     public static function sanitizeCloudinaryAttachmentFilename(?string $filename): string
     {
-        $name = self::sanitizeDownloadFilename($filename);
-        if ($name === '') {
-            return '';
-        }
+        $ext = self::safeAttachmentExtension($filename);
 
-        $name = preg_replace('/[^A-Za-z0-9._-]+/', '_', $name) ?: 'download';
-        $name = preg_replace('/_+/', '_', $name) ?: 'download';
-        $name = trim($name, '._-');
-
-        if ($name === '') {
-            return 'download';
-        }
-
-        // Keep the transformation segment short — long UUID-heavy names can 400.
-        if (strlen($name) > 100) {
-            $ext = pathinfo($name, PATHINFO_EXTENSION);
-            $stem = pathinfo($name, PATHINFO_FILENAME) ?: 'download';
-            $maxStem = max(1, 100 - ($ext !== '' ? strlen($ext) + 1 : 0));
-            $stem = substr($stem, 0, $maxStem);
-            $name = $ext !== '' ? $stem.'.'.$ext : $stem;
-        }
-
-        return $name;
+        return $ext !== '' ? 'file.'.$ext : 'file';
     }
 
     public static function downloadFilename(?string $originalFilename, ?string $extension, ?string $fallbackLabel = null): string

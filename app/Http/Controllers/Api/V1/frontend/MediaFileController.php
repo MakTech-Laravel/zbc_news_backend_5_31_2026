@@ -36,7 +36,9 @@ class MediaFileController extends Controller
 
         $filename = MediaUrl::downloadFilename(
             $media->original_filename,
-            $media->extension ?: MediaUrl::extensionFromMime($media->mime_type),
+            $media->extension
+                ?: MediaUrl::safeAttachmentExtension($media->original_filename, $remoteUrl)
+                ?: MediaUrl::extensionFromMime($media->mime_type),
         );
 
         // If the origin cannot reach Cloudinary, send the browser straight to the CDN.
