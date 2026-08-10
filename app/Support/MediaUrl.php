@@ -30,17 +30,15 @@ class MediaUrl
     /**
      * Build a Cloudinary (or passthrough) URL that forces download with the given filename.
      * Cross-origin <a download> alone often saves CDN assets as .tmp — fl_attachment fixes that.
+     *
+     * Cloudinary returns HTTP 400 when fl_attachment names include spaces / parentheses
+     * (even URL-encoded as %20 / %28). Only ASCII [A-Za-z0-9._-] is injected into the path.
      */
     public static function forceDownloadUrl(?string $url, ?string $filename): ?string
     {
         $resolved = self::resolvePublic($url);
         if (! $resolved) {
             return null;
-        }
-
-        $safeName = self::sanitizeDownloadFilename($filename);
-        if ($safeName === '') {
-            return $resolved;
         }
 
         if (! self::isRemote($resolved) || ! str_contains($resolved, '/upload/')) {
@@ -51,9 +49,12 @@ class MediaUrl
             return $resolved;
         }
 
-        $encoded = rawurlencode($safeName);
+        $safeName = self::sanitizeCloudinaryAttachmentFilename($filename);
 
-        return preg_replace('#/upload/#', '/upload/fl_attachment:'.$encoded.'/', $resolved, 1) ?: $resolved;
+        // Bare fl_attachment still forces download when no safe name is available.
+        $flag = $safeName !== '' ? 'fl_attachment:'.$safeName : 'fl_attachment';
+
+        return preg_replace('#/upload/#', '/upload/'.$flag.'/', $resolved, 1) ?: $resolved;
     }
 
     public static function sanitizeDownloadFilename(?string $filename): string
@@ -68,6 +69,36 @@ class MediaUrl
         $name = trim($name, '._ ');
 
         return $name !== '' ? $name : 'download';
+    }
+
+    /**
+     * Filename segment safe for Cloudinary's fl_attachment:name transformation.
+     */
+    public static function sanitizeCloudinaryAttachmentFilename(?string $filename): string
+    {
+        $name = self::sanitizeDownloadFilename($filename);
+        if ($name === '') {
+            return '';
+        }
+
+        $name = preg_replace('/[^A-Za-z0-9._-]+/', '_', $name) ?: 'download';
+        $name = preg_replace('/_+/', '_', $name) ?: 'download';
+        $name = trim($name, '._-');
+
+        if ($name === '') {
+            return 'download';
+        }
+
+        // Keep the transformation segment short — long UUID-heavy names can 400.
+        if (strlen($name) > 100) {
+            $ext = pathinfo($name, PATHINFO_EXTENSION);
+            $stem = pathinfo($name, PATHINFO_FILENAME) ?: 'download';
+            $maxStem = max(1, 100 - ($ext !== '' ? strlen($ext) + 1 : 0));
+            $stem = substr($stem, 0, $maxStem);
+            $name = $ext !== '' ? $stem.'.'.$ext : $stem;
+        }
+
+        return $name;
     }
 
     public static function downloadFilename(?string $originalFilename, ?string $extension, ?string $fallbackLabel = null): string

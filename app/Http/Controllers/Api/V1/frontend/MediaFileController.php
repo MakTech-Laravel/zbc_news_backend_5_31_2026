@@ -5,18 +5,23 @@ namespace App\Http\Controllers\Api\V1\frontend;
 use App\Http\Controllers\Controller;
 use App\Models\Media;
 use App\Support\MediaUrl;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 /**
- * Streams any ready media item with a Content-Disposition header, mirroring
- * ArticleAttachmentController. Needed because a plain CDN link cannot force a
- * download cross-origin, and audit-log files may belong to unpublished articles.
+ * Serves media downloads for activity log / revision history.
+ *
+ * Preferred path: proxy through Laravel with Content-Disposition (works cross-origin).
+ * Fallback: redirect to Cloudinary fl_attachment when the origin cannot fetch the CDN
+ * (common on local Windows SSL / blocked egress) — browser still downloads successfully.
  */
 class MediaFileController extends Controller
 {
-    public function __invoke(Request $request, string $uuid): StreamedResponse
+    public function __invoke(Request $request, string $uuid): RedirectResponse|StreamedResponse
     {
         $disposition = $request->query('disposition') === 'inline' ? 'inline' : 'attachment';
 
@@ -34,17 +39,64 @@ class MediaFileController extends Controller
             $media->extension ?: MediaUrl::extensionFromMime($media->mime_type),
         );
 
-        $mime = $media->mime_type ?: 'application/octet-stream';
-        if (strtolower((string) ($media->extension ?: MediaUrl::extensionFromMime($mime))) === 'pdf') {
-            $mime = 'application/pdf';
+        // If the origin cannot reach Cloudinary, send the browser straight to the CDN.
+        if ($disposition === 'attachment' && MediaUrl::isRemote($remoteUrl) && str_contains($remoteUrl, '/upload/')) {
+            $cdnDownload = MediaUrl::forceDownloadUrl($remoteUrl, $filename);
+            if (is_string($cdnDownload) && $cdnDownload !== '') {
+                $upstream = $this->fetchUpstream($remoteUrl);
+
+                if ($upstream === null || ! $upstream->successful()) {
+                    Log::warning('Media proxy upstream failed; redirecting to CDN download.', [
+                        'uuid' => $uuid,
+                        'status' => $upstream?->status(),
+                    ]);
+
+                    return redirect()->away($cdnDownload);
+                }
+
+                return $this->streamResponse($upstream, $disposition, $filename, $media->mime_type);
+            }
         }
 
-        $upstream = Http::withOptions([
-            'stream' => true,
-            'timeout' => 120,
-        ])->get($remoteUrl);
+        $upstream = $this->fetchUpstream($remoteUrl);
+        abort_unless($upstream !== null && $upstream->successful(), 502, 'Unable to fetch the file.');
 
-        abort_unless($upstream->successful(), 502, 'Unable to fetch the file.');
+        return $this->streamResponse($upstream, $disposition, $filename, $media->mime_type);
+    }
+
+    private function fetchUpstream(string $remoteUrl): ?\Illuminate\Http\Client\Response
+    {
+        try {
+            return Http::withOptions([
+                'stream' => true,
+                'connect_timeout' => 15,
+                'timeout' => 120,
+                'read_timeout' => 120,
+            ])->withHeaders([
+                'Accept' => '*/*',
+                'User-Agent' => 'ZBCNewsMediaProxy/1.0',
+            ])->get($remoteUrl);
+        } catch (Throwable $e) {
+            Log::warning('Media proxy request threw.', [
+                'url' => $remoteUrl,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    private function streamResponse(
+        \Illuminate\Http\Client\Response $upstream,
+        string $disposition,
+        string $filename,
+        ?string $mimeType,
+    ): StreamedResponse {
+        $mime = $mimeType ?: 'application/octet-stream';
+        if (strtolower((string) MediaUrl::extensionFromMime($mime)) === 'pdf'
+            || str_ends_with(strtolower($filename), '.pdf')) {
+            $mime = 'application/pdf';
+        }
 
         $asciiName = preg_replace('/[^\x20-\x7E]/', '_', $filename) ?: 'download';
         $asciiName = str_replace(['"', '\\'], '_', $asciiName);
