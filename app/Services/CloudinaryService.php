@@ -193,13 +193,13 @@ class CloudinaryService
 
     public function thumbnail(string $publicId, int $width = 300, int $height = 300): string
     {
+        // Keep transforms conservative — g_auto / f_auto derived URLs 404 for some
+        // uploads on live and break home + editor featured previews.
         return $this->imageUrl($publicId, [
             'width' => $width,
             'height' => $height,
             'crop' => 'fill',
-            'gravity' => 'auto',
             'quality' => 'auto',
-            'fetch_format' => 'auto',
         ]);
     }
 

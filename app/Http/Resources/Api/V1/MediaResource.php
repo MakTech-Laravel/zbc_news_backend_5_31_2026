@@ -23,7 +23,7 @@ class MediaResource extends JsonResource
             'size' => $this->size,
             'human_size' => $this->humanSize(),
             'url' => $this->url,
-            'thumbnail_url' => $this->thumbnail_url,
+            'thumbnail_url' => $this->resolveThumbnailUrl(),
             'preview_url' => $this->preview_url,
             'collection' => $this->collection,
             'status' => $this->status,
@@ -40,5 +40,19 @@ class MediaResource extends JsonResource
             ]),
             'created_at' => $this->created_at?->toISOString(),
         ];
+    }
+
+    private function resolveThumbnailUrl(): ?string
+    {
+        $isImage = $this->media_type === 'image'
+            || str_starts_with((string) $this->mime_type, 'image/');
+
+        // Existing rows may store derived Cloudinary thumbs that 404 on live.
+        // For images always expose the original delivery URL to the admin UI.
+        if ($isImage) {
+            return $this->url ?: $this->thumbnail_url;
+        }
+
+        return $this->thumbnail_url ?: $this->url;
     }
 }

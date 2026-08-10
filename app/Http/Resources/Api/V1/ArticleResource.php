@@ -168,17 +168,25 @@ class ArticleResource extends JsonResource
                 default => 'image',
             };
 
+            // Prefer the original Cloudinary delivery URL for images. Derived
+            // thumbnail transforms (c_fill,g_auto,f_auto,…) often 404 on live and
+            // then the home/editor UI shows an empty placeholder.
+            $originalUrl = $featured->url ?: $this->featured_image;
             $posterUrl = $poster?->url
+                ?? ($type === 'image' ? $originalUrl : null)
                 ?? $featured->thumbnail_url
-                ?? ($type === 'image' ? $featured->url : null)
-                ?? $this->featured_image;
+                ?? $originalUrl;
+
+            $thumbnailUrl = $type === 'image'
+                ? ($originalUrl ?: $featured->thumbnail_url)
+                : ($featured->thumbnail_url ?: $posterUrl);
 
             return [
                 'uuid' => $featured->uuid,
                 'type' => $type,
                 'provider' => 'native',
                 'url' => MediaUrl::resolvePublic($featured->url),
-                'thumbnail_url' => MediaUrl::resolvePublic($featured->thumbnail_url),
+                'thumbnail_url' => MediaUrl::resolvePublic($thumbnailUrl),
                 'poster_url' => MediaUrl::resolvePublic($posterUrl),
                 'poster_uuid' => $poster?->uuid,
                 'mime_type' => $featured->mime_type,
