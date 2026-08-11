@@ -76,6 +76,13 @@ class MediaService
      */
     public function updateMetadata(Media $media, array $data): Media
     {
+        $before = [
+            'alt_text' => $media->alt_text,
+            'caption' => $media->caption,
+            'credit' => $media->credit,
+            'copyright' => $media->copyright,
+        ];
+
         $media->update([
             'alt_text' => array_key_exists('alt_text', $data)
                 ? $this->nullableString($data['alt_text'])
@@ -91,7 +98,35 @@ class MediaService
                 : $media->copyright,
         ]);
 
-        return $media->fresh();
+        $media = $media->fresh() ?? $media;
+
+        $after = [
+            'alt_text' => $media->alt_text,
+            'caption' => $media->caption,
+            'credit' => $media->credit,
+            'copyright' => $media->copyright,
+        ];
+
+        // Media-library edits must show up on articles that use this file as featured/poster.
+        if ($before !== $after
+            && $media->mediable_type === Article::class
+            && $media->mediable_id
+            && in_array($media->collection, ['featured', 'poster'], true)
+        ) {
+            $article = Article::query()->find($media->mediable_id);
+            if ($article) {
+                $causer = auth()->user();
+                app(ArticleRevisionService::class)->recordMediaMetadataChange(
+                    $article,
+                    $media,
+                    $before,
+                    $after,
+                    $causer instanceof User ? $causer : null,
+                );
+            }
+        }
+
+        return $media;
     }
 
     private function nullableString(mixed $value): ?string
