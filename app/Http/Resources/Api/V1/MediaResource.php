@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Support\MediaUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -22,9 +23,9 @@ class MediaResource extends JsonResource
             'resource_type' => $this->resource_type,
             'size' => $this->size,
             'human_size' => $this->humanSize(),
-            'url' => $this->url,
-            'thumbnail_url' => $this->resolveThumbnailUrl(),
-            'preview_url' => $this->preview_url,
+            'url' => MediaUrl::resolvePublic($this->url),
+            'thumbnail_url' => MediaUrl::resolvePublic($this->resolveThumbnailUrl()),
+            'preview_url' => MediaUrl::resolvePublic($this->preview_url),
             'collection' => $this->collection,
             'status' => $this->status,
             'metadata' => $this->metadata,

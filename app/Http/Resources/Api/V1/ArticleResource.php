@@ -21,7 +21,7 @@ class ArticleResource extends JsonResource
             'meta_keywords' => $this->meta_keywords,
             'sub_title' => $this->sub_title,
             'excerpt' => $this->excerpt,
-            'article_description' => $this->article_description,
+            'article_description' => MediaUrl::rewriteHtmlMediaUrls($this->article_description),
             'read_time' => $this->formattedReadTime(),
             'estimated_read_time' => $this->estimatedReadTime(),
 
@@ -185,7 +185,7 @@ class ArticleResource extends JsonResource
                 'uuid' => $featured->uuid,
                 'type' => $type,
                 'provider' => 'native',
-                'url' => MediaUrl::resolvePublic($featured->url),
+                'url' => MediaUrl::resolvePublic($originalUrl),
                 'thumbnail_url' => MediaUrl::resolvePublic($thumbnailUrl),
                 'poster_url' => MediaUrl::resolvePublic($posterUrl),
                 'poster_uuid' => $poster?->uuid,
