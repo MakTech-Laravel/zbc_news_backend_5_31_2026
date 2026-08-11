@@ -537,11 +537,16 @@ class ArticleRevisionService
             $kinds[$key] = $this->changeKind($previous, $current);
 
             if ($key === 'article_description') {
-                $oldText = $this->plainText(is_string($previous) ? $previous : '');
-                $newText = $this->plainText(is_string($current) ? $current : '');
-                $old[$key] = $oldText !== '' ? $oldText : 'Empty';
-                $new[$key] = $newText !== '' ? $newText : 'Empty';
-                $diffs[$key] = $this->wordDiff($oldText, $newText);
+                // Keep full HTML so the compare UI can render the article as authored
+                // (headings, lists, images, etc.), not a plain-text summary.
+                $oldHtml = is_string($previous) ? $previous : '';
+                $newHtml = is_string($current) ? $current : '';
+                $old[$key] = $oldHtml !== '' ? $oldHtml : 'Empty';
+                $new[$key] = $newHtml !== '' ? $newHtml : 'Empty';
+                $diffs[$key] = $this->wordDiff(
+                    $this->plainText($oldHtml),
+                    $this->plainText($newHtml),
+                );
                 continue;
             }
 
