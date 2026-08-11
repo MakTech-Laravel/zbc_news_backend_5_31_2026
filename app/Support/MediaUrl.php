@@ -19,12 +19,114 @@ class MediaUrl
         }
 
         if (self::isRemote($value)) {
-            return $value;
+            // Derived Cloudinary transforms (c_fill,g_auto,f_auto,…) 404 on live
+            // for some assets — always expose the original delivery URL.
+            return self::preferOriginalDelivery($value);
         }
 
         $normalized = str_starts_with($value, '/') ? ltrim($value, '/') : $value;
 
         return asset('storage/'.$normalized);
+    }
+
+    /**
+     * Strip Cloudinary transformation segments so the URL points at the original asset.
+     * Leaves non-Cloudinary URLs unchanged.
+     */
+    public static function preferOriginalDelivery(?string $url): ?string
+    {
+        if (! is_string($url) || $url === '') {
+            return $url;
+        }
+
+        if (! str_contains($url, '/upload/')) {
+            return $url;
+        }
+
+        $parts = parse_url($url);
+        if ($parts === false || ! isset($parts['path'])) {
+            return $url;
+        }
+
+        $path = $parts['path'];
+        $marker = '/upload/';
+        $pos = strpos($path, $marker);
+        if ($pos === false) {
+            return $url;
+        }
+
+        $prefix = substr($path, 0, $pos + strlen($marker));
+        $rest = substr($path, $pos + strlen($marker));
+        $segments = $rest === '' ? [] : explode('/', $rest);
+        $kept = [];
+        $pastTransforms = false;
+
+        foreach ($segments as $segment) {
+            if ($segment === '') {
+                continue;
+            }
+
+            if (! $pastTransforms) {
+                if (preg_match('/^v\d+$/', $segment)) {
+                    $pastTransforms = true;
+                    $kept[] = $segment;
+                    continue;
+                }
+
+                // Transformation segment: c_fill,w_300 or fl_attachment:file.jpg
+                if (str_contains($segment, ',')
+                    || preg_match('/^(c_|w_|h_|f_|g_|q_|fl_|e_|dpr_|ar_|b_|bo_|r_|t_|x_|y_|z_|a_|u_|o_)/', $segment)
+                ) {
+                    continue;
+                }
+
+                $pastTransforms = true;
+            }
+
+            $kept[] = $segment;
+        }
+
+        if ($kept === []) {
+            return $url;
+        }
+
+        $newPath = $prefix.implode('/', $kept);
+        $rebuilt = ($parts['scheme'] ?? 'https').'://'.($parts['host'] ?? '');
+        if (isset($parts['port'])) {
+            $rebuilt .= ':'.$parts['port'];
+        }
+        $rebuilt .= $newPath;
+        if (isset($parts['query'])) {
+            $rebuilt .= '?'.$parts['query'];
+        }
+        if (isset($parts['fragment'])) {
+            $rebuilt .= '#'.$parts['fragment'];
+        }
+
+        return $rebuilt;
+    }
+
+    /**
+     * Rewrite img/src, source/src, and video/poster Cloudinary URLs inside HTML.
+     */
+    public static function rewriteHtmlMediaUrls(?string $html): ?string
+    {
+        if (! is_string($html) || $html === '') {
+            return $html;
+        }
+
+        return preg_replace_callback(
+            '/\b(src|poster)=([\'"])([^\'"]+)\2/i',
+            function (array $matches) {
+                $attr = $matches[1];
+                $quote = $matches[2];
+                $url = $matches[3];
+                $fixed = self::preferOriginalDelivery($url) ?? $url;
+
+                return $attr.'='.$quote.$fixed.$quote;
+            },
+            $html
+        ) ?? $html;
     }
 
     /**

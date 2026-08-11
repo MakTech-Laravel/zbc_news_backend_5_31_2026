@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Support\MediaUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -12,7 +13,7 @@ class ArticleLiveUpdateResource extends JsonResource
         return [
             'id' => $this->id,
             'article_id' => $this->article_id,
-            'body' => $this->body,
+            'body' => MediaUrl::rewriteHtmlMediaUrls($this->body),
             'posted_at' => $this->posted_at?->toIso8601String(),
             'status' => $this->status?->value ?? $this->status,
             'user' => $this->whenLoaded('user', function () {
