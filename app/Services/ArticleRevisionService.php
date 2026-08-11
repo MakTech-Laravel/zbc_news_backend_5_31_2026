@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\ArticleStatus;
 use App\Models\Article;
+use App\Models\ArticleCategory;
 use App\Models\ArticleRevision;
 use App\Models\Media;
 use App\Models\User;
@@ -58,6 +59,8 @@ class ArticleRevisionService
     {
         $article = $article->fresh([
             'tags',
+            'category:id,title',
+            'user:id,name',
             'breakingNewsItem',
             'attachments.media',
             'media' => fn ($q) => $q->where('status', 'ready')
@@ -72,7 +75,12 @@ class ArticleRevisionService
 
         $changes = $previous
             ? $this->diffSnapshots($previous->snapshot ?? [], $snapshot)
-            : ['old' => [], 'new' => $this->summariseSnapshot($snapshot)];
+            : [
+                'old' => [],
+                'new' => $this->summariseSnapshot($snapshot),
+                'kinds' => [],
+                'diffs' => [],
+            ];
 
         // Identical consecutive snapshots (no-op save) do not create a new revision.
         if ($previous && ($changes['old'] ?? []) === [] && ($changes['new'] ?? []) === []) {
@@ -96,6 +104,93 @@ class ArticleRevisionService
             'status' => $status,
             'snapshot' => $snapshot,
             'changes' => $changes,
+            'created_by' => $causer?->id ?? auth()->id(),
+        ]);
+    }
+
+    /**
+     * When featured/poster media metadata is edited in the media library,
+     * create an article revision so History shows alt/caption/credit/copyright changes.
+     *
+     * @param  array{alt_text: ?string, caption: ?string, credit: ?string, copyright: ?string}  $before
+     * @param  array{alt_text: ?string, caption: ?string, credit: ?string, copyright: ?string}  $after
+     */
+    public function recordMediaMetadataChange(
+        Article $article,
+        Media $media,
+        array $before,
+        array $after,
+        ?User $causer = null,
+    ): ?ArticleRevision {
+        if (! in_array($media->collection, ['featured', 'poster'], true)) {
+            return null;
+        }
+
+        if ($media->mediable_type !== Article::class || (int) $media->mediable_id !== (int) $article->id) {
+            return null;
+        }
+
+        $prefix = $media->collection === 'poster' ? 'poster_' : 'featured_';
+        $fieldMap = [
+            'alt_text' => $prefix.'alt_text',
+            'caption' => $prefix.'caption',
+            'credit' => $prefix.'credit',
+            'copyright' => $prefix.'copyright',
+        ];
+
+        $old = [];
+        $new = [];
+        $kinds = [];
+
+        foreach ($fieldMap as $mediaKey => $flatKey) {
+            $previous = $before[$mediaKey] ?? null;
+            $current = $after[$mediaKey] ?? null;
+            if ($this->valuesEqual($previous, $current)) {
+                continue;
+            }
+            $old[$flatKey] = $previous;
+            $new[$flatKey] = $current;
+            $kinds[$flatKey] = $this->changeKind($previous, $current);
+        }
+
+        if ($old === [] && $new === []) {
+            return null;
+        }
+
+        $article = $article->fresh([
+            'tags',
+            'category:id,title',
+            'user:id,name',
+            'breakingNewsItem',
+            'attachments.media',
+            'media' => fn ($q) => $q->where('status', 'ready')
+                ->whereIn('collection', ['featured', 'poster']),
+        ]) ?? $article;
+
+        $snapshot = $this->buildSnapshot($article);
+
+        $version = (int) (ArticleRevision::query()
+            ->where('article_id', $article->id)
+            ->max('version') ?? 0) + 1;
+
+        $status = $article->status instanceof ArticleStatus
+            ? $article->status->value
+            : (string) $article->status;
+
+        return ArticleRevision::query()->create([
+            'article_id' => $article->id,
+            'version' => $version,
+            'event' => 'media_updated',
+            'title' => $article->title,
+            'slug' => $article->slug,
+            'status' => $status,
+            'snapshot' => $snapshot,
+            'changes' => [
+                'old' => $old,
+                'new' => $new,
+                'kinds' => $kinds,
+                'diffs' => [],
+            ],
             'created_by' => $causer?->id ?? auth()->id(),
         ]);
     }
@@ -131,7 +226,7 @@ class ArticleRevisionService
     /**
      * Compare two revisions, or one revision against the live article.
      *
-     * @return array{left: array<string, mixed>, right: array<string, mixed>, changes: array{old: array<string, mixed>, new: array<string, mixed>}}
+     * @return array{left: array<string, mixed>, right: array<string, mixed>, changes: array{old: array<string, mixed>, new: array<string, mixed>, kinds: array<string, string>, diffs: array<string, list<array{op: string, text: string}>>}}
      */
     public function compare(string $slug, ?int $leftId, ?int $rightId): array
     {
@@ -141,6 +236,8 @@ class ArticleRevisionService
             ? $this->revisionSnapshot($article->id, $leftId)
             : $this->buildSnapshot($article->fresh([
                 'tags',
+                'category:id,title',
+                'user:id,name',
                 'breakingNewsItem',
                 'attachments.media',
                 'media' => fn ($q) => $q->where('status', 'ready')
@@ -151,6 +248,8 @@ class ArticleRevisionService
             ? $this->revisionSnapshot($article->id, $rightId)
             : $this->buildSnapshot($article->fresh([
                 'tags',
+                'category:id,title',
+                'user:id,name',
                 'breakingNewsItem',
                 'attachments.media',
                 'media' => fn ($q) => $q->where('status', 'ready')
@@ -190,9 +289,20 @@ class ArticleRevisionService
 
             $updated = $this->articleService->update($slug, $payload, isAutoSave: false);
 
+            // Re-apply frozen media metadata from the revision (alt/caption/credit).
+            $this->restoreMediaMetadata($revision->snapshot ?? []);
+
             // update() already records an "edited" revision; mark intent in the audit log.
             ArticleAuditLogger::log(
-                $updated,
+                $updated->fresh([
+                    'tags',
+                    'category:id,title',
+                    'user:id,name',
+                    'breakingNewsItem',
+                    'attachments.media',
+                    'media' => fn ($q) => $q->where('status', 'ready')
+                        ->whereIn('collection', ['featured', 'poster']),
+                ]) ?? $updated,
                 'revision_restored',
                 'Article restored from revision #'.$revision->version,
                 $causer,
@@ -205,7 +315,13 @@ class ArticleRevisionService
                 ],
             );
 
-            return $updated;
+            return $updated->fresh([
+                'tags',
+                'category',
+                'user',
+                'attachments.media',
+                'media',
+            ]) ?? $updated;
         });
     }
 
@@ -214,6 +330,8 @@ class ArticleRevisionService
      */
     public function buildSnapshot(Article $article): array
     {
+        $article->loadMissing(['category:id,title', 'user:id,name']);
+
         $attributes = [];
         foreach (self::ATTRIBUTE_FIELDS as $field) {
             $attributes[$field] = $this->normalizeAttribute($article->getAttribute($field));
@@ -260,6 +378,8 @@ class ArticleRevisionService
 
         return [
             'attributes' => $attributes,
+            'category_title' => $article->category?->title,
+            'author_name' => $article->user?->name,
             'tags' => $article->tags()
                 ->pluck('tag')
                 ->map(fn ($tag) => (string) $tag)
@@ -267,8 +387,31 @@ class ArticleRevisionService
                 ->all(),
             'featured_media_uuid' => $featured?->uuid,
             'poster_media_uuid' => $poster?->uuid,
+            // Freeze media metadata so compare/restore reflect this revision, not later edits.
+            'featured_media' => $this->mediaMetaSnapshot($featured),
+            'poster_media' => $this->mediaMetaSnapshot($poster),
             'attachments' => $attachments,
             'breaking' => $breaking,
+        ];
+    }
+
+    /**
+     * @return array{uuid: string, filename: string|null, url: string|null, alt_text: string|null, caption: string|null, credit: string|null, copyright: string|null}|null
+     */
+    private function mediaMetaSnapshot(?Media $media): ?array
+    {
+        if (! $media) {
+            return null;
+        }
+
+        return [
+            'uuid' => (string) $media->uuid,
+            'filename' => $media->original_filename,
+            'url' => MediaUrl::resolvePublic($media->url ?: $media->thumbnail_url),
+            'alt_text' => $media->alt_text,
+            'caption' => $media->caption,
+            'credit' => $media->credit,
+            'copyright' => $media->copyright,
         ];
     }
 
@@ -334,9 +477,45 @@ class ArticleRevisionService
     }
 
     /**
+     * Apply frozen alt/caption/credit from a revision onto the linked media rows.
+     *
+     * @param  array<string, mixed>  $snapshot
+     */
+    private function restoreMediaMetadata(array $snapshot): void
+    {
+        foreach (['featured_media', 'poster_media'] as $key) {
+            $meta = $snapshot[$key] ?? null;
+            if (! is_array($meta)) {
+                continue;
+            }
+            $uuid = $meta['uuid'] ?? null;
+            if (! is_string($uuid) || $uuid === '') {
+                continue;
+            }
+
+            $media = Media::query()->where('uuid', $uuid)->first();
+            if (! $media) {
+                continue;
+            }
+
+            $media->update([
+                'alt_text' => array_key_exists('alt_text', $meta) ? $meta['alt_text'] : $media->alt_text,
+                'caption' => array_key_exists('caption', $meta) ? $meta['caption'] : $media->caption,
+                'credit' => array_key_exists('credit', $meta) ? $meta['credit'] : $media->credit,
+                'copyright' => array_key_exists('copyright', $meta) ? $meta['copyright'] : $media->copyright,
+            ]);
+        }
+    }
+
+    /**
      * @param  array<string, mixed>  $before
      * @param  array<string, mixed>  $after
-     * @return array{old: array<string, mixed>, new: array<string, mixed>}
+     * @return array{
+     *   old: array<string, mixed>,
+     *   new: array<string, mixed>,
+     *   kinds: array<string, string>,
+     *   diffs: array<string, list<array{op: string, text: string}>>
+     * }
      */
     public function diffSnapshots(array $before, array $after): array
     {
@@ -344,6 +523,8 @@ class ArticleRevisionService
         $right = $this->flattenSnapshot($after);
         $old = [];
         $new = [];
+        $kinds = [];
+        $diffs = [];
 
         foreach (array_keys($left + $right) as $key) {
             $previous = $left[$key] ?? null;
@@ -353,10 +534,14 @@ class ArticleRevisionService
                 continue;
             }
 
-            // Body HTML is summarised for the compare table so rows stay readable.
+            $kinds[$key] = $this->changeKind($previous, $current);
+
             if ($key === 'article_description') {
-                $old[$key] = $this->summariseRichText(is_string($previous) ? $previous : '');
-                $new[$key] = $this->summariseRichText(is_string($current) ? $current : '');
+                $oldText = $this->plainText(is_string($previous) ? $previous : '');
+                $newText = $this->plainText(is_string($current) ? $current : '');
+                $old[$key] = $oldText !== '' ? $oldText : 'Empty';
+                $new[$key] = $newText !== '' ? $newText : 'Empty';
+                $diffs[$key] = $this->wordDiff($oldText, $newText);
                 continue;
             }
 
@@ -364,7 +549,95 @@ class ArticleRevisionService
             $new[$key] = $current;
         }
 
-        return ['old' => $old, 'new' => $new];
+        return [
+            'old' => $old,
+            'new' => $new,
+            'kinds' => $kinds,
+            'diffs' => $diffs,
+        ];
+    }
+
+    private function changeKind(mixed $previous, mixed $current): string
+    {
+        $prevEmpty = $previous === null || $previous === '' || $previous === [] || $previous === 'Empty';
+        $currEmpty = $current === null || $current === '' || $current === [] || $current === 'Empty';
+
+        if ($prevEmpty && ! $currEmpty) {
+            return 'added';
+        }
+        if (! $prevEmpty && $currEmpty) {
+            return 'removed';
+        }
+
+        return 'modified';
+    }
+
+    private function plainText(string $html): string
+    {
+        return trim(preg_replace('/\s+/u', ' ', strip_tags($html)) ?? '');
+    }
+
+    /**
+     * Word-level diff for revision compare UI.
+     *
+     * @return list<array{op: string, text: string}>
+     */
+    private function wordDiff(string $old, string $new): array
+    {
+        $a = $old === '' ? [] : (preg_split('/\s+/u', $old) ?: []);
+        $b = $new === '' ? [] : (preg_split('/\s+/u', $new) ?: []);
+
+        $n = count($a);
+        $m = count($b);
+        $lcs = array_fill(0, $n + 1, array_fill(0, $m + 1, 0));
+
+        for ($i = $n - 1; $i >= 0; $i--) {
+            for ($j = $m - 1; $j >= 0; $j--) {
+                if ($a[$i] === $b[$j]) {
+                    $lcs[$i][$j] = $lcs[$i + 1][$j + 1] + 1;
+                } else {
+                    $lcs[$i][$j] = max($lcs[$i + 1][$j], $lcs[$i][$j + 1]);
+                }
+            }
+        }
+
+        $segments = [];
+        $i = 0;
+        $j = 0;
+        while ($i < $n && $j < $m) {
+            if ($a[$i] === $b[$j]) {
+                $segments[] = ['op' => 'equal', 'text' => $a[$i]];
+                $i++;
+                $j++;
+            } elseif ($lcs[$i + 1][$j] >= $lcs[$i][$j + 1]) {
+                $segments[] = ['op' => 'delete', 'text' => $a[$i]];
+                $i++;
+            } else {
+                $segments[] = ['op' => 'insert', 'text' => $b[$j]];
+                $j++;
+            }
+        }
+        while ($i < $n) {
+            $segments[] = ['op' => 'delete', 'text' => $a[$i]];
+            $i++;
+        }
+        while ($j < $m) {
+            $segments[] = ['op' => 'insert', 'text' => $b[$j]];
+            $j++;
+        }
+
+        // Merge adjacent same-op tokens for cleaner UI.
+        $merged = [];
+        foreach ($segments as $segment) {
+            $last = $merged[count($merged) - 1] ?? null;
+            if ($last && $last['op'] === $segment['op']) {
+                $merged[count($merged) - 1]['text'] = $last['text'].' '.$segment['text'];
+            } else {
+                $merged[] = $segment;
+            }
+        }
+
+        return $merged;
     }
 
     /**
@@ -463,28 +736,60 @@ class ArticleRevisionService
         $attributes = is_array($snapshot['attributes'] ?? null) ? $snapshot['attributes'] : [];
 
         foreach ($attributes as $key => $value) {
-            if (in_array($key, ['featured_image', 'open_graph_image'], true)) {
+            // Replaced by readable category/author + media file objects below.
+            if (in_array($key, [
+                'featured_image',
+                'open_graph_image',
+                'article_category_id',
+                'user_id',
+            ], true)) {
                 continue;
             }
             $flat[$key] = $value;
         }
 
+        $flat['category'] = is_string($snapshot['category_title'] ?? null)
+            ? $snapshot['category_title']
+            : $this->resolveCategoryTitle($attributes['article_category_id'] ?? null);
+
+        $flat['author'] = is_string($snapshot['author_name'] ?? null)
+            ? $snapshot['author_name']
+            : $this->resolveAuthorName($attributes['user_id'] ?? null);
+
+        $featuredMeta = is_array($snapshot['featured_media'] ?? null) ? $snapshot['featured_media'] : null;
+        $posterMeta = is_array($snapshot['poster_media'] ?? null) ? $snapshot['poster_media'] : null;
+
         $featuredMedia = $this->mediaByUuid(
-            is_string($snapshot['featured_media_uuid'] ?? null) ? $snapshot['featured_media_uuid'] : null,
+            is_string($featuredMeta['uuid'] ?? null)
+                ? $featuredMeta['uuid']
+                : (is_string($snapshot['featured_media_uuid'] ?? null) ? $snapshot['featured_media_uuid'] : null),
         );
         $posterMedia = $this->mediaByUuid(
-            is_string($snapshot['poster_media_uuid'] ?? null) ? $snapshot['poster_media_uuid'] : null,
+            is_string($posterMeta['uuid'] ?? null)
+                ? $posterMeta['uuid']
+                : (is_string($snapshot['poster_media_uuid'] ?? null) ? $snapshot['poster_media_uuid'] : null),
         );
 
-        // One featured row only — media record preferred, legacy URL as fallback.
-        $flat['featured_image'] = $this->mediaFileValue($featuredMedia)
+        // Prefer frozen snapshot media (filename/url) so compare matches that revision.
+        $flat['featured_image'] = $this->frozenMediaFileValue($featuredMeta, $featuredMedia)
+            ?? $this->mediaFileValue($featuredMedia)
             ?? $this->imageFileValue(is_string($attributes['featured_image'] ?? null) ? $attributes['featured_image'] : null);
+
+        $flat['featured_alt_text'] = is_array($featuredMeta) ? ($featuredMeta['alt_text'] ?? null) : null;
+        $flat['featured_caption'] = is_array($featuredMeta) ? ($featuredMeta['caption'] ?? null) : null;
+        $flat['featured_credit'] = is_array($featuredMeta) ? ($featuredMeta['credit'] ?? null) : null;
+        $flat['featured_copyright'] = is_array($featuredMeta) ? ($featuredMeta['copyright'] ?? null) : null;
 
         $flat['open_graph_image'] = $this->imageFileValue(
             is_string($attributes['open_graph_image'] ?? null) ? $attributes['open_graph_image'] : null,
         );
 
-        $flat['poster_media'] = $this->mediaFileValue($posterMedia);
+        $flat['poster_media'] = $this->frozenMediaFileValue($posterMeta, $posterMedia)
+            ?? $this->mediaFileValue($posterMedia);
+        $flat['poster_alt_text'] = is_array($posterMeta) ? ($posterMeta['alt_text'] ?? null) : null;
+        $flat['poster_caption'] = is_array($posterMeta) ? ($posterMeta['caption'] ?? null) : null;
+        $flat['poster_credit'] = is_array($posterMeta) ? ($posterMeta['credit'] ?? null) : null;
+        $flat['poster_copyright'] = is_array($posterMeta) ? ($posterMeta['copyright'] ?? null) : null;
 
         $flat['tags'] = is_array($snapshot['tags'] ?? null) ? array_values($snapshot['tags']) : [];
 
@@ -511,6 +816,59 @@ class ArticleRevisionService
         }
 
         return $flat;
+    }
+
+    private function resolveCategoryTitle(mixed $categoryId): ?string
+    {
+        if (! is_numeric($categoryId)) {
+            return null;
+        }
+
+        $title = ArticleCategory::query()->whereKey((int) $categoryId)->value('title');
+
+        return is_string($title) ? $title : null;
+    }
+
+    private function resolveAuthorName(mixed $userId): ?string
+    {
+        if (! is_numeric($userId)) {
+            return null;
+        }
+
+        $name = User::query()->whereKey((int) $userId)->value('name');
+
+        return is_string($name) ? $name : null;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $meta
+     * @return array{kind: string, name: string, url: string|null, download_url: string|null}|null
+     */
+    private function frozenMediaFileValue(?array $meta, ?Media $live): ?array
+    {
+        if ($meta === null) {
+            return null;
+        }
+
+        $uuid = is_string($meta['uuid'] ?? null) ? $meta['uuid'] : null;
+        if ($uuid === null || $uuid === '') {
+            return null;
+        }
+
+        $base = $this->mediaFileValue($live);
+        $filename = is_string($meta['filename'] ?? null) && $meta['filename'] !== ''
+            ? $meta['filename']
+            : ($base['name'] ?? 'Untitled');
+        $url = is_string($meta['url'] ?? null) && $meta['url'] !== ''
+            ? MediaUrl::resolvePublic($meta['url'])
+            : ($base['url'] ?? null);
+
+        return $this->fileValue(
+            $base['kind'] ?? 'image',
+            $filename,
+            $url,
+            $base['download_url'] ?? $this->mediaDownloadPath($uuid),
+        );
     }
 
     private function mediaByUuid(?string $uuid): ?Media
