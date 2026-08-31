@@ -79,7 +79,7 @@ class CookiePolicySeeder extends Seeder
             ],
             'contact_heading' => 'Questions About Cookies?',
             'contact_description' => 'Our privacy team can help with any questions about how ZBC News uses tracking technologies.',
-            'contact_email' => 'privacy@zbcnews.com',
+            'contact_email' => 'info@zbc.news',
             'banner_title' => 'We use cookies',
             'banner_description' => 'ZBC News uses essential cookies to keep the site working, and optional cookies for analytics, preferences, and advertising. Choose what you allow.',
         ];

@@ -104,7 +104,7 @@ class AccessibilityStatementSeeder extends Seeder
             'known_limitations' => 'Some third-party embedded content (social media posts, interactive maps, partner video players) may not fully meet our accessibility standards. We are working with our suppliers to address these gaps and welcome reports of any barriers you encounter.',
             'report_heading' => 'Report an Accessibility Issue',
             'report_intro' => 'Encountered a barrier on ZBC News? Tell us. We take every accessibility report seriously and commit to investigating within 5 business days.',
-            'contact_email' => 'accessibility@zbcnews.com',
+            'contact_email' => 'info@zbc.news',
             'contact_phone' => '+1 (212) 555-0198 ext. 9',
             'contact_address' => '1201 6th Ave, New York, NY',
             'cta_text' => 'Need Immediate Accessibility Help?',
