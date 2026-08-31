@@ -7,6 +7,7 @@ use App\Enums\LiveUpdateStatus;
 use App\Jobs\DispatchArticlePublishedNotifications;
 use App\Models\Article;
 use App\Models\ArticleLiveUpdate;
+use App\Support\ArticleHtmlSanitizer;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -16,6 +17,7 @@ class LiveUpdateService
     public function __construct(
         private readonly ArticleLiveUpdate $liveUpdate,
         private readonly SubMenuService $subMenuService,
+        private readonly ArticleHtmlSanitizer $articleHtmlSanitizer,
     ) {}
 
     public function findLiveBlogBySlug(string $slug): Article
@@ -60,7 +62,7 @@ class LiveUpdateService
 
             $entry = $this->liveUpdate->newQuery()->create([
                 'article_id' => $article->id,
-                'body' => $data['body'],
+                'body' => $this->articleHtmlSanitizer->sanitize((string) ($data['body'] ?? '')),
                 'posted_at' => $postedAt,
                 'status' => $status->value,
                 'user_id' => $userId ?? auth()->id(),
@@ -101,7 +103,9 @@ class LiveUpdateService
                 : $previousStatus;
 
             $payload = [
-                'body' => $data['body'] ?? $entry->body,
+                'body' => $this->articleHtmlSanitizer->sanitize(
+                    (string) ($data['body'] ?? $entry->body),
+                ),
                 'status' => $status->value,
             ];
 
