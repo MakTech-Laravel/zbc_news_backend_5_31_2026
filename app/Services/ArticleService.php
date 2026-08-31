@@ -14,6 +14,7 @@ use App\Models\Media;
 use App\Models\Tag;
 use App\Models\User;
 use App\Support\ArticleAuditLogger;
+use App\Support\ArticleHtmlSanitizer;
 use App\Support\BreakingTag;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -33,6 +34,7 @@ class ArticleService
         private readonly MediaService $mediaService,
         private readonly BreakingNewsService $breakingNewsService,
         private readonly SubMenuService $subMenuService,
+        private readonly ArticleHtmlSanitizer $articleHtmlSanitizer,
     ) {}
 
     public function getAllArticles(bool $excludeLiveBlogs = false)
@@ -363,6 +365,8 @@ class ArticleService
                 $data['article_description'] = '';
             }
 
+            $data = $this->sanitizeRichTextFields($data);
+
             $featuredMediaUuid = $this->pullMediaUuid($data, 'featured_media_uuid');
             $posterMediaUuid = $this->pullMediaUuid($data, 'poster_media_uuid');
             $attachmentsPayload = $this->pullAttachmentsPayload($data);
@@ -510,6 +514,8 @@ class ArticleService
         return DB::transaction(function () use ($article, $data, $isAutoSave) {
             // Never accept this from the client — set only by auto-save / manual-save flow.
             unset($data['pending_editorial_timestamp']);
+
+            $data = $this->sanitizeRichTextFields($data);
 
             $tagsProvided = array_key_exists('tags', $data);
             $tags = $data['tags'] ?? null;
@@ -1201,6 +1207,19 @@ class ArticleService
 
         if (! array_key_exists('visibility', $data) || $data['visibility'] === null) {
             $data['visibility'] = ArticleVisibility::PUBLIC->value;
+        }
+
+        return $this->sanitizeRichTextFields($data);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function sanitizeRichTextFields(array $data): array
+    {
+        if (array_key_exists('article_description', $data) && is_string($data['article_description'])) {
+            $data['article_description'] = $this->articleHtmlSanitizer->sanitize($data['article_description']);
         }
 
         return $data;
