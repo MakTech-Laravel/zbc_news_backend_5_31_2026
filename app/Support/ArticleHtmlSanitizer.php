@@ -16,6 +16,11 @@ class ArticleHtmlSanitizer
     ];
 
     /** @var list<string> */
+    private const EDITOR_ONLY_ATTRS = [
+        'data-editor-video-replace-id',
+    ];
+
+    /** @var list<string> */
     private const GLOBAL_ATTRS = [
         'class', 'style', 'contenteditable', 'data-embed-type', 'data-aspect-ratio', 'data-caption', 'data-credit', 'data-copyright',
     ];
@@ -182,6 +187,10 @@ class ArticleHtmlSanitizer
             foreach ($toRemove as $name) {
                 $element->removeAttribute($name);
             }
+        }
+
+        foreach (self::EDITOR_ONLY_ATTRS as $name) {
+            $element->removeAttribute($name);
         }
 
         if (in_array($tag, ['img', 'video', 'audio'], true)) {

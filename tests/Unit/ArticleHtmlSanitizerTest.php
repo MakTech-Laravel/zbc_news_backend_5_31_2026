@@ -71,6 +71,35 @@ class ArticleHtmlSanitizerTest extends TestCase
     }
 
     #[Test]
+    public function it_keeps_data_aspect_ratio_on_embeds(): void
+    {
+        $html = '<div class="article-embed article-embed--youtube" data-embed-type="youtube" '
+            .'data-aspect-ratio="9 / 16" style="aspect-ratio:9 / 16">'
+            .'<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" title="YouTube video"></iframe>'
+            .'</div>';
+
+        $result = $this->sanitizer->sanitize($html);
+
+        $this->assertStringContainsString('data-aspect-ratio="9 / 16"', $result);
+        $this->assertStringContainsString('aspect-ratio:9 / 16', $result);
+    }
+
+    #[Test]
+    public function it_strips_editor_only_attributes(): void
+    {
+        $html = '<div class="article-embed article-embed--facebook" data-embed-type="facebook" '
+            .'data-editor-video-replace-id="temp-id-123">'
+            .'<iframe src="https://www.facebook.com/plugins/video.php?href=https%3A%2F%2Fwww.facebook.com%2Fwatch%2F%3Fv%3D123" '
+            .'title="Facebook video"></iframe>'
+            .'</div>';
+
+        $result = $this->sanitizer->sanitize($html);
+
+        $this->assertStringNotContainsString('data-editor-video-replace-id', $result);
+        $this->assertStringContainsString('article-embed--facebook', $result);
+    }
+
+    #[Test]
     public function it_strips_inline_event_handlers(): void
     {
         $html = '<p onclick="alert(1)">Click</p>';
