@@ -40,7 +40,7 @@ HTML,
             'content_ip' => <<<'HTML'
 <p><strong>Our Content:</strong> All ZBC News journalism, design, software, trademarks, and logos are protected by copyright and other intellectual property laws. You may share articles for non-commercial purposes with attribution; systematic copying or republication is prohibited.</p>
 <p><strong>Your Content:</strong> When you submit comments, letters, or other content to ZBC News, you retain ownership but grant us a worldwide, royalty-free, perpetual licence to display, distribute, and adapt that content in connection with our Services.</p>
-<p><strong>DMCA:</strong> If you believe content on ZBC News infringes your copyright, send a DMCA notice to <a href="mailto:dmca@zbcnews.com">dmca@zbcnews.com</a>.</p>
+<p><strong>DMCA:</strong> If you believe content on ZBC News infringes your copyright, send a DMCA notice to <a href="mailto:info@zbc.news">info@zbc.news</a>.</p>
 HTML,
             'subscriptions' => <<<'HTML'
 <p><strong>Subscription Plans:</strong> ZBC News offers monthly and annual subscription tiers. Current pricing is displayed at checkout and is subject to change with 30 days' notice.</p>
@@ -51,7 +51,7 @@ HTML,
 <li>Payments processed by Stripe. We don't store card numbers.</li>
 <li>Failed payments result in a 7-day grace period before access suspension</li>
 </ul>
-<p>To cancel or modify your subscription, visit Account Settings or email <a href="mailto:help@zbcnews.com">help@zbcnews.com</a>.</p>
+<p>To cancel or modify your subscription, visit Account Settings or email <a href="mailto:info@zbc.news">info@zbc.news</a>.</p>
 HTML,
             'prohibited' => <<<'HTML'
 <p>When using ZBC News, you must not:</p>
@@ -72,9 +72,9 @@ HTML,
 <p><strong>Warranty Disclaimer:</strong> ZBC News provides Services "as is" without warranties of any kind, to the maximum extent permitted by law.</p>
 HTML,
             'contact' => <<<'HTML'
-<p><strong>Email:</strong> <a href="mailto:legal@zbcnews.com">legal@zbcnews.com</a></p>
+<p><strong>Email:</strong> <a href="mailto:info@zbc.news">info@zbc.news</a></p>
 <p><strong>Mail:</strong><br>Legal Department<br>ZBC News Media Group<br>250 West 57th St, New York, NY 10107</p>
-<p><a href="mailto:legal@zbcnews.com">Contact Legal Team</a> · <a href="/privacy">Privacy Policy</a></p>
+<p><a href="mailto:info@zbc.news">Contact Legal Team</a> · <a href="/privacy">Privacy Policy</a></p>
 HTML,
         ];
     }
