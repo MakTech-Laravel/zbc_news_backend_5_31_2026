@@ -22,7 +22,7 @@ class ArticleHtmlSanitizer
 
     /** @var list<string> */
     private const GLOBAL_ATTRS = [
-        'class', 'style', 'contenteditable', 'data-embed-type', 'data-aspect-ratio', 'data-caption', 'data-credit', 'data-copyright',
+        'class', 'style', 'contenteditable', 'data-embed-type', 'data-aspect-ratio', 'data-embed-orientation', 'data-embed-width', 'data-embed-height', 'data-caption', 'data-credit', 'data-copyright',
     ];
 
     /** @var list<string> */
