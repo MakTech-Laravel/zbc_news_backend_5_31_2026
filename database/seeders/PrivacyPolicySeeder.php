@@ -61,7 +61,7 @@ HTML,
 <li><strong>Objection</strong> — Object to processing based on legitimate interests</li>
 <li><strong>Restrict Processing</strong> — Limit how we use your data</li>
 </ul>
-<p>To exercise any right, email <a href="mailto:privacy@zbcnews.com">privacy@zbcnews.com</a>. We will respond within 30 days (EU/UK: per GDPR Article 12).</p>
+<p>To exercise any right, email <a href="mailto:info@zbc.news">info@zbc.news</a>. We will respond within 30 days (EU/UK: per GDPR Article 12).</p>
 HTML,
             'data_security' => <<<'HTML'
 <p>We implement appropriate technical and organisational measures:</p>
@@ -91,9 +91,9 @@ HTML,
 HTML,
             'contact' => <<<'HTML'
 <p>Our Data Protection Officer can be reached at:</p>
-<p><strong>Email:</strong> <a href="mailto:privacy@zbcnews.com">privacy@zbcnews.com</a></p>
+<p><strong>Email:</strong> <a href="mailto:info@zbc.news">info@zbc.news</a></p>
 <p><strong>Mail:</strong><br>Data Protection Officer<br>ZBC News Media Group<br>250 West 57th St, New York, NY</p>
-<p><a href="mailto:privacy@zbcnews.com">Contact Privacy Team</a> · <a href="/cookie-policy">Cookie Policy</a></p>
+<p><a href="mailto:info@zbc.news">Contact Privacy Team</a> · <a href="/cookie-policy">Cookie Policy</a></p>
 HTML,
         ];
     }
