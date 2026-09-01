@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\SiteSettingsRequest;
 use App\Http\Resources\Api\V1\SiteSettingsResource;
 use App\Services\SiteSettingsService;
-use App\Support\SiteSocialContactSettings;
 use Symfony\Component\HttpFoundation\Response as HttpStatus;
 
 class SiteSettingsController extends Controller
@@ -30,12 +29,6 @@ class SiteSettingsController extends Controller
     public function createOrUpdate(SiteSettingsRequest $request)
     {
         $data = $request->validated();
-        $existing = $this->siteSettingsService->getAll();
-
-        $data = SiteSocialContactSettings::packIntoPayload(
-            $data,
-            is_array($existing?->social_contact_settings) ? $existing->social_contact_settings : null,
-        );
 
         if (array_key_exists('site_logo', $data) && is_string($data['site_logo'])) {
             $data['site_logo'] = trim($data['site_logo']) ?: null;
@@ -60,6 +53,8 @@ class SiteSettingsController extends Controller
                 'contact_press_email',
                 'contact_advertising_email',
                 'contact_corrections_email',
+                'contact_office_address',
+                'contact_office_maps_url',
             ] as $field
         ) {
             if (array_key_exists($field, $data) && is_string($data[$field])) {
