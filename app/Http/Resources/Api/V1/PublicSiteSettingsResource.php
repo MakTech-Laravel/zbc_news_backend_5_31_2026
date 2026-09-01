@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Api\V1;
 
 use App\Support\MediaUrl;
+use App\Support\SiteSocialContactSettings;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -10,6 +11,8 @@ class PublicSiteSettingsResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $socialContact = SiteSocialContactSettings::fromModel($this->resource);
+
         return [
             'site_name' => $this->site_name,
             'site_tag' => $this->site_tag,
@@ -37,6 +40,7 @@ class PublicSiteSettingsResource extends JsonResource
             'google_adsense_sidebar_slot' => $this->google_adsense_sidebar_slot,
             'google_adsense_square_slot' => $this->google_adsense_square_slot,
             'disqus_shortname' => $this->disqus_shortname,
+            ...$socialContact,
             'frontend_url' => $this->publicAppUrl((string) config('app.frontend_url')),
             'api_url' => $this->publicAppUrl((string) config('app.url')),
         ];

@@ -50,6 +50,7 @@ class SiteSettings extends Model
         'enable_comments',
         'admin_notification_channels',
         'admin_notification_email',
+        'social_contact_settings',
     ];
 
     protected $casts = [
@@ -64,6 +65,7 @@ class SiteSettings extends Model
         'enable_ai_writing' => 'boolean',
         'enable_comments' => 'boolean',
         'admin_notification_channels' => 'array',
+        'social_contact_settings' => 'array',
     ];
 
     public function defaultCategory()

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\SiteSettings;
+use App\Support\SiteSocialContactSettings;
 use Illuminate\Support\Facades\Cache;
 
 class SiteSettingsService
@@ -52,6 +53,7 @@ class SiteSettingsService
             'require_featured_image' => false,
             'enable_ai_writing' => false,
             'admin_notification_email' => 'newsroom@zbc.news',
+            'social_contact_settings' => SiteSocialContactSettings::DEFAULTS,
         ]);
     }
 
