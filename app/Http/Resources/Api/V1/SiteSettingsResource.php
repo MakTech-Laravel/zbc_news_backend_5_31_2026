@@ -3,7 +3,6 @@
 namespace App\Http\Resources\Api\V1;
 
 use App\Support\MediaUrl;
-use App\Support\SiteSocialContactSettings;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -11,8 +10,6 @@ class SiteSettingsResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        $socialContact = SiteSocialContactSettings::fromModel($this->resource);
-
         return [
             'id' => $this->id,
             'site_name' => $this->site_name,
@@ -56,7 +53,17 @@ class SiteSettingsResource extends JsonResource
             'disqus_shortname' => $this->disqus_shortname,
             'slack_webhook_url' => $this->slack_webhook_url,
             'enable_comments' => $this->enable_comments,
-            ...$socialContact,
+            'social_facebook_url' => $this->social_facebook_url,
+            'social_x_url' => $this->social_x_url,
+            'social_linkedin_url' => $this->social_linkedin_url,
+            'social_tiktok_url' => $this->social_tiktok_url,
+            'social_instagram_url' => $this->social_instagram_url,
+            'contact_general_email' => $this->contact_general_email,
+            'contact_press_email' => $this->contact_press_email,
+            'contact_advertising_email' => $this->contact_advertising_email,
+            'contact_corrections_email' => $this->contact_corrections_email,
+            'contact_office_address' => $this->contact_office_address,
+            'contact_office_maps_url' => $this->contact_office_maps_url,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
