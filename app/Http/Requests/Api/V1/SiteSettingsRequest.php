@@ -59,6 +59,17 @@ class SiteSettingsRequest extends FormRequest
             'disqus_shortname' => 'nullable|string|max:255',
             'slack_webhook_url' => 'nullable|string|max:500',
             'enable_comments' => 'boolean',
+            'social_facebook_url' => 'nullable|url:http,https|max:2048',
+            'social_x_url' => 'nullable|url:http,https|max:2048',
+            'social_linkedin_url' => 'nullable|url:http,https|max:2048',
+            'social_tiktok_url' => 'nullable|url:http,https|max:2048',
+            'social_instagram_url' => 'nullable|url:http,https|max:2048',
+            'contact_general_email' => 'nullable|email|max:255',
+            'contact_press_email' => 'nullable|email|max:255',
+            'contact_advertising_email' => 'nullable|email|max:255',
+            'contact_corrections_email' => 'nullable|email|max:255',
+            'contact_office_address' => 'nullable|string|max:2000',
+            'contact_office_maps_url' => 'nullable|url:http,https|max:2048',
         ];
     }
 }

@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Foundation\Application;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Middleware\HandleCors;
 use Illuminate\Http\Request;
 
@@ -30,5 +31,18 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn(Request $request) => $request->is('api/*'),
         );
+
+        $exceptions->render(function (QueryException $exception, Request $request) {
+            if (! $request->is('api/*')) {
+                return null;
+            }
+
+            report($exception);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to save your changes. Please review the form and try again.',
+            ], 500);
+        });
     })
     ->create();

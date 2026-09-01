@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\ArticleStatus;
 use App\Enums\ArticleVisibility;
 use App\Enums\CommentStatus;
+use App\Enums\LiveUpdateStatus;
 use App\Events\NewsPublished;
 use App\Jobs\DispatchArticlePublishedNotifications;
 use App\Models\Article;
@@ -260,19 +261,16 @@ class ArticleService
 
     public function getLatestArticle(): Article
     {
-        return $this->articleQuery()
-            ->where('status', ArticleStatus::PUBLISHED->value)
-            ->latest('published_at')
-            ->firstOrFail();
+        $this->publishDueScheduledArticles();
+
+        return $this->publishedHomepageFeedQuery()->firstOrFail();
     }
 
     public function getLatestStories(): Collection
     {
-        return $this->articleQuery()
-            ->where('status', ArticleStatus::PUBLISHED->value)
-            ->latest('published_at')
-            ->take(10)
-            ->get();
+        $this->publishDueScheduledArticles();
+
+        return $this->publishedHomepageFeedQuery()->limit(10)->get();
     }
 
     public function getBreakingNewsArticles(int $limit = 10): Collection
@@ -1023,6 +1021,43 @@ class ArticleService
     }
 
     /**
+     * Published articles for the homepage news stream.
+     * Active live blogs sort by their latest published timeline entry; others by publish time.
+     */
+    private function publishedHomepageFeedQuery()
+    {
+        return $this->articleQuery()
+            ->where('status', ArticleStatus::PUBLISHED->value)
+            ->orderByRaw($this->homepageFeedSortSql().' DESC')
+            ->orderByDesc('articles.id');
+    }
+
+    /**
+     * SQL expression for unified homepage feed ordering (no extra DB columns).
+     */
+    private function homepageFeedSortSql(): string
+    {
+        $published = LiveUpdateStatus::PUBLISHED->value;
+
+        return <<<SQL
+CASE
+    WHEN articles.is_live_blog = 1 AND articles.is_live = 1 THEN COALESCE(
+        (
+            SELECT MAX(alu.posted_at)
+            FROM article_live_updates AS alu
+            WHERE alu.article_id = articles.id
+              AND alu.status = '{$published}'
+              AND alu.deleted_at IS NULL
+        ),
+        articles.published_at,
+        articles.created_at
+    )
+    ELSE COALESCE(articles.published_at, articles.created_at)
+END
+SQL;
+    }
+
+    /**
      * Pull optional media UUID keys out of the write payload so they are not
      * mass-assigned onto the articles table.
      *
@@ -1218,8 +1253,11 @@ class ArticleService
      */
     private function sanitizeRichTextFields(array $data): array
     {
-        if (array_key_exists('article_description', $data) && is_string($data['article_description'])) {
-            $data['article_description'] = $this->articleHtmlSanitizer->sanitize($data['article_description']);
+        if (array_key_exists('article_description', $data)) {
+            $description = $data['article_description'];
+            $data['article_description'] = is_string($description)
+                ? $this->articleHtmlSanitizer->sanitize($description)
+                : '';
         }
 
         return $data;
