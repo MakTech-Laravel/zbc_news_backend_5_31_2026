@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\PermissionEnum;
+use App\Http\Controllers\Api\V1\backend\FacebookVideoEmbedController;
 use App\Http\Controllers\Api\V1\backend\AdminCareerApplicationController;
 use App\Http\Controllers\Api\V1\backend\AdminCareerJobController;
 use App\Http\Controllers\Api\V1\backend\AdminCareersPageController;
@@ -548,6 +549,9 @@ Route::controller(ScheduledTaskFailureController::class)->prefix('scheduled-task
 
 Route::get('/search', [AdminSearchController::class, 'index'])
     ->name('api.v1.admin.search');
+
+Route::post('/facebook-video/resolve', [FacebookVideoEmbedController::class, 'resolve'])
+    ->name('api.v1.facebook-video.resolve');
 
 Route::get('/user/dashboard', [UserDashboardController::class, 'index'])
     ->name('api.v1.user.dashboard');
