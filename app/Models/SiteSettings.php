@@ -50,7 +50,17 @@ class SiteSettings extends Model
         'enable_comments',
         'admin_notification_channels',
         'admin_notification_email',
-        'social_contact_settings',
+        'social_facebook_url',
+        'social_x_url',
+        'social_linkedin_url',
+        'social_tiktok_url',
+        'social_instagram_url',
+        'contact_general_email',
+        'contact_press_email',
+        'contact_advertising_email',
+        'contact_corrections_email',
+        'contact_office_address',
+        'contact_office_maps_url',
     ];
 
     protected $casts = [
@@ -65,7 +75,6 @@ class SiteSettings extends Model
         'enable_ai_writing' => 'boolean',
         'enable_comments' => 'boolean',
         'admin_notification_channels' => 'array',
-        'social_contact_settings' => 'array',
     ];
 
     public function defaultCategory()

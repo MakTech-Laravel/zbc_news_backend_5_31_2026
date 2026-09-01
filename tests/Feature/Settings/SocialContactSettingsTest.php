@@ -44,14 +44,15 @@ class SocialContactSettingsTest extends TestCase
         ]);
     }
 
-    public function test_public_site_settings_expose_default_social_and_contact_values(): void
+    public function test_public_site_settings_expose_null_social_and_contact_by_default(): void
     {
         app(SiteSettingsService::class)->clearCache();
 
         $this->getJson('/api/v1/site-settings')
             ->assertOk()
-            ->assertJsonPath('data.social_facebook_url', 'https://facebook.com/zomibroadcasting')
-            ->assertJsonPath('data.contact_general_email', 'info@zbc.news');
+            ->assertJsonPath('data.social_facebook_url', null)
+            ->assertJsonPath('data.contact_general_email', null)
+            ->assertJsonPath('data.contact_office_address', null);
     }
 
     public function test_admin_can_update_social_and_contact_settings(): void
@@ -65,10 +66,9 @@ class SocialContactSettingsTest extends TestCase
             'contact_corrections_email' => 'fix@zbc.news',
         ])->assertOk();
 
-        $stored = SiteSettings::query()->first()?->social_contact_settings;
-        $this->assertIsArray($stored);
-        $this->assertSame('https://facebook.com/custom-page', $stored['social_facebook_url']);
-        $this->assertSame('hello@zbc.news', $stored['contact_general_email']);
+        $row = SiteSettings::query()->first();
+        $this->assertSame('https://facebook.com/custom-page', $row?->social_facebook_url);
+        $this->assertSame('hello@zbc.news', $row?->contact_general_email);
 
         app(SiteSettingsService::class)->clearCache();
 
