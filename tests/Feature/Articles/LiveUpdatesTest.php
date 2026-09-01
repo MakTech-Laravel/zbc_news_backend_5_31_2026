@@ -107,6 +107,32 @@ class LiveUpdatesTest extends TestCase
         ]);
     }
 
+    public function test_admin_can_publish_live_update_when_article_description_is_null(): void
+    {
+        $article = $this->makeLiveBlog('null-description-live', [
+            'status' => ArticleStatus::DRAFT,
+            'published_at' => null,
+        ]);
+
+        $this->postJson('/api/v1/admin/live-updates/update/'.$article->slug, [
+            'title' => $article->title,
+            'slug' => $article->slug,
+            'article_description' => null,
+            'article_category_id' => $this->category->id,
+            'status' => ArticleStatus::PUBLISHED->value,
+            'visibility' => 'public',
+        ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.status', ArticleStatus::PUBLISHED->value);
+
+        $this->assertDatabaseHas('articles', [
+            'id' => $article->id,
+            'status' => ArticleStatus::PUBLISHED->value,
+            'article_description' => '',
+        ]);
+    }
+
     public function test_admin_articles_list_excludes_live_blogs(): void
     {
         Article::query()->create([
@@ -332,6 +358,115 @@ class LiveUpdatesTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.featured_media.provider', 'youtube')
             ->assertJsonPath('data.featured_media.poster_url', $posterUrl);
+    }
+
+    public function test_public_latest_stories_ranks_active_live_blog_by_latest_entry(): void
+    {
+        $regular = Article::query()->create([
+            'title' => 'Regular headline',
+            'slug' => 'regular-headline',
+            'article_description' => '<p>Body</p>',
+            'status' => ArticleStatus::PUBLISHED,
+            'is_live_blog' => false,
+            'article_category_id' => $this->category->id,
+            'user_id' => $this->admin->id,
+            'published_at' => now()->subHour(),
+        ]);
+
+        $liveBlog = $this->makeLiveBlog('breaking-live', [
+            'title' => 'Breaking Live',
+            'is_live' => true,
+            'live_started_at' => now()->subDays(2),
+            'published_at' => now()->subDays(5),
+        ]);
+
+        ArticleLiveUpdate::query()->create([
+            'article_id' => $liveBlog->id,
+            'body' => '<p>Update at 2:30 PM</p>',
+            'posted_at' => now(),
+            'status' => LiveUpdateStatus::PUBLISHED,
+            'user_id' => $this->admin->id,
+        ]);
+
+        $response = $this->getJson('/api/v1/articles/latest-stories')
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $ids = collect($response->json('data'))->pluck('id')->all();
+        $this->assertSame([$liveBlog->id, $regular->id], array_slice($ids, 0, 2));
+        $this->assertTrue((bool) $response->json('data.0.is_live'));
+        $this->assertTrue((bool) $response->json('data.0.is_live_blog'));
+    }
+
+    public function test_public_latest_stories_uses_publish_time_for_ended_live_blog(): void
+    {
+        $recentRegular = Article::query()->create([
+            'title' => 'Fresh regular',
+            'slug' => 'fresh-regular',
+            'article_description' => '<p>Body</p>',
+            'status' => ArticleStatus::PUBLISHED,
+            'is_live_blog' => false,
+            'article_category_id' => $this->category->id,
+            'user_id' => $this->admin->id,
+            'published_at' => now()->subHour(),
+        ]);
+
+        $endedLive = $this->makeLiveBlog('ended-live-feed', [
+            'title' => 'Ended Live',
+            'is_live' => false,
+            'live_started_at' => now()->subDays(3),
+            'live_ended_at' => now()->subDay(),
+            'published_at' => now()->subDays(4),
+        ]);
+
+        ArticleLiveUpdate::query()->create([
+            'article_id' => $endedLive->id,
+            'body' => '<p>Late update</p>',
+            'posted_at' => now(),
+            'status' => LiveUpdateStatus::PUBLISHED,
+            'user_id' => $this->admin->id,
+        ]);
+
+        $response = $this->getJson('/api/v1/articles/latest-stories')->assertOk();
+        $ids = collect($response->json('data'))->pluck('id')->all();
+
+        $this->assertSame($recentRegular->id, $ids[0]);
+        $this->assertContains($endedLive->id, $ids);
+        $this->assertFalse((bool) $response->json('data.0.is_live'));
+    }
+
+    public function test_public_latest_article_prefers_active_live_blog_with_recent_entry(): void
+    {
+        Article::query()->create([
+            'title' => 'Regular latest',
+            'slug' => 'regular-latest',
+            'article_description' => '<p>Body</p>',
+            'status' => ArticleStatus::PUBLISHED,
+            'is_live_blog' => false,
+            'article_category_id' => $this->category->id,
+            'user_id' => $this->admin->id,
+            'published_at' => now()->subMinutes(10),
+        ]);
+
+        $liveBlog = $this->makeLiveBlog('hero-live', [
+            'title' => 'Hero Live',
+            'is_live' => true,
+            'live_started_at' => now()->subDay(),
+            'published_at' => now()->subDays(3),
+        ]);
+
+        ArticleLiveUpdate::query()->create([
+            'article_id' => $liveBlog->id,
+            'body' => '<p>Just in</p>',
+            'posted_at' => now(),
+            'status' => LiveUpdateStatus::PUBLISHED,
+            'user_id' => $this->admin->id,
+        ]);
+
+        $this->getJson('/api/v1/articles/latest')
+            ->assertOk()
+            ->assertJsonPath('data.id', $liveBlog->id)
+            ->assertJsonPath('data.is_live', true);
     }
 
     public function test_public_live_blogs_feed_orders_ongoing_first_and_paginates(): void

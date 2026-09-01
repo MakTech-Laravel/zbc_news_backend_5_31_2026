@@ -65,6 +65,7 @@ class LiveUpdateController extends Controller
 
         $data = $request->validated();
         $data['is_live_blog'] = true;
+        $data['article_description'] = $data['article_description'] ?? '';
 
         $article = $this->articleService->update($slug, $data);
 
